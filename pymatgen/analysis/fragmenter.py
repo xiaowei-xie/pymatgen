@@ -60,11 +60,11 @@ class Fragmenter(MSONable):
             edges = {(e[0], e[1]): None for e in edges}
             self.mol_graph = MoleculeGraph.with_edges(molecule, edges)
 
-        if "Li" in molecule.composition or "Mg" in molecule.composition:
-            print("Extending lithium and magnesium edges to ensure that we capture coordination to nearby oxygens or nitrogens.")
-            if self.open_rings:
-                print("WARNING: Metal edge extension while opening rings can yeild unphysical fragments!")
-            self._metal_edge_extender()
+        # if "Li" in molecule.composition or "Mg" in molecule.composition:
+        #     print("Extending lithium and magnesium edges to ensure that we capture coordination to nearby oxygens or nitrogens.")
+        #     if self.open_rings:
+        #         print("WARNING: Metal edge extension while opening rings can yeild unphysical fragments!")
+        #     self._metal_edge_extender()
 
         self.prev_unique_frag_dict = prev_unique_frag_dict or {}
         self.new_unique_frag_dict = {}
