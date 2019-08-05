@@ -317,7 +317,7 @@ def open_ring(mol_graph, bond, opt_steps):
     return MoleculeGraph.with_local_env_strategy(obmol.pymatgen_mol, OpenBabelNN(), reorder=False, extend_structure=False)
 
 
-def metal_edge_extender(mol_graph):
+def metal_edge_extender(mol_graph,printing=False):
     metal_sites = {"Li": {}, "Mg": {}}
     coordinators = ["O","N","F","Cl"]
     num_new_edges = 0
@@ -351,6 +351,7 @@ def metal_edge_extender(mol_graph):
     for metal in metal_sites:
         for idx in metal_sites[metal]:
             total_metal_edges += len(metal_sites[metal][idx])
-    print("Metal edge extension added", num_new_edges, "new edges.")
-    print("Total of", total_metal_edges, "metal edges.")
+    if printing:
+        print("Metal edge extension added", num_new_edges, "new edges.")
+        print("Total of", total_metal_edges, "metal edges.")
     return mol_graph
