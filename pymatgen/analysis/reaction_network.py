@@ -143,13 +143,7 @@ class ReactionNetwork(MSONable):
                             for entry0 in self.entries[formula][Nbonds][charge0]:
                                 for entry1 in self.entries[formula][Nbonds][charge1]:
                                     if isomorphic(entry0.graph,entry1.graph):
-                                        if entry0.parameters["ind"] <= entry1.parameters["ind"]:
-                                            node_name = str(entry0.parameters["ind"])+","+str(entry1.parameters["ind"])
-                                        else:
-                                            node_name = str(entry1.parameters["ind"])+","+str(entry0.parameters["ind"])
-                                        self.graph.add_node(node_name,rxn_type="one_electron_redox",bipartite=1)
-                                        self.graph.add_edge(entry0.parameters["ind"],node_name)
-                                        self.graph.add_edge(entry1.parameters["ind"],node_name)
+                                        self.add_reaction([entry0],[entry1],"one_electron_redox")
                                         break
 
     def intramol_single_bond_change(self):
@@ -176,13 +170,7 @@ class ReactionNetwork(MSONable):
                                         if nx.is_weakly_connected(mg.graph):
                                             for entry0 in self.entries[formula][Nbonds0][charge]:
                                                 if isomorphic(entry0.graph,mg.graph):
-                                                    if entry0.parameters["ind"] <= entry1.parameters["ind"]:
-                                                        node_name = str(entry0.parameters["ind"])+","+str(entry1.parameters["ind"])
-                                                    else:
-                                                        node_name = str(entry1.parameters["ind"])+","+str(entry0.parameters["ind"])
-                                                    self.graph.add_node(node_name,rxn_type="intramol_single_bond_change",bipartite=1)
-                                                    self.graph.add_edge(entry0.parameters["ind"],node_name)
-                                                    self.graph.add_edge(entry1.parameters["ind"],node_name)
+                                                    self.add_reaction([entry0],[entry1],"intramol_single_bond_change")
                                                     break
 
 
@@ -218,18 +206,59 @@ class ReactionNetwork(MSONable):
                                                         if charge1 in self.entries[formula1][Nbonds1]:
                                                             for entry1 in self.entries[formula1][Nbonds1][charge1]:
                                                                 if isomorphic(graph1,entry1.graph):
-                                                                    if entry0.parameters["ind"] <= entry1.parameters["ind"]:
-                                                                        node_name = str(entry.parameters["ind"])+","+str(entry0.parameters["ind"])+"+"+str(entry1.parameters["ind"])
-                                                                    else:
-                                                                        node_name = str(entry.parameters["ind"])+","+str(entry1.parameters["ind"])+"+"+str(entry0.parameters["ind"])
-                                                                    self.graph.add_node(node_name,rxn_type="single_bond_breakage",bipartite=1)
-                                                                    self.graph.add_edge(entry.parameters["ind"],node_name)
-                                                                    self.graph.add_edge(entry0.parameters["ind"],node_name)
-                                                                    self.graph.add_edge(entry1.parameters["ind"],node_name)
+                                                                    self.add_reaction([entry],[entry0,entry1],"single_bond_breakage")
                                                                     break
                                                         break
                                 except MolGraphSplitError:
                                     pass
+
+    def add_reaction(self,entries0,entries1,rxn_type):
+        if rxn_type == "one_electron_redox":
+            if len(entries0) != 1 or len(entries1) != 1:
+                raise RuntimeError("One electron redox requires two lists that each contain one entry!")
+        if rxn_type == "intramol_single_bond_change":
+            if len(entries0) != 1 or len(entries1) != 1:
+                raise RuntimeError("Intramolecular single bond change requires two lists that each contain one entry!")
+        if rxn_type == "single_bond_breakage":
+            if len(entries0) != 1 or len(entries1) != 2:
+                raise RuntimeError("Single bond breakage requires two lists that contain one entry and two entries, respectively!")
+        if rxn_type == "one_electron_redox" or rxn_type == "intramol_single_bond_change":
+            entry0 = entries0[0]
+            entry1 = entries1[0]
+            if entry0.parameters["ind"] <= entry1.parameters["ind"]:
+                node_name = str(entry0.parameters["ind"])+","+str(entry1.parameters["ind"])
+                energy = entry1.energy-entry0.energy
+                if entry1.free_energy != None and entry0.free_energy != None:
+                    free_energy = entry1.free_energy-entry0.free_energy
+                else:
+                    free_energy = None
+            else:
+                node_name = str(entry1.parameters["ind"])+","+str(entry0.parameters["ind"])
+                energy = entry0.energy-entry1.energy
+                if entry1.free_energy != None and entry0.free_energy != None:
+                    reaction_free_energy = entry0.free_energy-entry1.free_energy
+                else:
+                    reaction_free_energy = None
+            self.graph.add_node(node_name,rxn_type=rxn_type,bipartite=1,energy=energy,free_energy=free_energy)
+            self.graph.add_edge(entry0.parameters["ind"],node_name)
+            self.graph.add_edge(entry1.parameters["ind"],node_name)
+        elif rxn_type == "single_bond_breakage":
+            entry = entries0[0]
+            entry0 = entries1[0]
+            entry1 = entries1[1]
+            if entry0.parameters["ind"] <= entry1.parameters["ind"]:
+                node_name = str(entry.parameters["ind"])+","+str(entry0.parameters["ind"])+"+"+str(entry1.parameters["ind"])
+            else:
+                node_name = str(entry.parameters["ind"])+","+str(entry1.parameters["ind"])+"+"+str(entry0.parameters["ind"])
+            energy = entry0.energy + entry1.energy - entry.energy
+            if entry1.free_energy != None and entry0.free_energy != None and entry.free_energy != None:
+                free_energy = entry0.free_energy + entry1.free_energy - entry.free_energy
+            self.graph.add_node(node_name,rxn_type="single_bond_breakage",bipartite=1,energy=energy,free_energy=free_energy)
+            self.graph.add_edge(entry.parameters["ind"],node_name)
+            self.graph.add_edge(entry0.parameters["ind"],node_name)
+            self.graph.add_edge(entry1.parameters["ind"],node_name)
+        else:
+            raise RuntimeError("Reaction type "+rxn_type+" is not supported!")
 
 
 
