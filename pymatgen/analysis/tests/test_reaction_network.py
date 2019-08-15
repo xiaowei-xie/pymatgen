@@ -37,14 +37,27 @@ class TestReactionNetwork(PymatgenTest):
             mol_entry = MoleculeEntry(molecule=mol,energy=E,enthalpy=H,entropy=S,entry_id=entry["task_id"])
             cls.LiEC_entries.append(mol_entry)
 
-    def test_first(self):
+        cls.LiEC_extended_entries = []
+        entries = loadfn(os.path.join(test_dir,"LiEC_extended_entries.json"))
+        for entry in entries:
+            mol = entry["output"]["optimized_molecule"]
+            E = float(entry["output"]["final_energy"])
+            H = float(entry["output"]["enthalpy"])
+            S = float(entry["output"]["entropy"])
+            mol_entry = MoleculeEntry(molecule=mol,energy=E,enthalpy=H,entropy=S,entry_id=entry["task_id"])
+            cls.LiEC_extended_entries.append(mol_entry)
+
+    def test_LiEC_entries(self):
         RN = ReactionNetwork(self.LiEC_entries)
         self.assertEqual(RN.entries_list[208].free_energy,-9522.907225166065)
         self.assertEqual(RN.entries_list[208],RN.entries["C3 H4 Li1 O3"][11][0][0])
         self.assertEqual(len(RN.entries_list),236)
-        # print(RN.entries["C3 H4 Li1 O3"][11][0][0])
-        # print(RN.entries_list[1])
-        # print(RN.entries_list[1].free_energy)
+        self.assertEqual(len(RN.graph.nodes),1440)
+        # self.assertEqual(len(RN.graph.edges),3430)
+        self.assertEqual(len(RN.graph.edges),3322)
+
+    def test_LiEC_extended_entries(self):
+        RN = ReactionNetwork(self.LiEC_extended_entries)
 
 
 if __name__ == "__main__":
