@@ -6,6 +6,7 @@
 import logging
 import copy
 import itertools
+import heapq
 import numpy as np
 from monty.json import MSONable
 from pymatgen.analysis.graphs import MoleculeGraph, MolGraphSplitError, isomorphic
@@ -98,13 +99,13 @@ class ReactionNetwork(MSONable):
         self.intramol_single_bond_change()
         self.intermol_single_bond_change()
         
-        to_remove = []
-        self.no_pr_graph = copy.deepcopy(self.graph)
-        for node in self.no_pr_graph.nodes():
-            if self.no_pr_graph.node[node]["bipartite"] == 1:
-                if "+" in node.split(",")[0]:
-                    to_remove.append(node)
-        self.no_pr_graph.remove_nodes_from(to_remove)
+        # to_remove = []
+        # self.no_pr_graph = copy.deepcopy(self.graph)
+        # for node in self.no_pr_graph.nodes():
+        #     if self.no_pr_graph.node[node]["bipartite"] == 1:
+        #         if "+" in node.split(",")[0]:
+        #             to_remove.append(node)
+        # self.no_pr_graph.remove_nodes_from(to_remove)
 
 
     def one_electron_redox(self):
@@ -340,18 +341,18 @@ class ReactionNetwork(MSONable):
     def exponent(self,free_energy):
         return np.exp(free_energy)
 
-    def characterize_path(self,path):
+    def characterize_path(self,path,weight):
         path_dict = {}
         path_dict["byproducts"] = []
         path_dict["prereqs"] = []
         path_dict["overall_free_energy_change"] = 0.0
         path_dict["hardest_step"] = None
         path_dict["description"] = ""
-
-        # this_path = nx.DiGraph()
-        # this_path.add_nodes_from(path)
+        path_dict["cost"] = 0.0
 
         for ii,step in enumerate(path):
+            if ii != len(path)-1:
+                path_dict["cost"] += self.graph.get_edge_data(step,path[ii+1])[weight]
             if ii%2 == 1:
                 path_dict["overall_free_energy_change"] += self.graph.node[step]["free_energy"]
                 if path_dict["description"] == "":
@@ -363,21 +364,6 @@ class ReactionNetwork(MSONable):
                 elif self.graph.node[step]["free_energy"] > self.graph.node[path_dict["hardest_step"]]["free_energy"]:
                     path_dict["hardest_step"] = step
 
-                # for key in self.graph.node[step]:
-                #     this_path.node[step][key] = self.graph.node[step][key]
-                # this_path.add_edge(path[ii-1],
-                #                    step,
-                #                    softplus=self.graph.get_edge_data(path[ii-1],step)["softplus"],
-                #                    exponent=self.graph.get_edge_data(path[ii-1],step)["exponent"],
-                #                    weight=self.graph.get_edge_data(path[ii-1],step)["weight"]
-                #                    )
-                # this_path.add_edge(step,
-                #                    path[ii+1],
-                #                    softplus=self.graph.get_edge_data(step,path[ii+1])["softplus"],
-                #                    exponent=self.graph.get_edge_data(step,path[ii+1])["exponent"],
-                #                    weight=self.graph.get_edge_data(step,path[ii+1])["weight"]
-                #                    )
-
                 rxn = step.split(",")
                 if "+" in rxn[0]:
                     rcts = rxn[0].split("+")
@@ -386,7 +372,6 @@ class ReactionNetwork(MSONable):
                     else:
                         for rct in rcts:
                             if int(rct) != path[ii-1]:
-                                # path_dict["prereqs"].append([int(rct),step])
                                 path_dict["prereqs"].append(int(rct))
                 elif "+" in rxn[1]:
                     prods = rxn[1].split("+")
@@ -395,92 +380,78 @@ class ReactionNetwork(MSONable):
                     else:
                         for prod in prods:
                             if int(prod) != path[ii+1]:
-                                # path_dict["byproducts"].append([int(prod),step])
                                 path_dict["byproducts"].append(int(prod))
-            # else:
-            #     this_path.node[step]["bipartite"] = 0
         
         path_dict["path"] = path
-
-        # path_dict["graph"] = this_path
-        # print(path_dict["hardest_step"])
         path_dict["hardest_step_deltaG"] = self.graph.node[path_dict["hardest_step"]]["free_energy"]
         return path_dict
         
-    
-    # def remove_prereq(self,path_dict,no_pr_paths):
-
-
+    def join_paths(self,pr_path_dict,orig_path_dict):
+        path_dict = {}
+        if pr_path_dict["path"][-1] not in orig_path_dict["prereqs"]:
+            raise RuntimeError("Prereq path product must be a prereq of the original path!")
+        else:
+            easy_adds = ["path","prereqs","byproducts","overall_free_energy_change","cost"]
+            for val in easy_adds:
+                path_dict[val] = pr_path_dict[val] + orig_path_dict[val]
+            path_dict["description"] = pr_path_dict["description"] + " to get prerequisite " + str(pr_path_dict["path"][-1]) + ". Then, " + orig_path_dict["description"]
+            path_dict["prereqs"].remove(pr_path_dict["path"][-1])
+            if pr_path_dict["hardest_step_deltaG"] > orig_path_dict["hardest_step_deltaG"]:
+                path_dict["hardest_step_deltaG"] = pr_path_dict["hardest_step_deltaG"]
+                path_dict["hardest_step"] = pr_path_dict["hardest_step"]
+            else:
+                path_dict["hardest_step_deltaG"] = orig_path_dict["hardest_step_deltaG"]
+                path_dict["hardest_step"] = orig_path_dict["hardest_step"]
+            return path_dict
 
     def find_paths(self,starts,target,weight,num_paths=10):
         """
         Args:
-            starts ([int]): :List of starting node IDs (ints). 
+            starts ([int]): List of starting node IDs (ints). 
             target (int): Target node ID.
             weight (str): String identifying what edge weight to use for path finding.
             num_paths (int): Number of paths to find. Defaults to 10.
         """
         if len(starts) == 1:
             start = starts[0]
+            no_pr_paths = []
+            c = itertools.count()
+            my_heapq = []
 
-            no_pr_paths = nx.single_source_dijkstra_path(self.no_pr_graph,hash(start),weight="exponent")
-            no_pr_path_dict = {}
-            for entry in self.entries_list:
-                if entry.parameters["ind"] in no_pr_paths and entry.parameters["ind"] != start:
-                    print(entry.parameters["ind"],no_pr_paths[entry.parameters["ind"]])
-                    no_pr_path_dict[entry.parameters["ind"]] = self.characterize_path(no_pr_paths[entry.parameters["ind"]])
-
-            paths = []
             ind = 0
             for path in nx.shortest_simple_paths(self.graph,hash(start),hash(target),weight=weight):
                 if ind == num_paths:
                     break
                 else:
+                    path_dict = self.characterize_path(path,weight=weight)
+                    # if target not in path_dict["prereqs"]:
+                    heapq.heappush(my_heapq, (path_dict["cost"],next(c),path_dict))
                     ind += 1
-                path_dict = self.characterize_path(path)
 
-                # overall_path = [path]
-                # print(path_dict["prereqs"])
-                resolved_prereqs = []
-                for prereq in path_dict["prereqs"]:
-                    # req = prereq[0]
-                    # req = prereq
-                    # req_rxn = prereq[1]
-                    matching_prod_found = False
-                    for byprod in path_dict["byproducts"]:
-                        # prod = byprod[0]
-                        if prereq==byprod:
-                            matching_prod_found = True
-                            path_dict["prereqs"].remove(prereq)
-                            path_dict["byproducts"].remove(byprod)
-                    if not matching_prod_found:
-                        if prereq in no_pr_path_dict:
-                            req_path = no_pr_path_dict[prereq]
-                            path_dict["overall_free_energy_change"] += req_path["overall_free_energy_change"]
-                            if self.graph.node[req_path["hardest_step"]]["free_energy"] > self.graph.node[path_dict["hardest_step"]]["free_energy"]:
-                                path_dict["hardest_step"] = req_path["hardest_step"]
-                            # this_path = nx.compose(this_path,req_path["graph"])
-                            # for subpath in req_path["overall_path"]:
-                            #     overall_path.insert(0,subpath)
-                            #     this_path.add_edge(req,req_rxn,weight=0.0) # Is this weight right?
-                            # path_dict["prereqs"].remove(prereq)
-                            resolved_prereqs.append(prereq)
-                            for new_byprod in req_path["byproducts"]:
-                                path_dict["byproducts"].append(new_byprod)
-                            # path_dict["description"] = req_path["description"] + ". Then, " + path_dict["description"]
-                for prereq in resolved_prereqs:
-                    path_dict["prereqs"].remove(prereq)
-                path_dict["hardest_step_deltaG"] = self.graph.node[path_dict["hardest_step"]]["free_energy"]
-                # path_dict["overall_path"] = overall_path
-
-
-
-
-                paths.append(path_dict)
-            return paths    
-
-                
-
+            while len(no_pr_paths) < num_paths:
+                (cost, _, path_dict) = heapq.heappop(my_heapq)
+                print(len(no_pr_paths),cost,path_dict["prereqs"])
+                if len(path_dict["prereqs"]) == 0:
+                    no_pr_paths.append(path_dict)
+                else:
+                    prereq = path_dict["prereqs"][0]
+                    if prereq in path_dict["byproducts"]:
+                        path_dict["byproducts"].remove(prereq)
+                        path_dict["prereqs"].remove(prereq)
+                        heapq.heappush(my_heapq, (path_dict["cost"],next(c),path_dict))
+                    else:
+                        ind = 0
+                        for path in nx.shortest_simple_paths(self.graph,hash(start),hash(prereq),weight=weight):
+                            # print('  ',ind)
+                            if ind == num_paths:
+                                break
+                            else:
+                                pr_path_dict = self.characterize_path(path,weight=weight)
+                                # if prereq not in pr_path_dict["prereqs"]:
+                                new_dict = self.join_paths(pr_path_dict,path_dict)
+                                heapq.heappush(my_heapq, (new_dict["cost"],next(c),new_dict))
+                                ind += 1
+            return no_pr_paths
         else:
             raise RuntimeError("Paths from multiple different starting points not yet implemented!")
 
