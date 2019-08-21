@@ -41,8 +41,10 @@ class ReactionNetwork(MSONable):
 
     """
 
-    def __init__(self, entries):
+    def __init__(self, entries, free_energy_cutoff=4.0, prereq_cutoff=4):
 
+        self.free_energy_cutoff = free_energy_cutoff
+        self.prereq_cutoff = prereq_cutoff
         self.entries = {}
         self.entries_list = []
         
@@ -249,33 +251,30 @@ class ReactionNetwork(MSONable):
                 free_energy_A = None
                 free_energy_B = None
 
-            self.graph.add_node(node_name_A,rxn_type=rxn_type_A,bipartite=1,energy=energy_A,free_energy=free_energy_A)
-            self.graph.add_node(node_name_B,rxn_type=rxn_type_B,bipartite=1,energy=energy_B,free_energy=free_energy_B)
-
-            self.graph.add_edge(entry0.parameters["ind"],
-                                node_name_A,
-                                softplus=0.0,
-                                exponent=0.0,
-                                weight=1.0
-                                )
-            self.graph.add_edge(node_name_A,
-                                entry1.parameters["ind"],
-                                softplus=self.softplus(free_energy_A),
-                                exponent=self.exponent(free_energy_A),
-                                weight=1.0
-                                )
-            self.graph.add_edge(entry1.parameters["ind"],
-                                node_name_B,
-                                softplus=0.0,
-                                exponent=0.0,
-                                weight=1.0
-                                )
-            self.graph.add_edge(node_name_B,
-                                entry0.parameters["ind"],
-                                softplus=self.softplus(free_energy_B),
-                                exponent=self.exponent(free_energy_B),
-                                weight=1.0
-                                )
+            if free_energy_A < self.free_energy_cutoff:
+                self.graph.add_node(node_name_A,rxn_type=rxn_type_A,bipartite=1,energy=energy_A,free_energy=free_energy_A)
+                self.graph.add_edge(entry0.parameters["ind"],
+                                    node_name_A,
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0)
+                self.graph.add_edge(node_name_A,
+                                    entry1.parameters["ind"],
+                                    softplus=self.softplus(free_energy_A),
+                                    exponent=self.exponent(free_energy_A),
+                                    weight=1.0)
+            if free_energy_B < self.free_energy_cutoff:
+                self.graph.add_node(node_name_B,rxn_type=rxn_type_B,bipartite=1,energy=energy_B,free_energy=free_energy_B)
+                self.graph.add_edge(entry1.parameters["ind"],
+                                    node_name_B,
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0)
+                self.graph.add_edge(node_name_B,
+                                    entry0.parameters["ind"],
+                                    softplus=self.softplus(free_energy_B),
+                                    exponent=self.exponent(free_energy_B),
+                                    weight=1.0)
 
         elif rxn_type == "intermol_single_bond_change":
             entry = entries0[0]
@@ -382,6 +381,7 @@ class ReactionNetwork(MSONable):
                             if int(prod) != path[ii+1]:
                                 path_dict["byproducts"].append(int(prod))
         
+        # path_dict["is_valid"] = path[-1] not in path_dict["prereqs"]
         path_dict["path"] = path
         path_dict["hardest_step_deltaG"] = self.graph.node[path_dict["hardest_step"]]["free_energy"]
         return path_dict
@@ -404,6 +404,19 @@ class ReactionNetwork(MSONable):
                 path_dict["hardest_step"] = orig_path_dict["hardest_step"]
             return path_dict
 
+    def valid_shortest_simple_paths(self,start,target,weight):
+        valid_graph = copy.deepcopy(self.graph)
+        to_remove = []
+        for node in valid_graph.nodes():
+            if valid_graph.node[node]["bipartite"] == 1:
+                if "+" in node.split(",")[0]:
+                    # print(node,node.split(",")[0].split("+"))
+                    if str(target) in node.split(",")[0].split("+"):
+                        # print('removing',target)
+                        to_remove.append(node)
+        valid_graph.remove_nodes_from(to_remove)
+        return nx.shortest_simple_paths(valid_graph,hash(start),hash(target),weight=weight)
+
     def find_paths(self,starts,target,weight,num_paths=10):
         """
         Args:
@@ -417,20 +430,23 @@ class ReactionNetwork(MSONable):
             no_pr_paths = []
             c = itertools.count()
             my_heapq = []
+            # saved_heapq = []
 
             ind = 0
-            for path in nx.shortest_simple_paths(self.graph,hash(start),hash(target),weight=weight):
-                if ind == num_paths:
+            for path in self.valid_shortest_simple_paths(start,target,weight):
+                if ind == 500:
                     break
                 else:
-                    path_dict = self.characterize_path(path,weight=weight)
-                    # if target not in path_dict["prereqs"]:
-                    heapq.heappush(my_heapq, (path_dict["cost"],next(c),path_dict))
                     ind += 1
+                    path_dict = self.characterize_path(path,weight=weight)
+                    if len(path_dict["prereqs"]) < self.prereq_cutoff:
+                        heapq.heappush(my_heapq, (path_dict["cost"],next(c),path_dict))
 
-            while len(no_pr_paths) < num_paths:
+            # num_iter = 0
+            while len(no_pr_paths) < num_paths and my_heapq:# and num_iter < 100:
                 (cost, _, path_dict) = heapq.heappop(my_heapq)
-                print(len(no_pr_paths),cost,path_dict["prereqs"])
+                # print(len(no_pr_paths),len(saved_heapq),cost,len(my_heapq),path_dict["prereqs"])
+                print(len(no_pr_paths),cost,len(my_heapq),path_dict["prereqs"])
                 if len(path_dict["prereqs"]) == 0:
                     no_pr_paths.append(path_dict)
                 else:
@@ -440,21 +456,42 @@ class ReactionNetwork(MSONable):
                         path_dict["prereqs"].remove(prereq)
                         heapq.heappush(my_heapq, (path_dict["cost"],next(c),path_dict))
                     else:
+                        # num_iter += 1
                         ind = 0
-                        for path in nx.shortest_simple_paths(self.graph,hash(start),hash(prereq),weight=weight):
-                            # print('  ',ind)
-                            if ind == num_paths:
+                        # num_child_prereqs = []
+                        for path in self.valid_shortest_simple_paths(start,prereq,weight):
+                            if ind == 50:
                                 break
                             else:
-                                pr_path_dict = self.characterize_path(path,weight=weight)
-                                # if prereq not in pr_path_dict["prereqs"]:
-                                new_dict = self.join_paths(pr_path_dict,path_dict)
-                                heapq.heappush(my_heapq, (new_dict["cost"],next(c),new_dict))
                                 ind += 1
+                                pr_path_dict = self.characterize_path(path,weight=weight)
+                                new_dict = self.join_paths(pr_path_dict,path_dict)
+                                # num_child_prereqs.append(len(new_dict["prereqs"]))
+                                if len(new_dict["prereqs"]) < self.prereq_cutoff and len(new_dict["path"]) < 50:
+                                    heapq.heappush(my_heapq, (new_dict["cost"],next(c),new_dict))
+                        # if min(num_child_prereqs) >= len(path_dict["prereqs"]) and len(path_dict["prereqs"]) <= 2:
+                        #     heapq.heappush(saved_heapq, (path_dict["cost"],_,path_dict))
+
+            # no_pr_graph_paths = nx.single_source_dijkstra_path(self.no_pr_graph,hash(start),weight=weight)
+            # no_pr_graph_path_dict = {}       
+            # for entry in self.entries_list:        
+            #     if entry.parameters["ind"] in no_pr_graph_paths and entry.parameters["ind"] != start:
+            #         no_pr_graph_path_dict[entry.parameters["ind"]] = self.characterize_path(no_pr_graph_paths[entry.parameters["ind"]],weight=weight)
+
+            # while saved_heapq:
+            #     (cost, _, path_dict) = heapq.heappop(saved_heapq)
+            #     these_prereqs = copy.deepcopy(path_dict["prereqs"])
+            #     for prereq in these_prereqs:
+            #         if prereq in no_pr_graph_path_dict:
+            #             path_dict = self.join_paths(no_pr_graph_path_dict[prereq],path_dict)
+            #         else:
+            #             break
+            #     if len(path_dict["prereqs"]) == 0:
+            #         no_pr_paths.append(path_dict)
+
             return no_pr_paths
         else:
             raise RuntimeError("Paths from multiple different starting points not yet implemented!")
-
 
 
 
