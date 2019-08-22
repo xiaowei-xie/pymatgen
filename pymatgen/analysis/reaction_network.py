@@ -9,7 +9,7 @@ import itertools
 import heapq
 import numpy as np
 from monty.json import MSONable
-from pymatgen.analysis.graphs import MoleculeGraph, MolGraphSplitError, isomorphic
+from pymatgen.analysis.graphs import MoleculeGraph, MolGraphSplitError
 from pymatgen.analysis.local_env import OpenBabelNN
 from pymatgen.io.babel import BabelMolAdaptor
 from pymatgen import Molecule
@@ -68,7 +68,7 @@ class ReactionNetwork(MSONable):
                         for entry in sorted_entries_3:
                             isomorphic_found = False
                             for ii,Uentry in enumerate(unique):
-                                if isomorphic(entry.graph,Uentry.graph):
+                                if entry.mol_graph.isomorphic_to(Uentry.mol_graph):
                                     isomorphic_found = True
                                     # print("Isomorphic entries with equal charges found!")
                                     if entry.free_energy != None and Uentry.free_energy != None:
@@ -129,7 +129,7 @@ class ReactionNetwork(MSONable):
                         if charge1-charge0 == 1:
                             for entry0 in self.entries[formula][Nbonds][charge0]:
                                 for entry1 in self.entries[formula][Nbonds][charge1]:
-                                    if isomorphic(entry0.graph,entry1.graph):
+                                    if entry0.mol_graph.isomorphic_to(entry1.mol_graph):
                                         self.add_reaction([entry0],[entry1],"one_electron_redox")
                                         break
 
@@ -157,7 +157,7 @@ class ReactionNetwork(MSONable):
                                         mg.break_edge(edge[0],edge[1],allow_reverse=True)
                                         if nx.is_weakly_connected(mg.graph):
                                             for entry0 in self.entries[formula][Nbonds0][charge]:
-                                                if isomorphic(entry0.graph,mg.graph):
+                                                if entry0.mol_graph.isomorphic_to(mg):
                                                     self.add_reaction([entry0],[entry1],"intramol_single_bond_change")
                                                     break
 
@@ -189,11 +189,11 @@ class ReactionNetwork(MSONable):
                                         if Nbonds0 in self.entries[formula0] and Nbonds1 in self.entries[formula1]:
                                             for charge0 in self.entries[formula0][Nbonds0]:
                                                 for entry0 in self.entries[formula0][Nbonds0][charge0]:
-                                                    if isomorphic(graph0,entry0.graph):
+                                                    if frags[0].isomorphic_to(entry0.mol_graph):
                                                         charge1 = charge - charge0
                                                         if charge1 in self.entries[formula1][Nbonds1]:
                                                             for entry1 in self.entries[formula1][Nbonds1][charge1]:
-                                                                if isomorphic(graph1,entry1.graph):
+                                                                if frags[1].isomorphic_to(entry1.mol_graph):
                                                                     self.add_reaction([entry],[entry0,entry1],"intermol_single_bond_change")
                                                                     break
                                                         break

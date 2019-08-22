@@ -9,7 +9,7 @@ from monty.json import MontyEncoder, MontyDecoder
 
 from pymatgen.core.composition import Composition
 from monty.json import MSONable
-from pymatgen.analysis.graphs import MoleculeGraph, MolGraphSplitError, isomorphic
+from pymatgen.analysis.graphs import MoleculeGraph, MolGraphSplitError
 from pymatgen.analysis.local_env import OpenBabelNN
 from pymatgen.io.babel import BabelMolAdaptor
 from pymatgen import Molecule
@@ -69,7 +69,6 @@ class MoleculeEntry(MSONable):
                                                           reorder=False,
                                                           extend_structure=False)
         self.mol_graph = metal_edge_extender(mol_graph)
-
         self.graph = self.mol_graph.graph
         self.edges = self.graph.edges()
 
