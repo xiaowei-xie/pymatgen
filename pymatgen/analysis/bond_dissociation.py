@@ -295,7 +295,9 @@ class BondDissociationEnergies(MSONable):
             # Check for uniqueness
             for ii, filtered_entry in enumerate(self.filtered_entries):
                 if filtered_entry["formula_pretty"] == entry["formula_pretty"]:
-                    if filtered_entry["initial_molgraph"].isomorphic_to(entry["initial_molgraph"]) and filtered_entry["final_molgraph"].isomorphic_to(entry["final_molgraph"]) and filtered_entry["initial_molecule"]["charge"] == entry["initial_molecule"]["charge"]:
+                    if filtered_entry["initial_molgraph"].isomorphic_to(entry["initial_molgraph"]) and \
+                            filtered_entry["final_molgraph"].isomorphic_to(entry["final_molgraph"]) and \
+                            filtered_entry["initial_molecule"]["charge"] == entry["initial_molecule"]["charge"]:
                         found_similar_entry = True
                         # If two entries are found that pass the above similarity check, take the one with the lower
                         # energy:
