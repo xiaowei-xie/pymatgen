@@ -35,15 +35,16 @@ class ReactionNetwork(MSONable):
     Class to create a reaction network from entries
 
     Args:
-        entries ([MoleculeEntry]): A list of ReactionNetworkEntry objects.
+        entries ([MoleculeEntry]): A list of MoleculeEntry objects.
         electron_free_energy (float): The Gibbs free energy of an electron.
+            Defaults to -2.15 eV.
         free_energy_cutoff (float): The Gibbs free energy value above which reactions
-            will not be considered during network construction. Defaults to 4.0.
+            will not be considered during network construction. Defaults to 4.0 eV.
         prereq_cutoff (int): The number of prerequisites at and above whih reactions
             will not be considered during network construction. Defaults to 4.
     """
 
-    def __init__(self, entries, electron_free_energy, free_energy_cutoff=4.0, prereq_cutoff=4):
+    def __init__(self, entries, electron_free_energy=-2.15, free_energy_cutoff=4.0, prereq_cutoff=4):
 
         self.free_energy_cutoff = free_energy_cutoff
         self.electron_free_energy = electron_free_energy
@@ -51,17 +52,23 @@ class ReactionNetwork(MSONable):
         self.entries = {}
         self.entries_list = []
         self.prereq_dict = {}
-        self.path_const = 500
-        self.prereq_const = 50
+        self.path_const = 5000
+        self.prereq_const = 500
         self.path_length_cutoff = 50
 
         print(len(entries),"total entries")
+
+        connected_entries = []
+        for entry in entries:
+            if nx.is_weakly_connected(entry.graph):
+                connected_entries.append(entry)
+        print(len(connected_entries),"connected entries")
 
         get_formula = lambda x: x.formula
         get_Nbonds = lambda x: x.Nbonds
         get_charge = lambda x: x.charge
 
-        sorted_entries_0 = sorted(entries, key=get_formula)
+        sorted_entries_0 = sorted(connected_entries, key=get_formula)
         for k1, g1 in itertools.groupby(sorted_entries_0, get_formula):
             sorted_entries_1 = sorted(list(g1),key=get_Nbonds)
             self.entries[k1] = {}
@@ -433,9 +440,11 @@ class ReactionNetwork(MSONable):
         if weight not in self.prereq_dict:
             self.prereq_dict[weight] = {}
 
+        print("Finding initial paths...")
         for start in starts:
             ind = 0
             for path in self.valid_shortest_simple_paths(start,target,weight):
+                print(ind, len(my_heapq))
                 if ind == self.path_const:
                     break
                 else:
@@ -444,6 +453,8 @@ class ReactionNetwork(MSONable):
                     if len(path_dict["prereqs"]) < self.prereq_cutoff:
                         heapq.heappush(my_heapq, (path_dict["cost"],next(c),path_dict))
 
+        print()
+        print("Resolving prerequisites...")
         while len(no_pr_paths) < num_paths and my_heapq:
             (cost, _, path_dict) = heapq.heappop(my_heapq)
             print(len(no_pr_paths),cost,len(my_heapq),path_dict["prereqs"])
@@ -481,13 +492,15 @@ class ReactionNetwork(MSONable):
         sinks = []
         for node in self.graph.nodes():
             if self.graph.node[node]["bipartite"] == 0:
-                neg_found = False
-                for neighbor in list(self.graph.neighbors(node)):
-                    if self.graph.node[neighbor]["free_energy"] < 0:
-                        neg_found = True
-                        break
-                if not neg_found:
-                    sinks.append(node)
+                neighbor_list = list(self.graph.neighbors(node))
+                if len(neighbor_list) > 0:
+                    neg_found = False
+                    for neighbor in neighbor_list:
+                        if self.graph.node[neighbor]["free_energy"] < 0:
+                            neg_found = True
+                            break
+                    if not neg_found:
+                        sinks.append(node)
         return sinks
 
 
