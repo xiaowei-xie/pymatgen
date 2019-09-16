@@ -8,7 +8,7 @@ import copy
 import itertools
 import heapq
 import numpy as np
-from monty.json import MSONable
+from monty.json import MSONable, MontyDecoder
 from pymatgen.analysis.graphs import MoleculeGraph, MolGraphSplitError
 from pymatgen.analysis.local_env import OpenBabelNN
 from pymatgen.io.babel import BabelMolAdaptor
@@ -16,6 +16,9 @@ from pymatgen import Molecule
 from pymatgen.analysis.fragmenter import metal_edge_extender
 import networkx as nx
 from networkx.algorithms import bipartite
+import igraph
+from pymatgen.analysis.yen_igraph import yen_igraph
+from pymatgen.entries.mol_entry import MoleculeEntry
 
 
 __author__ = "Samuel Blau"
@@ -44,22 +47,23 @@ class ReactionNetwork(MSONable):
             will not be considered during network construction. Defaults to 4.
     """
 
-    def __init__(self, entries, electron_free_energy=-2.15, free_energy_cutoff=4.0, prereq_cutoff=4):
+    def __init__(self, input_entries, electron_free_energy=-2.15, free_energy_cutoff=4.0, prereq_cutoff=4):
 
+        self.input_entries = input_entries
         self.free_energy_cutoff = free_energy_cutoff
         self.electron_free_energy = electron_free_energy
         self.prereq_cutoff = prereq_cutoff
         self.entries = {}
         self.entries_list = []
         self.prereq_dict = {}
-        self.path_const = 5000
-        self.prereq_const = 500
+        self.path_const = 50
+        self.prereq_const = 50
         self.path_length_cutoff = 50
 
-        print(len(entries),"total entries")
+        print(len(self.input_entries),"input entries")
 
         connected_entries = []
-        for entry in entries:
+        for entry in self.input_entries:
             if nx.is_weakly_connected(entry.graph):
                 connected_entries.append(entry)
         print(len(connected_entries),"connected entries")
@@ -114,6 +118,7 @@ class ReactionNetwork(MSONable):
         self.one_electron_redox()
         self.intramol_single_bond_change()
         self.intermol_single_bond_change()
+
 
     def one_electron_redox(self):
         # One electron oxidation / reduction without change to bonding
@@ -414,18 +419,23 @@ class ReactionNetwork(MSONable):
                 path_dict["hardest_step"] = orig_path_dict["hardest_step"]
             return path_dict
 
-    def valid_shortest_simple_paths(self,start,target,weight):
+    def valid_shortest_simple_paths(self,start,target,weight,use_igraph=False):
         valid_graph = copy.deepcopy(self.graph)
         to_remove = []
         for node in valid_graph.nodes():
             if valid_graph.node[node]["bipartite"] == 1:
                 if "+" in node.split(",")[0]:
+                    # when using this for prereqs, should it remove both prereq and target?
                     if str(target) in node.split(",")[0].split("+"):
                         to_remove.append(node)
         valid_graph.remove_nodes_from(to_remove)
-        return nx.shortest_simple_paths(valid_graph,hash(start),hash(target),weight=weight)
+        if use_igraph:
+            ig_graph = convert_to_igraph(valid_graph)
+            return yen_igraph(ig_graph,start,target,self.path_const,weight)
+        else:
+            return nx.shortest_simple_paths(valid_graph,hash(start),hash(target),weight=weight)
 
-    def find_paths(self,starts,target,weight,num_paths=10):
+    def find_paths(self,starts,target,weight,use_igraph=False,num_paths=10):
         """
         Args:
             starts ([int]): List of starting node IDs (ints). 
@@ -443,8 +453,8 @@ class ReactionNetwork(MSONable):
         print("Finding initial paths...")
         for start in starts:
             ind = 0
-            for path in self.valid_shortest_simple_paths(start,target,weight):
-                print(ind, len(my_heapq))
+            for path in self.valid_shortest_simple_paths(start,target,weight,use_igraph):
+                # print(ind, len(my_heapq))
                 if ind == self.path_const:
                     break
                 else:
@@ -476,7 +486,7 @@ class ReactionNetwork(MSONable):
                         else:
                             self.prereq_dict[weight][(start,prereq)] = []
                             ind = 0
-                            for path in self.valid_shortest_simple_paths(start,prereq,weight):
+                            for path in self.valid_shortest_simple_paths(start,prereq,weight,use_igraph):
                                 if ind == self.prereq_const:
                                     break
                                 else:
@@ -503,7 +513,78 @@ class ReactionNetwork(MSONable):
                         sinks.append(node)
         return sinks
 
+    def find_paths_v2(self,starts,target,weight,num_paths=10):
+        """
+        Args:
+            starts ([int]): List of starting node IDs (ints). 
+            target (int): Target node ID.
+            weight (str): String identifying what edge weight to use for path finding.
+            num_paths (int): Number of paths to find. Defaults to 10.
+        """
+        no_pr_paths = []
+        c = itertools.count()
+        my_heapq = []
 
+        if weight not in self.prereq_dict:
+            self.prereq_dict[weight] = {}
+
+        for ii, entry in enumerate(self.entries_list):
+            self.prereq_dict[weight][ii] = 0.0
+
+        print("Finding initial paths...")
+        for ii in range(3):
+            prereqs_to_analyze = []
+            for start in starts:
+                ind = 0
+                for path in self.valid_shortest_simple_paths(start,target,weight):
+                    print(ii, ind)
+                    ind += 1
+                    path_dict = self.characterize_path(path,weight=weight)
+                    for prereq in path_dict["prereqs"]:
+                        if prereq not in prereqs_to_analyze:
+                            prereqs_to_analyze.append(prereq)
+                    if ind == 50:
+                        break
+            for prereq in prereqs_to_analyze:
+                self.charcterize_prereq(prereq)
+
+    def characterize_prereq(self,prereq):
+        # calc minimum cost of making each prereq,
+        # increase cost of nodes with these prereqs
+        pass
+
+
+def convert_to_igraph(graph):
+    """
+    Helper function that converts a networkx RN graph object into an igraph RN graph object.
+    """
+    nodes = graph.nodes(data=True)
+    new_igraph = igraph.Graph(directed=True)
+    for node in nodes:
+        if node[1]["bipartite"] == 0:
+            new_igraph.add_vertex(
+                name=str(node[0]),
+                bipartite=node[1]["bipartite"])
+        else:
+            new_igraph.add_vertex(
+                name=str(node[0]),
+                bipartite=node[1]["bipartite"],
+                rxn_type=node[1]["rxn_type"],
+                energy=node[1]["energy"],
+                free_energy=node[1]["free_energy"])
+    for edge in graph.edges():
+        edge_data = graph.get_edge_data(edge[0],edge[1])
+        new_igraph.add_edge(
+            source=str(edge[0]),
+            target=str(edge[1]),
+            softplus=edge_data["softplus"],
+            exponent=edge_data["exponent"],
+            weight=edge_data["weight"])
+    return new_igraph
+
+                    
+
+            
 
 
 
