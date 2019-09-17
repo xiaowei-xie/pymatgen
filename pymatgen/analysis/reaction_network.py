@@ -301,8 +301,11 @@ class ReactionNetwork(MSONable):
                 two_mol_name = str(entry0.parameters["ind"])+"+"+str(entry1.parameters["ind"])
             else:
                 two_mol_name = str(entry1.parameters["ind"])+"+"+str(entry0.parameters["ind"])
+            two_mol_name0 = str(entry0.parameters["ind"])+"+PR_"+str(entry1.parameters["ind"])
+            two_mol_name1 = str(entry1.parameters["ind"])+"+PR_"+str(entry0.parameters["ind"])
             node_name_A = str(entry.parameters["ind"])+","+two_mol_name
-            node_name_B = two_mol_name+","+str(entry.parameters["ind"])
+            node_name_B0 = two_mol_name0+","+str(entry.parameters["ind"])
+            node_name_B1 = two_mol_name1+","+str(entry.parameters["ind"])
             rxn_type_A = "Molecular decomposition breaking one bond A->B+C"
             rxn_type_B = "Molecular formation from one new bond A+B -> C"
             energy_A = entry0.energy + entry1.energy - entry.energy
@@ -312,7 +315,8 @@ class ReactionNetwork(MSONable):
                 free_energy_B = entry.free_energy - entry0.free_energy - entry1.free_energy
 
             self.graph.add_node(node_name_A,rxn_type=rxn_type_A,bipartite=1,energy=energy_A,free_energy=free_energy_A)
-            self.graph.add_node(node_name_B,rxn_type=rxn_type_B,bipartite=1,energy=energy_B,free_energy=free_energy_B)
+            self.graph.add_node(node_name_B0,rxn_type=rxn_type_B,bipartite=1,energy=energy_B,free_energy=free_energy_B)
+            self.graph.add_node(node_name_B1,rxn_type=rxn_type_B,bipartite=1,energy=energy_B,free_energy=free_energy_B)
 
             self.graph.add_edge(entry.parameters["ind"],
                                 node_name_A,
@@ -320,12 +324,7 @@ class ReactionNetwork(MSONable):
                                 exponent=self.exponent(free_energy_A),
                                 weight=1.0
                                 )
-            self.graph.add_edge(node_name_B,
-                                entry.parameters["ind"],
-                                softplus=self.softplus(free_energy_B),
-                                exponent=self.exponent(free_energy_B),
-                                weight=1.0
-                                )
+
             self.graph.add_edge(node_name_A,
                                 entry0.parameters["ind"],
                                 softplus=0.0,
@@ -338,14 +337,28 @@ class ReactionNetwork(MSONable):
                                 exponent=0.0,
                                 weight=1.0
                                 )
+
+            self.graph.add_edge(node_name_B0,
+                                entry.parameters["ind"],
+                                softplus=self.softplus(free_energy_B),
+                                exponent=self.exponent(free_energy_B),
+                                weight=1.0
+                                )
+            self.graph.add_edge(node_name_B1,
+                                entry.parameters["ind"],
+                                softplus=self.softplus(free_energy_B),
+                                exponent=self.exponent(free_energy_B),
+                                weight=1.0
+                                )
+
             self.graph.add_edge(entry0.parameters["ind"],
-                                node_name_B,
+                                node_name_B0,
                                 softplus=0.0,
                                 exponent=0.0,
                                 weight=1.0
                                 )
             self.graph.add_edge(entry1.parameters["ind"],
-                                node_name_B,
+                                node_name_B1,
                                 softplus=0.0,
                                 exponent=0.0,
                                 weight=1.0)
@@ -356,7 +369,7 @@ class ReactionNetwork(MSONable):
     def exponent(self,free_energy):
         return np.exp(free_energy)
 
-    def characterize_path(self,path,weight):
+    def characterize_path(self,path,weight,solved_PRs=[]):
         path_dict = {}
         path_dict["byproducts"] = []
         path_dict["prereqs"] = []
@@ -367,6 +380,7 @@ class ReactionNetwork(MSONable):
 
         for ii,step in enumerate(path):
             if ii != len(path)-1:
+                # faster to use G[u][v][key] here?
                 path_dict["cost"] += self.graph.get_edge_data(step,path[ii+1])[weight]
             if ii%2 == 1:
                 path_dict["overall_free_energy_change"] += self.graph.node[step]["free_energy"]
@@ -380,14 +394,17 @@ class ReactionNetwork(MSONable):
                     path_dict["hardest_step"] = step
 
                 rxn = step.split(",")
-                if "+" in rxn[0]:
-                    rcts = rxn[0].split("+")
-                    if rcts[0] == rcts[1]:
-                        path_dict["prereqs"].append(int(rcts[0]))
-                    else:
-                        for rct in rcts:
-                            if int(rct) != path[ii-1]:
-                                path_dict["prereqs"].append(int(rct))
+                if "+PR_" in rxn[0]:
+                    PR = int(rxn[0].split("+PR_")[1])
+                    if PR not in solved_PRs:
+                        path_dict["prereqs"].append(PR)
+                    # rcts = rxn[0].split("+PR_")
+                    # if rcts[0] == rcts[1]:
+                    #     path_dict["prereqs"].append(int(rcts[0]))
+                    # else:
+                    #     for rct in rcts:
+                    #         if int(rct) != path[ii-1]:
+                    #             path_dict["prereqs"].append(int(rct))
                 elif "+" in rxn[1]:
                     prods = rxn[1].split("+")
                     if prods[0] == prods[1]:
@@ -401,34 +418,118 @@ class ReactionNetwork(MSONable):
         path_dict["hardest_step_deltaG"] = self.graph.node[path_dict["hardest_step"]]["free_energy"]
         return path_dict
 
-    def join_paths(self,pr_path_dict,orig_path_dict):
-        path_dict = {}
-        if pr_path_dict["path"][-1] not in orig_path_dict["prereqs"]:
-            raise RuntimeError("Prereq path product must be a prereq of the original path!")
-        else:
-            easy_adds = ["path","prereqs","byproducts","overall_free_energy_change","cost"]
-            for val in easy_adds:
-                path_dict[val] = pr_path_dict[val] + orig_path_dict[val]
-            path_dict["description"] = pr_path_dict["description"] + " to get prerequisite " + str(pr_path_dict["path"][-1]) + ". Then, " + orig_path_dict["description"]
-            path_dict["prereqs"].remove(pr_path_dict["path"][-1])
-            if pr_path_dict["hardest_step_deltaG"] > orig_path_dict["hardest_step_deltaG"]:
-                path_dict["hardest_step_deltaG"] = pr_path_dict["hardest_step_deltaG"]
-                path_dict["hardest_step"] = pr_path_dict["hardest_step"]
-            else:
-                path_dict["hardest_step_deltaG"] = orig_path_dict["hardest_step_deltaG"]
-                path_dict["hardest_step"] = orig_path_dict["hardest_step"]
-            return path_dict
+    # def join_paths(self,pr_path_dict,orig_path_dict):
+    #     path_dict = {}
+    #     if pr_path_dict["path"][-1] not in orig_path_dict["prereqs"]:
+    #         raise RuntimeError("Prereq path product must be a prereq of the original path!")
+    #     else:
+    #         easy_adds = ["path","prereqs","byproducts","overall_free_energy_change","cost"]
+    #         for val in easy_adds:
+    #             path_dict[val] = pr_path_dict[val] + orig_path_dict[val]
+    #         path_dict["description"] = pr_path_dict["description"] + " to get prerequisite " + str(pr_path_dict["path"][-1]) + ". Then, " + orig_path_dict["description"]
+    #         path_dict["prereqs"].remove(pr_path_dict["path"][-1])
+    #         if pr_path_dict["hardest_step_deltaG"] > orig_path_dict["hardest_step_deltaG"]:
+    #             path_dict["hardest_step_deltaG"] = pr_path_dict["hardest_step_deltaG"]
+    #             path_dict["hardest_step"] = pr_path_dict["hardest_step"]
+    #         else:
+    #             path_dict["hardest_step_deltaG"] = orig_path_dict["hardest_step_deltaG"]
+    #             path_dict["hardest_step"] = orig_path_dict["hardest_step"]
+    #         return path_dict
 
-    def valid_shortest_simple_paths(self,start,target,weight,use_igraph=False):
+    def solve_prerequisites(self,starts,target,weight):
+        PRs = {}
+        old_solved_PRs = []
+        new_solved_PRs = ["this", "is", "dumb"]
+        no_path_to = {}
+        orig_graph = copy.deepcopy(self.graph)
+        ii = 0
+        for start in starts:
+            no_path_to[start] = []
+        while len(new_solved_PRs) > 0:
+            min_cost = {}
+            for PR in PRs:
+                min_cost[PR] = PRs[PR]["cost"]
+            for start in starts:
+                for node in self.graph.nodes():
+                    if self.graph.node[node]["bipartite"] == 0 and node not in old_solved_PRs and node != target and node not in no_path_to[start]:
+                        path_exists = True
+                        try:
+                            length,dij_path = nx.algorithms.simple_paths._bidirectional_dijkstra(
+                                self.graph,
+                                source=hash(start),
+                                target=hash(node),
+                                ignore_nodes=self.find_nodes_to_ignore([target,node]),
+                                weight=weight)
+                        except nx.exception.NetworkXNoPath:
+                            print("No path exists to node ",node)
+                            no_path_to[start].append(node)
+                            path_exists = False
+                        if path_exists:
+                            if len(dij_path) > 1 and len(dij_path)%2 == 1:
+                                path = self.characterize_path(dij_path,weight,old_solved_PRs)
+                                if len(path["prereqs"]) == 0:
+                                    if node in PRs:
+                                        if path["cost"] < PRs[node]["cost"]:
+                                            PRs[node] = path
+                                            min_cost[node] = path["cost"]
+                                    else:
+                                        PRs[node] = path
+                                        min_cost[node] = path["cost"]
+                                elif node in min_cost:
+                                    if path["cost"] < min_cost[node]:
+                                        min_cost[node] = path["cost"]
+                                else:
+                                    min_cost[node] = path["cost"]
+                                    # print(node, path["prereqs"], len(path["path"]), path["cost"])
+
+
+            solved_PRs = list(PRs.keys())
+            new_solved_PRs = []
+            for PR in solved_PRs:
+                if PR not in old_solved_PRs:
+                    new_solved_PRs.append(PR)
+            print()
+            print(ii,old_solved_PRs,new_solved_PRs)
+            attrs = {}
+            for node in self.graph.nodes():
+                if self.graph.node[node]["bipartite"] == 1:
+                    split_node = node.split(",")
+                    if "+PR_" in split_node[0]:
+                        PR_ind = int(split_node[0].split("+PR_")[1])
+                        # if PR_ind in new_solved_PRs:
+                        if PR_ind in min_cost:
+                            attrs[(node,int(split_node[1]))] = {weight:orig_graph[node][int(split_node[1])][weight]+min_cost[PR_ind]}
+            nx.set_edge_attributes(self.graph,attrs)
+            old_solved_PRs = copy.deepcopy(solved_PRs)
+            ii += 1
+        return old_solved_PRs
+
+    def make_valid_graph(self,bad_nodes):
         valid_graph = copy.deepcopy(self.graph)
         to_remove = []
         for node in valid_graph.nodes():
             if valid_graph.node[node]["bipartite"] == 1:
-                if "+" in node.split(",")[0]:
-                    # when using this for prereqs, should it remove both prereq and target?
-                    if str(target) in node.split(",")[0].split("+"):
+                if "+PR_" in node.split(",")[0]:
+                    PR = int(node.split(",")[0].split("+PR_")[1])
+                    if PR in bad_nodes:
                         to_remove.append(node)
         valid_graph.remove_nodes_from(to_remove)
+        return valid_graph
+
+    def find_nodes_to_ignore(self,bad_nodes):
+        to_ignore = []
+        for node in self.graph.nodes():
+            if self.graph.node[node]["bipartite"] == 1:
+                if "+PR_" in node.split(",")[0]:
+                    PR = int(node.split(",")[0].split("+PR_")[1])
+                    if PR in bad_nodes:
+                        to_ignore.append(node)
+        return to_ignore
+
+    def valid_shortest_simple_paths(self,start,target,weight,PRs=[],use_igraph=False):
+        bad_nodes = PRs
+        bad_nodes.append(target)
+        valid_graph = self.make_valid_graph(bad_nodes)
         if use_igraph:
             ig_graph = convert_to_igraph(valid_graph)
             return yen_igraph(ig_graph,start,target,self.path_const,weight)
@@ -447,19 +548,19 @@ class ReactionNetwork(MSONable):
         c = itertools.count()
         my_heapq = []
 
-        if weight not in self.prereq_dict:
-            self.prereq_dict[weight] = {}
+        print("Solving prerequisites...")
+        solved_PRs = self.solve_prerequisites(starts,target,weight=weight)
 
-        print("Finding initial paths...")
+        print("Finding paths...")
         for start in starts:
             ind = 0
-            for path in self.valid_shortest_simple_paths(start,target,weight,use_igraph):
+            for path in self.valid_shortest_simple_paths(start,target,weight,use_igraph=use_igraph):
                 # print(ind, len(my_heapq))
                 if ind == self.path_const:
                     break
                 else:
                     ind += 1
-                    path_dict = self.characterize_path(path,weight=weight)
+                    path_dict = self.characterize_path(path,weight,solved_PRs)
                     if len(path_dict["prereqs"]) < self.prereq_cutoff:
                         heapq.heappush(my_heapq, (path_dict["cost"],next(c),path_dict))
 
