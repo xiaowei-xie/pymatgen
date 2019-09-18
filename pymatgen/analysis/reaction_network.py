@@ -108,6 +108,7 @@ class ReactionNetwork(MSONable):
         self.intermol_single_bond_change()
 
         self.PR_record = self.build_PR_record()
+        self.min_cost = {}
 
 
     def one_electron_redox(self):
@@ -370,66 +371,87 @@ class ReactionNetwork(MSONable):
                     PR_record[PR].append(node)
         return PR_record
 
-    def characterize_path(self,path,weight,PR_paths={}):
+    def characterize_path(self,path,weight,PR_paths={},final=False):
         path_dict = {}
         path_dict["byproducts"] = []
         path_dict["unsolved_prereqs"] = []
+        path_dict["solved_prereqs"] = []
         path_dict["all_prereqs"] = []
-        path_dict["overall_free_energy_change"] = 0.0
-        path_dict["hardest_step"] = None
-        path_dict["description"] = ""
         path_dict["cost"] = 0.0
+        path_dict["path"] = path
 
         for ii,step in enumerate(path):
             if ii != len(path)-1:
                 path_dict["cost"] += self.graph[step][path[ii+1]][weight]
-            if ii%2 == 1:
-                path_dict["overall_free_energy_change"] += self.graph.node[step]["free_energy"]
-                if path_dict["description"] == "":
-                    path_dict["description"] += self.graph.node[step]["rxn_type"]
-                else:
-                    path_dict["description"] += ", " + self.graph.node[step]["rxn_type"]
-                if path_dict["hardest_step"] == None:
-                    path_dict["hardest_step"] = step
-                elif self.graph.node[step]["free_energy"] > self.graph.node[path_dict["hardest_step"]]["free_energy"]:
-                    path_dict["hardest_step"] = step
+                if ii%2 == 1:
+                    rxn = step.split(",")
+                    if "+PR_" in rxn[0]:
+                        PR = int(rxn[0].split("+PR_")[1])
+                        path_dict["all_prereqs"].append(PR)
+                    elif "+" in rxn[1]:
+                        prods = rxn[1].split("+")
+                        if prods[0] == prods[1]:
+                            path_dict["byproducts"].append(int(prods[0]))
+                        else:
+                            for prod in prods:
+                                if int(prod) != path[ii+1]:
+                                    path_dict["byproducts"].append(int(prod))
+        for PR in path_dict["all_prereqs"]:
+            if PR in path_dict["byproducts"]:
+                # Note that we're ignoring the order in which BPs are made vs they come up as PRs...
+                path_dict["all_prereqs"].remove(PR)
+                path_dict["byproducts"].remove(PR)
+                path_dict["cost"] -= self.min_cost[PR]
+        for PR in path_dict["all_prereqs"]:
+            if PR in PR_paths:
+                path_dict["solved_prereqs"].append(PR)
+            else:
+                path_dict["unsolved_prereqs"].append(PR)
 
-                rxn = step.split(",")
-                if "+PR_" in rxn[0]:
-                    PR = int(rxn[0].split("+PR_")[1])
-                    if PR not in PR_paths:
-                        path_dict["unsolved_prereqs"].append(PR)
-                    path_dict["all_prereqs"].append(PR)
-                elif "+" in rxn[1]:
-                    prods = rxn[1].split("+")
-                    if prods[0] == prods[1]:
-                        path_dict["byproducts"].append(int(prods[0]))
+        if final:
+            path_dict["overall_free_energy_change"] = 0.0
+            path_dict["hardest_step"] = None
+            path_dict["description"] = ""
+
+            assert(len(path_dict["solved_prereqs"])==len(path_dict["all_prereqs"]))
+            assert(len(path_dict["unsolved_prereqs"])==0)
+            del path_dict["solved_prereqs"]
+            del path_dict["unsolved_prereqs"]
+
+            PRs_to_join = copy.deepcopy(path_dict["all_prereqs"])
+            full_path = copy.deepcopy(path)
+            while len(PRs_to_join) > 0:
+                new_PRs = []
+                for PR in PRs_to_join:
+                    PR_path = PR_paths[PR]
+                    assert(len(PR_path["solved_prereqs"])==len(PR_path["all_prereqs"]))
+                    for new_PR in PR_path["all_prereqs"]:
+                        new_PRs.append(new_PR)
+                        path_dict["all_prereqs"].append(new_PR)
+                    for new_BP in PR_path["byproducts"]:
+                        path_dict["byproducts"].append(new_BP)
+                    full_path = PR_path["path"] + full_path
+                PRs_to_join = copy.deepcopy(new_PRs)
+
+            for PR in path_dict["all_prereqs"]:
+                if PR in path_dict["byproducts"]:
+                    print("WARNING: Matching prereq and byproduct found!")
+
+            for ii,step in enumerate(full_path):
+                if self.graph.node[step]["bipartite"] == 1:
+                    path_dict["overall_free_energy_change"] += self.graph.node[step]["free_energy"]
+                    if path_dict["description"] == "":
+                        path_dict["description"] += self.graph.node[step]["rxn_type"]
                     else:
-                        for prod in prods:
-                            if int(prod) != path[ii+1]:
-                                path_dict["byproducts"].append(int(prod))
-
-        path_dict["path"] = path
-        path_dict["hardest_step_deltaG"] = self.graph.node[path_dict["hardest_step"]]["free_energy"]
+                        path_dict["description"] += ", " + self.graph.node[step]["rxn_type"]
+                    if path_dict["hardest_step"] == None:
+                        path_dict["hardest_step"] = step
+                    elif self.graph.node[step]["free_energy"] > self.graph.node[path_dict["hardest_step"]]["free_energy"]:
+                        path_dict["hardest_step"] = step
+            del path_dict["path"]
+            path_dict["full_path"] = full_path
+            path_dict["hardest_step_deltaG"] = self.graph.node[path_dict["hardest_step"]]["free_energy"]
         return path_dict
-
-    # def join_paths(self,pr_path_dict,orig_path_dict):
-    #     path_dict = {}
-    #     if pr_path_dict["path"][-1] not in orig_path_dict["prereqs"]:
-    #         raise RuntimeError("Prereq path product must be a prereq of the original path!")
-    #     else:
-    #         easy_adds = ["path","prereqs","byproducts","overall_free_energy_change","cost"]
-    #         for val in easy_adds:
-    #             path_dict[val] = pr_path_dict[val] + orig_path_dict[val]
-    #         path_dict["description"] = pr_path_dict["description"] + " to get prerequisite " + str(pr_path_dict["path"][-1]) + ". Then, " + orig_path_dict["description"]
-    #         path_dict["prereqs"].remove(pr_path_dict["path"][-1])
-    #         if pr_path_dict["hardest_step_deltaG"] > orig_path_dict["hardest_step_deltaG"]:
-    #             path_dict["hardest_step_deltaG"] = pr_path_dict["hardest_step_deltaG"]
-    #             path_dict["hardest_step"] = pr_path_dict["hardest_step"]
-    #         else:
-    #             path_dict["hardest_step_deltaG"] = orig_path_dict["hardest_step_deltaG"]
-    #             path_dict["hardest_step"] = orig_path_dict["hardest_step"]
-    #         return path_dict
 
     def solve_prerequisites(self,starts,target,weight):
         PRs = {}
@@ -477,7 +499,6 @@ class ReactionNetwork(MSONable):
                                     min_cost[node] = path["cost"]
                                     # print(node, path["prereqs"], len(path["path"]), path["cost"])
 
-
             solved_PRs = list(PRs.keys())
             new_solved_PRs = []
             for PR in solved_PRs:
@@ -487,12 +508,13 @@ class ReactionNetwork(MSONable):
             # print(ii,old_solved_PRs,new_solved_PRs)
             print(ii,len(old_solved_PRs),len(new_solved_PRs))
             attrs = {}
-            
+
             for PR_ind in min_cost:
                 for node in self.PR_record[PR_ind]:
                     split_node = node.split(",")
                     attrs[(node,int(split_node[1]))] = {weight:orig_graph[node][int(split_node[1])][weight]+min_cost[PR_ind]}
             nx.set_edge_attributes(self.graph,attrs)
+            self.min_cost = copy.deepcopy(min_cost)
             old_solved_PRs = copy.deepcopy(solved_PRs)
             ii += 1
         return PRs
@@ -538,12 +560,12 @@ class ReactionNetwork(MSONable):
                     break
                 else:
                     ind += 1
-                    path_dict = self.characterize_path(path,weight,PR_paths)
+                    path_dict = self.characterize_path(path,weight,PR_paths,final=True)
                     heapq.heappush(my_heapq, (path_dict["cost"],next(c),path_dict))
 
         while len(paths) < num_paths and my_heapq:
             (cost, _, path_dict) = heapq.heappop(my_heapq)
-            print(len(paths),cost,len(my_heapq),path_dict["prereqs"])
+            print(len(paths),cost,len(my_heapq),path_dict["all_prereqs"])
             paths.append(path_dict)
 
         return PR_paths, paths

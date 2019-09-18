@@ -59,7 +59,7 @@ class TestReactionNetwork(PymatgenTest):
             mol_entry = MoleculeEntry(molecule=mol,energy=E,enthalpy=H,entropy=S,entry_id=entry["task_id"])
             cls.LiEC_extended_entries.append(mol_entry)
 
-    def _test_build_graph(self):
+    def test_build_graph(self):
         RN = ReactionNetwork(
             self.LiEC_extended_entries,
             electron_free_energy=-2.15)
@@ -70,7 +70,7 @@ class TestReactionNetwork(PymatgenTest):
         loaded_RN = loadfn("RN.json")
         self.assertEqual(RN.as_dict(),loaded_RN.as_dict())
 
-    def _test_solve_prerequisites(self):
+    def test_solve_prerequisites(self):
         RN = loadfn("RN.json")
         LiEC_ind = None
         LEDC_ind = None
@@ -82,7 +82,11 @@ class TestReactionNetwork(PymatgenTest):
             if self.LEDC_mg.isomorphic_to(entry.mol_graph):
                 LEDC_ind = entry.parameters["ind"]
                 break
-        RN.solve_prerequisites([LiEC_ind],LEDC_ind,weight="softplus")
+        PRs = RN.solve_prerequisites([LiEC_ind],LEDC_ind,weight="softplus")
+        # dumpfn(PRs,"PRs.json")
+        loaded_PRs = loadfn("PRs.json")
+        for key in PRs:
+            self.assertEqual(PRs[key],loaded_PRs[str(key)])
 
     def test_find_paths(self):
         RN = loadfn("RN.json")
@@ -97,18 +101,12 @@ class TestReactionNetwork(PymatgenTest):
                 LEDC_ind = entry.parameters["ind"]
                 break
         PR_paths, paths = RN.find_paths([LiEC_ind],LEDC_ind,weight="softplus",num_paths=10)
-        # self.assertEqual(paths[0]["overall_free_energy_change"],-5.131657887139408)
         self.assertEqual(paths[0]["cost"],1.7660275897855464)
+        self.assertEqual(paths[0]["overall_free_energy_change"],-5.131657887139409)
+        self.assertEqual(paths[0]["hardest_step_deltaG"],0.36044270861384575)
         self.assertEqual(paths[9]["cost"],3.7546340395839226)
-        # self.assertEqual(paths[0]["hardest_step_deltaG"],0.36044270861384575)
-        # for path in paths:
-        #     for val in path:
-        #         print(val, path[val])
-        #     print()
-
-    
-
-
+        self.assertEqual(paths[9]["overall_free_energy_change"],-5.13165788713941)
+        self.assertEqual(paths[9]["hardest_step_deltaG"],2.7270388301945787)
 
 
 if __name__ == "__main__":
