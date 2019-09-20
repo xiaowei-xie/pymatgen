@@ -52,7 +52,11 @@ class ReactionNetwork(MSONable):
 
         connected_entries = []
         for entry in self.input_entries:
-            if nx.is_weakly_connected(entry.graph):
+            # print(len(entry.molecule))
+            if len(entry.molecule) > 1:
+                if nx.is_weakly_connected(entry.graph):
+                    connected_entries.append(entry)
+            else:
                 connected_entries.append(entry)
         print(len(connected_entries),"connected entries")
 
@@ -106,10 +110,10 @@ class ReactionNetwork(MSONable):
         self.one_electron_redox()
         self.intramol_single_bond_change()
         self.intermol_single_bond_change()
+        self.coordination_bond_change()
 
         self.PR_record = self.build_PR_record()
         self.min_cost = {}
-
 
     def one_electron_redox(self):
         # One electron oxidation / reduction without change to bonding
@@ -180,10 +184,10 @@ class ReactionNetwork(MSONable):
                                 bond = [(edge[0],edge[1])]
                                 try:
                                     frags = entry.mol_graph.split_molecule_subgraphs(bond, allow_reverse=True)
-                                    graph0 = frags[0].graph
+                                    # graph0 = frags[0].graph
                                     formula0 = frags[0].molecule.composition.alphabetical_formula
                                     Nbonds0 = len(frags[0].graph.edges())
-                                    graph1 = frags[1].graph
+                                    # graph1 = frags[1].graph
                                     formula1 = frags[1].molecule.composition.alphabetical_formula
                                     Nbonds1 = len(frags[1].graph.edges())
                                     if formula0 in self.entries and formula1 in self.entries:
@@ -200,6 +204,67 @@ class ReactionNetwork(MSONable):
                                                         break
                                 except MolGraphSplitError:
                                     pass
+
+    def coordination_bond_change(self):
+        # Simultaneous formation / breakage of multiple coordination bonds
+        # A + M <-> AM aka AM <-> A + M
+        # Three entries with:
+        #     M = Li or Mg
+        #     comp(AM) = comp(A) + comp(M)
+        #     charge(AM) = charge(A) + charge(M)
+        #     removing two M-containing edges in AM yields two disconnected subgraphs that are isomorphic to B and C
+        M_entries = {}
+        for formula in self.entries:
+            if formula == "Li1" or formula == "Mg1":
+                if formula not in M_entries:
+                    M_entries[formula] = {}
+                for charge in self.entries[formula][0]:
+                    assert(len(self.entries[formula][0][charge])==1)
+                    M_entries[formula][charge] = self.entries[formula][0][charge][0]
+        if M_entries != {}:
+            for formula in self.entries:
+                if "Li" in formula or "Mg" in formula:
+                    for Nbonds in self.entries[formula]:
+                        if Nbonds > 2:
+                            for charge in self.entries[formula][Nbonds]:
+                                for entry in self.entries[formula][Nbonds][charge]:
+                                    nosplit_M_bonds = []
+                                    for edge in entry.edges:
+                                        if str(entry.molecule.sites[edge[0]].species) in M_entries or str(entry.molecule.sites[edge[1]].species) in M_entries:
+                                            M_bond = (edge[0],edge[1])
+                                            try:
+                                                frags = entry.mol_graph.split_molecule_subgraphs([M_bond], allow_reverse=True)
+                                            except MolGraphSplitError:
+                                                nosplit_M_bonds.append(M_bond)
+                                    bond_pairs = itertools.combinations(nosplit_M_bonds, 2)
+                                    for bond_pair in bond_pairs:
+                                        try:
+                                            frags = entry.mol_graph.split_molecule_subgraphs(bond_pair, allow_reverse=True)
+                                            M_ind = None
+                                            M_formula = None
+                                            for ii,frag in enumerate(frags):
+                                                frag_formula = frag.molecule.composition.alphabetical_formula
+                                                if frag_formula in M_entries:
+                                                    M_ind = ii
+                                                    M_formula = frag_formula
+                                                    break
+                                            if M_ind != None:
+                                                for ii, frag in enumerate(frags):
+                                                    if ii != M_ind:
+                                                        # nonM_graph = frag.graph
+                                                        nonM_formula = frag.molecule.composition.alphabetical_formula
+                                                        nonM_Nbonds = len(frag.graph.edges())
+                                                        if nonM_formula in self.entries:
+                                                            if nonM_Nbonds in self.entries[nonM_formula]:
+                                                                for nonM_charge in self.entries[nonM_formula][nonM_Nbonds]:
+                                                                    M_charge = entry.charge - nonM_charge
+                                                                    if M_charge in M_entries[M_formula]:
+                                                                        for nonM_entry in self.entries[nonM_formula][nonM_Nbonds][nonM_charge]:
+                                                                            if frag.isomorphic_to(nonM_entry):
+                                                                                self.add_reaction([entry],[nonM_entry,M_entries[M_formula][M_charge]],"coordination_bond_change")
+                                                                                break
+                                        except MolGraphSplitError:
+                                            pass
 
     def add_reaction(self,entries0,entries1,rxn_type):
         """
@@ -218,6 +283,9 @@ class ReactionNetwork(MSONable):
         elif rxn_type == "intermol_single_bond_change":
             if len(entries0) != 1 or len(entries1) != 2:
                 raise RuntimeError("Intermolecular single bond change requires two lists that contain one entry and two entries, respectively!")
+        elif rxn_type == "coordination_bond_change":
+            if len(entries0) != 1 or len(entries1) != 2:
+                raise RuntimeError("Coordination bond change requires two lists that contain one entry and two entries, respectively!")
         else:
             raise RuntimeError("Reaction type "+rxn_type+" is not supported!")
         if rxn_type == "one_electron_redox" or rxn_type == "intramol_single_bond_change":
@@ -282,7 +350,7 @@ class ReactionNetwork(MSONable):
                                 exponent=self.exponent(free_energy_B),
                                 weight=1.0)
 
-        elif rxn_type == "intermol_single_bond_change":
+        elif rxn_type == "intermol_single_bond_change" or rxn_type == "coordination_bond_change":
             entry = entries0[0]
             entry0 = entries1[0]
             entry1 = entries1[1]
@@ -295,8 +363,12 @@ class ReactionNetwork(MSONable):
             node_name_A = str(entry.parameters["ind"])+","+two_mol_name
             node_name_B0 = two_mol_name0+","+str(entry.parameters["ind"])
             node_name_B1 = two_mol_name1+","+str(entry.parameters["ind"])
-            rxn_type_A = "Molecular decomposition breaking one bond A->B+C"
-            rxn_type_B = "Molecular formation from one new bond A+B -> C"
+            if rxn_type == "intermol_single_bond_change":
+                rxn_type_A = "Molecular decomposition breaking one bond A -> B+C"
+                rxn_type_B = "Molecular formation from one new bond A+B -> C"
+            elif rxn_type == "coordination_bond_change":
+                rxn_type_A = "Coordination bond breaking AM -> A+M"
+                rxn_type_B = "Coordination bond forming A+M -> AM"
             energy_A = entry0.energy + entry1.energy - entry.energy
             energy_B = entry.energy - entry0.energy - entry1.energy
             if entry1.free_energy != None and entry0.free_energy != None and entry.free_energy != None:
@@ -401,7 +473,8 @@ class ReactionNetwork(MSONable):
                 # Note that we're ignoring the order in which BPs are made vs they come up as PRs...
                 path_dict["all_prereqs"].remove(PR)
                 path_dict["byproducts"].remove(PR)
-                path_dict["cost"] -= self.min_cost[PR]
+                if PR in self.min_cost:
+                    path_dict["cost"] -= self.min_cost[PR]
         for PR in path_dict["all_prereqs"]:
             if PR in PR_paths:
                 path_dict["solved_prereqs"].append(PR)
@@ -462,6 +535,9 @@ class ReactionNetwork(MSONable):
         ii = 0
         for start in starts:
             no_path_to[start] = []
+        for start in starts:
+            PRs[start] = self.characterize_path([start],weight)
+        print(PRs)
         while len(new_solved_PRs) > 0:
             min_cost = {}
             for PR in PRs:

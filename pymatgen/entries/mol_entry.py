@@ -69,8 +69,6 @@ class MoleculeEntry(MSONable):
                                                           reorder=False,
                                                           extend_structure=False)
         self.mol_graph = metal_edge_extender(mol_graph)
-        # self.graph = self.mol_graph.graph
-        # self.edges = self.graph.edges()
 
     @property
     def graph(self):
