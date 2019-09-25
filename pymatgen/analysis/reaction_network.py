@@ -441,6 +441,7 @@ class ReactionNetwork(MSONable):
                 if "+PR_" in node.split(",")[0]:
                     PR = int(node.split(",")[0].split("+PR_")[1])
                     PR_record[PR].append(node)
+        print(PR_record[51])
         return PR_record
 
     def characterize_path(self,path,weight,PR_paths={},final=False):
@@ -475,6 +476,8 @@ class ReactionNetwork(MSONable):
                 path_dict["byproducts"].remove(PR)
                 if PR in self.min_cost:
                     path_dict["cost"] -= self.min_cost[PR]
+                else:
+                    print("Missing PR cost to remove:",PR)
         for PR in path_dict["all_prereqs"]:
             if PR in PR_paths:
                 path_dict["solved_prereqs"].append(PR)
@@ -485,6 +488,7 @@ class ReactionNetwork(MSONable):
             path_dict["overall_free_energy_change"] = 0.0
             path_dict["hardest_step"] = None
             path_dict["description"] = ""
+            path_dict["pure_cost"] = 0.0
 
             assert(len(path_dict["solved_prereqs"])==len(path_dict["all_prereqs"]))
             assert(len(path_dict["unsolved_prereqs"])==0)
@@ -508,10 +512,14 @@ class ReactionNetwork(MSONable):
 
             for PR in path_dict["all_prereqs"]:
                 if PR in path_dict["byproducts"]:
-                    print("WARNING: Matching prereq and byproduct found!")
+                    print("WARNING: Matching prereq and byproduct found!",PR)
 
             for ii,step in enumerate(full_path):
                 if self.graph.node[step]["bipartite"] == 1:
+                    if weight == "softplus":
+                        path_dict["pure_cost"] += self.softplus(self.graph.node[step]["free_energy"])
+                    elif weight == "exponent":
+                        path_dict["pure_cost"] += self.exponent(self.graph.node[step]["free_energy"])
                     path_dict["overall_free_energy_change"] += self.graph.node[step]["free_energy"]
                     if path_dict["description"] == "":
                         path_dict["description"] += self.graph.node[step]["rxn_type"]
@@ -523,7 +531,10 @@ class ReactionNetwork(MSONable):
                         path_dict["hardest_step"] = step
             del path_dict["path"]
             path_dict["full_path"] = full_path
-            path_dict["hardest_step_deltaG"] = self.graph.node[path_dict["hardest_step"]]["free_energy"]
+            if path_dict["hardest_step"] == None:
+                path_dict["hardest_step_deltaG"] = None
+            else:
+                path_dict["hardest_step_deltaG"] = self.graph.node[path_dict["hardest_step"]]["free_energy"]
         return path_dict
 
     def solve_prerequisites(self,starts,target,weight):
@@ -535,13 +546,15 @@ class ReactionNetwork(MSONable):
         ii = 0
         for start in starts:
             no_path_to[start] = []
-        for start in starts:
             PRs[start] = self.characterize_path([start],weight)
-        print(PRs)
+            old_solved_PRs.append(start)
+            self.min_cost[start] = PRs[start]["cost"]
         while len(new_solved_PRs) > 0:
             min_cost = {}
             for PR in PRs:
                 min_cost[PR] = PRs[PR]["cost"]
+                if PR == 51:
+                    print("51 cost",min_cost[PR])
             for start in starts:
                 for node in self.graph.nodes():
                     if self.graph.node[node]["bipartite"] == 0 and node not in old_solved_PRs and node != target and node not in no_path_to[start]:
@@ -553,13 +566,17 @@ class ReactionNetwork(MSONable):
                                 target=hash(node),
                                 ignore_nodes=self.find_or_remove_bad_nodes([target,node]),
                                 weight=weight)
+                            if node == 41:
+                                print("dp",dij_path)
                         except nx.exception.NetworkXNoPath:
-                            # print("No path exists to node ",node)
                             no_path_to[start].append(node)
                             path_exists = False
                         if path_exists:
                             if len(dij_path) > 1 and len(dij_path)%2 == 1:
-                                path = self.characterize_path(dij_path,weight,PRs)
+                                path = self.characterize_path(dij_path,weight,old_solved_PRs)
+                                if node == 41:
+                                    print("cp",path["path"],path["cost"])
+                                    print()
                                 if len(path["unsolved_prereqs"]) == 0:
                                     if node in PRs:
                                         if path["cost"] < PRs[node]["cost"]:
@@ -581,8 +598,8 @@ class ReactionNetwork(MSONable):
                 if PR not in old_solved_PRs:
                     new_solved_PRs.append(PR)
             # print()
-            # print(ii,old_solved_PRs,new_solved_PRs)
-            print(ii,len(old_solved_PRs),len(new_solved_PRs))
+            print(ii,old_solved_PRs,new_solved_PRs)
+            # print(ii,len(old_solved_PRs),len(new_solved_PRs))
             attrs = {}
 
             for PR_ind in min_cost:
@@ -593,6 +610,54 @@ class ReactionNetwork(MSONable):
             self.min_cost = copy.deepcopy(min_cost)
             old_solved_PRs = copy.deepcopy(solved_PRs)
             ii += 1
+            if 51 in PRs:
+                print("PR 51cost",PRs[51]["cost"])
+            print("self 51cost",self.min_cost[51])
+            print()
+
+        for PR in PRs:
+            # print(PR,PRs[PR]["path"])
+            path_dict = self.characterize_path(PRs[PR]["path"],weight,PRs,True)
+            if abs(path_dict["cost"]-path_dict["pure_cost"])>0.0001:
+                print(PR,path_dict["cost"],path_dict["pure_cost"],path_dict["full_path"])
+            else:
+                print(PR,"good",path_dict["pure_cost"],path_dict["full_path"])
+                if PR == 41:
+                    new_dict = self.characterize_path([456, '456+PR_556,424', 424, '424,423', 423, '423,420', 420, '420,41+164', 41],weight,PRs,True)
+                    print(41,"checking",new_dict["cost"],new_dict["pure_cost"],new_dict["full_path"])
+                    length,dij_path = nx.algorithms.simple_paths._bidirectional_dijkstra(
+                                self.graph,
+                                source=hash(456),
+                                target=hash(41),
+                                ignore_nodes=self.find_or_remove_bad_nodes([target,41]),
+                                weight=weight)
+                    newer_dict = self.characterize_path(dij_path,weight,PRs,True)
+                    print(41,"recalcu1",newer_dict["cost"],newer_dict["pure_cost"],newer_dict["full_path"])
+                    length,dij_path = nx.algorithms.simple_paths._bidirectional_dijkstra(
+                                self.graph,
+                                source=hash(556),
+                                target=hash(41),
+                                ignore_nodes=self.find_or_remove_bad_nodes([target,41]),
+                                weight=weight)
+                    newest_dict = self.characterize_path(dij_path,weight,PRs,True)
+                    print(41,"recalcu2",newest_dict["cost"],newest_dict["pure_cost"],newest_dict["full_path"])
+
+        # path_dict = self.characterize_path(PRs[451]["path"],weight,PRs,True)
+        # path = path_dict["full_path"]
+        # for ii,step in enumerate(path):
+        #     if self.graph.node[step]["bipartite"] == 1:
+        #         if self.graph[step][path[ii+1]][weight] != 0.0:
+        #             if self.graph[path[ii-1]][step][weight] != 0.0:
+        #                 print("Double counting!",path[ii-1],step,path[ii+1])
+        #             if weight == "softplus":
+        #                 print(step,path[ii+1],self.graph[step][path[ii+1]][weight],self.softplus(self.graph.node[step]["free_energy"]))
+        #             if weight == "exponent":
+        #                 print(step,path[ii+1],self.graph[step][path[ii+1]][weight],self.softplus(self.graph.node[step]["exponent"]))
+        #         elif self.graph[path[ii-1]][step][weight] != 0.0:
+        #             if weight == "softplus":
+        #                 print(step,path[ii+1],self.graph[path[ii-1]][step][weight],self.softplus(self.graph.node[step]["free_energy"]))
+        #             if weight == "exponent":
+        #                 print(step,path[ii+1],self.graph[path[ii-1]][step][weight],self.softplus(self.graph.node[step]["exponent"]))
         return PRs
 
     def find_or_remove_bad_nodes(self,nodes,remove_nodes=False):
@@ -640,6 +705,7 @@ class ReactionNetwork(MSONable):
                     heapq.heappush(my_heapq, (path_dict["cost"],next(c),path_dict))
 
         while len(paths) < num_paths and my_heapq:
+            # Check if any byproduct could yield a prereq cheaper than from starting molecule(s)?
             (cost, _, path_dict) = heapq.heappop(my_heapq)
             print(len(paths),cost,len(my_heapq),path_dict["all_prereqs"])
             paths.append(path_dict)

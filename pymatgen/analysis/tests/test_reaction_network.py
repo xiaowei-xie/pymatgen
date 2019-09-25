@@ -84,15 +84,22 @@ class TestReactionNetwork(PymatgenTest):
             H = float(entry["output"]["enthalpy"])
             S = float(entry["output"]["entropy"])
             mol_entry = MoleculeEntry(molecule=mol,energy=E,enthalpy=H,entropy=S,entry_id=entry["task_id"])
-            cls.LiEC_reextended_entries.append(mol_entry)
+            if mol_entry.formula == "Li1":
+                if mol_entry.charge == 1:
+                    cls.LiEC_reextended_entries.append(mol_entry)
+            else:
+                cls.LiEC_reextended_entries.append(mol_entry)
 
     def test_reextended(self):
         RN = ReactionNetwork(
             self.LiEC_reextended_entries,
             electron_free_energy=-2.15)
-        self.assertEqual(len(RN.entries_list),481)
-        self.assertEqual(len(RN.graph.nodes),10491)
-        self.assertEqual(len(RN.graph.edges),23158)
+        self.assertEqual(len(RN.entries_list),569)
+        self.assertEqual(len(RN.graph.nodes),10481)
+        self.assertEqual(len(RN.graph.edges),22890)
+        # print(len(RN.entries_list))
+        # print(len(RN.graph.nodes))
+        # print(len(RN.graph.edges))
 
         EC_ind = None
         LEDC_ind = None
@@ -110,18 +117,30 @@ class TestReactionNetwork(PymatgenTest):
                 LEDC_ind = entry.parameters["ind"]
                 break
         Li1_ind = RN.entries["Li1"][0][1][0].parameters["ind"]
-        self.assertEqual(EC_ind,417)
-        self.assertEqual(LEDC_ind,459)
-        self.assertEqual(Li1_ind,474)
-        self.assertEqual(LiEC_ind,394)
+        self.assertEqual(EC_ind,456)
+        self.assertEqual(LEDC_ind,511)
+        self.assertEqual(Li1_ind,556)
+        self.assertEqual(LiEC_ind,424)
+        # print(EC_ind)
+        # print(LEDC_ind)
+        # print(Li1_ind)
+        # print(LiEC_ind)
 
         # PR_paths, paths = RN.find_paths([EC_ind,Li1_ind],LEDC_ind,weight="softplus",num_paths=10)
         # PR_paths, paths = RN.find_paths([LiEC_ind],LEDC_ind,weight="softplus",num_paths=10)
+        # PR_paths, paths = RN.find_paths([LiEC_ind],42,weight="softplus",num_paths=10)
         PR_paths, paths = RN.find_paths([EC_ind,Li1_ind],LiEC_ind,weight="softplus",num_paths=10)
-        for path in paths:
-            for val in path:
-                print(val, path[val])
-            print()
+        # PR_paths, paths = RN.find_paths([EC_ind,Li1_ind],42,weight="exponent",num_paths=10)
+        # for path in paths:
+        #     for val in path:
+        #         print(val, path[val])
+        #     print()
+
+        # for PR in PR_paths:
+        #     path_dict = RN.characterize_path(PR_paths[PR]["path"],"exponent",PR_paths,True)
+        #     if path_dict["cost"] != path_dict["pure_cost"]:
+        #         print(PR,path_dict["cost"],path_dict["pure_cost"],path_dict["full_path"])
+
 
     def _test_build_graph(self):
         RN = ReactionNetwork(
