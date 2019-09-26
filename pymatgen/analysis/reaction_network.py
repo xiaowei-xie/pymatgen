@@ -111,9 +111,13 @@ class ReactionNetwork(MSONable):
         self.intramol_single_bond_change()
         self.intermol_single_bond_change()
         self.coordination_bond_change()
+        self.concerted_break1_form1()
+        self.concerted_break2_form2()
+        self.concerted_redox_single_bond_change()
 
         self.PR_record = self.build_PR_record()
         self.min_cost = {}
+        self.num_starts = None
 
     def one_electron_redox(self):
         # One electron oxidation / reduction without change to bonding
@@ -265,6 +269,38 @@ class ReactionNetwork(MSONable):
                                                                                 break
                                         except MolGraphSplitError:
                                             pass
+
+    def concerted_break1_form1(self):
+        # A concerted reaction in which one bond is broken and one bond is formed
+        # A + B <-> C + D or A + B <-> C
+        # Either four entries with:
+        #     comp(A) + comp(B) = comp(C) + comp(D)
+        #     charge(A) + charge(B) = charge(C) + charge(D)
+        #     breaking a bond in A (or B) yields two disconnected subgraphs SG1 and SG2,
+        #     and joining one of those subgraphs to B (or A) will yield a molecule graph
+        #     isomorphic to C or D while the unjoined subgraph will be isomorphic to D or C.
+        # Or three entries with:
+        #     comp(A) + comp(B) = comp(C)
+        #     charge(A) + charge(B) = charge(C)
+        #     breaking a bond in A (or B) yields one connected subgraph, and joining that
+        #     subgroup to B (or A) will yield a molecule graph isomorphic to C.
+        pass
+
+    def concerted_break2_form2(self):
+        # A concerted reaction in which two bonds are broken and two bonds are formed
+        # A + B <-> C + D
+        # Four entries with:
+        #     comp(A) + comp(B) = comp(C) + comp(D)
+        #     charge(A) + charge(B) = charge(C) + charge(D)
+        #     breaking a bond in A yields two disconnected subgraphs A1 and A2 and breaking
+        #     a bond in B yields two disconnected subgraphs B1 and B2 and joining A1 (or A2)
+        #     with B1 or B2 yields a molecule graph isomorphic to C or D while joining A2 (or A1)
+        #     with the unused B2 or B1 yields a molecule graph isomorphic to the unused D or C.
+        pass
+
+    def concerted_redox_single_bond_change(self):
+        # does this need to be different for inter vs intra bond changes?
+        pass
 
     def add_reaction(self,entries0,entries1,rxn_type):
         """
@@ -441,7 +477,6 @@ class ReactionNetwork(MSONable):
                 if "+PR_" in node.split(",")[0]:
                     PR = int(node.split(",")[0].split("+PR_")[1])
                     PR_record[PR].append(node)
-        print(PR_record[51])
         return PR_record
 
     def characterize_path(self,path,weight,PR_paths={},final=False):
@@ -479,6 +514,7 @@ class ReactionNetwork(MSONable):
                 else:
                     print("Missing PR cost to remove:",PR)
         for PR in path_dict["all_prereqs"]:
+            # if len(PR_paths[PR].keys()) == self.num_starts:
             if PR in PR_paths:
                 path_dict["solved_prereqs"].append(PR)
             else:
@@ -500,7 +536,13 @@ class ReactionNetwork(MSONable):
             while len(PRs_to_join) > 0:
                 new_PRs = []
                 for PR in PRs_to_join:
-                    PR_path = PR_paths[PR]
+                    PR_path = None
+                    PR_min_cost = 1000000000000000.0
+                    for start in PR_paths[PR]:
+                        if PR_paths[PR][start] != "no_path":
+                            if PR_paths[PR][start]["cost"] < PR_min_cost:
+                                PR_min_cost = PR_paths[PR][start]["cost"]
+                                PR_path = PR_paths[PR][start]
                     assert(len(PR_path["solved_prereqs"])==len(PR_path["all_prereqs"]))
                     for new_PR in PR_path["all_prereqs"]:
                         new_PRs.append(new_PR)
@@ -541,65 +583,67 @@ class ReactionNetwork(MSONable):
         PRs = {}
         old_solved_PRs = []
         new_solved_PRs = ["placeholder"]
-        no_path_to = {}
         orig_graph = copy.deepcopy(self.graph)
         ii = 0
         for start in starts:
-            no_path_to[start] = []
-            PRs[start] = self.characterize_path([start],weight)
-            old_solved_PRs.append(start)
-            self.min_cost[start] = PRs[start]["cost"]
+            PRs[start] = {}
+        for PR in PRs:
+            for start in starts:
+                if start == PR:
+                    PRs[PR][start] = self.characterize_path([start],weight)
+                else:
+                    PRs[PR][start] = "no_path"
+            old_solved_PRs.append(PR)
+            self.min_cost[PR] = PRs[PR][PR]["cost"]
+        for node in self.graph.nodes():
+            if self.graph.node[node]["bipartite"] == 0 and node != target:
+                if node not in PRs:
+                    PRs[node] = {}
         while len(new_solved_PRs) > 0:
             min_cost = {}
             for PR in PRs:
-                min_cost[PR] = PRs[PR]["cost"]
-                if PR == 51:
-                    print("51 cost",min_cost[PR])
-            for start in starts:
-                for node in self.graph.nodes():
-                    if self.graph.node[node]["bipartite"] == 0 and node not in old_solved_PRs and node != target and node not in no_path_to[start]:
-                        path_exists = True
-                        try:
-                            length,dij_path = nx.algorithms.simple_paths._bidirectional_dijkstra(
-                                self.graph,
-                                source=hash(start),
-                                target=hash(node),
-                                ignore_nodes=self.find_or_remove_bad_nodes([target,node]),
-                                weight=weight)
-                            if node == 41:
-                                print("dp",dij_path)
-                        except nx.exception.NetworkXNoPath:
-                            no_path_to[start].append(node)
-                            path_exists = False
-                        if path_exists:
-                            if len(dij_path) > 1 and len(dij_path)%2 == 1:
-                                path = self.characterize_path(dij_path,weight,old_solved_PRs)
-                                if node == 41:
-                                    print("cp",path["path"],path["cost"])
-                                    print()
-                                if len(path["unsolved_prereqs"]) == 0:
-                                    if node in PRs:
-                                        if path["cost"] < PRs[node]["cost"]:
-                                            PRs[node] = path
-                                            min_cost[node] = path["cost"]
-                                    else:
-                                        PRs[node] = path
-                                        min_cost[node] = path["cost"]
-                                elif node in min_cost:
+                min_cost[PR] = 10000000000000000.0
+                for start in PRs[PR]:
+                    if PRs[PR][start] != "no_path":
+                        if PRs[PR][start]["cost"] < min_cost[PR]:
+                            min_cost[PR] = PRs[PR][start]["cost"]
+            for node in self.graph.nodes():
+                if self.graph.node[node]["bipartite"] == 0 and node not in old_solved_PRs and node != target:
+                    for start in starts:
+                        if start not in PRs[node]:
+                            path_exists = True
+                            try:
+                                length,dij_path = nx.algorithms.simple_paths._bidirectional_dijkstra(
+                                    self.graph,
+                                    source=hash(start),
+                                    target=hash(node),
+                                    ignore_nodes=self.find_or_remove_bad_nodes([target,node]),
+                                    weight=weight)
+                            except nx.exception.NetworkXNoPath:
+                                PRs[node][start] = "no_path"
+                                path_exists = False
+                            if path_exists:
+                                if len(dij_path) > 1 and len(dij_path)%2 == 1:
+                                    path = self.characterize_path(dij_path,weight,old_solved_PRs)
+                                    if len(path["unsolved_prereqs"]) == 0:
+                                        PRs[node][start] = path
+                                        # print("Solved PR",node,PRs[node])
                                     if path["cost"] < min_cost[node]:
                                         min_cost[node] = path["cost"]
                                 else:
-                                    min_cost[node] = path["cost"]
-                                    # print(node, path["prereqs"], len(path["path"]), path["cost"])
+                                    print("Does this ever happen?")
 
-            solved_PRs = list(PRs.keys())
+            solved_PRs = []
+            for PR in PRs:
+                if len(PRs[PR].keys()) == self.num_starts:
+                    solved_PRs.append(PR)
+
             new_solved_PRs = []
             for PR in solved_PRs:
                 if PR not in old_solved_PRs:
                     new_solved_PRs.append(PR)
-            # print()
-            print(ii,old_solved_PRs,new_solved_PRs)
-            # print(ii,len(old_solved_PRs),len(new_solved_PRs))
+
+            print(ii,len(old_solved_PRs),len(new_solved_PRs))
             attrs = {}
 
             for PR_ind in min_cost:
@@ -610,54 +654,18 @@ class ReactionNetwork(MSONable):
             self.min_cost = copy.deepcopy(min_cost)
             old_solved_PRs = copy.deepcopy(solved_PRs)
             ii += 1
-            if 51 in PRs:
-                print("PR 51cost",PRs[51]["cost"])
-            print("self 51cost",self.min_cost[51])
-            print()
 
         for PR in PRs:
-            # print(PR,PRs[PR]["path"])
-            path_dict = self.characterize_path(PRs[PR]["path"],weight,PRs,True)
-            if abs(path_dict["cost"]-path_dict["pure_cost"])>0.0001:
-                print(PR,path_dict["cost"],path_dict["pure_cost"],path_dict["full_path"])
-            else:
-                print(PR,"good",path_dict["pure_cost"],path_dict["full_path"])
-                if PR == 41:
-                    new_dict = self.characterize_path([456, '456+PR_556,424', 424, '424,423', 423, '423,420', 420, '420,41+164', 41],weight,PRs,True)
-                    print(41,"checking",new_dict["cost"],new_dict["pure_cost"],new_dict["full_path"])
-                    length,dij_path = nx.algorithms.simple_paths._bidirectional_dijkstra(
-                                self.graph,
-                                source=hash(456),
-                                target=hash(41),
-                                ignore_nodes=self.find_or_remove_bad_nodes([target,41]),
-                                weight=weight)
-                    newer_dict = self.characterize_path(dij_path,weight,PRs,True)
-                    print(41,"recalcu1",newer_dict["cost"],newer_dict["pure_cost"],newer_dict["full_path"])
-                    length,dij_path = nx.algorithms.simple_paths._bidirectional_dijkstra(
-                                self.graph,
-                                source=hash(556),
-                                target=hash(41),
-                                ignore_nodes=self.find_or_remove_bad_nodes([target,41]),
-                                weight=weight)
-                    newest_dict = self.characterize_path(dij_path,weight,PRs,True)
-                    print(41,"recalcu2",newest_dict["cost"],newest_dict["pure_cost"],newest_dict["full_path"])
+            path_found = False
+            for start in starts:
+                if PRs[PR][start] != "no_path":
+                    path_found = True
+                    path_dict = self.characterize_path(PRs[PR][start]["path"],weight,PRs,True)
+                    if abs(path_dict["cost"]-path_dict["pure_cost"])>0.0001:
+                        print("WARNING: cost mismatch for PR",PR,path_dict["cost"],path_dict["pure_cost"],path_dict["full_path"])
+            if not path_found:
+                print("No path found from any start to PR",PR)
 
-        # path_dict = self.characterize_path(PRs[451]["path"],weight,PRs,True)
-        # path = path_dict["full_path"]
-        # for ii,step in enumerate(path):
-        #     if self.graph.node[step]["bipartite"] == 1:
-        #         if self.graph[step][path[ii+1]][weight] != 0.0:
-        #             if self.graph[path[ii-1]][step][weight] != 0.0:
-        #                 print("Double counting!",path[ii-1],step,path[ii+1])
-        #             if weight == "softplus":
-        #                 print(step,path[ii+1],self.graph[step][path[ii+1]][weight],self.softplus(self.graph.node[step]["free_energy"]))
-        #             if weight == "exponent":
-        #                 print(step,path[ii+1],self.graph[step][path[ii+1]][weight],self.softplus(self.graph.node[step]["exponent"]))
-        #         elif self.graph[path[ii-1]][step][weight] != 0.0:
-        #             if weight == "softplus":
-        #                 print(step,path[ii+1],self.graph[path[ii-1]][step][weight],self.softplus(self.graph.node[step]["free_energy"]))
-        #             if weight == "exponent":
-        #                 print(step,path[ii+1],self.graph[path[ii-1]][step][weight],self.softplus(self.graph.node[step]["exponent"]))
         return PRs
 
     def find_or_remove_bad_nodes(self,nodes,remove_nodes=False):
@@ -691,6 +699,7 @@ class ReactionNetwork(MSONable):
         my_heapq = []
 
         print("Solving prerequisites...")
+        self.num_starts = len(starts)
         PR_paths = self.solve_prerequisites(starts,target,weight)
 
         print("Finding paths...")
