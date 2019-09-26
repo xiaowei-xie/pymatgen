@@ -17,6 +17,7 @@ from pymatgen.analysis.fragmenter import metal_edge_extender
 import networkx as nx
 from networkx.algorithms import bipartite
 from pymatgen.entries.mol_entry import MoleculeEntry
+from pymatgen.core.composition import CompositionError
 
 
 __author__ = "Samuel Blau"
@@ -188,10 +189,8 @@ class ReactionNetwork(MSONable):
                                 bond = [(edge[0],edge[1])]
                                 try:
                                     frags = entry.mol_graph.split_molecule_subgraphs(bond, allow_reverse=True)
-                                    # graph0 = frags[0].graph
                                     formula0 = frags[0].molecule.composition.alphabetical_formula
                                     Nbonds0 = len(frags[0].graph.edges())
-                                    # graph1 = frags[1].graph
                                     formula1 = frags[1].molecule.composition.alphabetical_formula
                                     Nbonds1 = len(frags[1].graph.edges())
                                     if formula0 in self.entries and formula1 in self.entries:
@@ -264,7 +263,7 @@ class ReactionNetwork(MSONable):
                                                                     M_charge = entry.charge - nonM_charge
                                                                     if M_charge in M_entries[M_formula]:
                                                                         for nonM_entry in self.entries[nonM_formula][nonM_Nbonds][nonM_charge]:
-                                                                            if frag.isomorphic_to(nonM_entry):
+                                                                            if frag.isomorphic_to(nonM_entry.mol_graph):
                                                                                 self.add_reaction([entry],[nonM_entry,M_entries[M_formula][M_charge]],"coordination_bond_change")
                                                                                 break
                                         except MolGraphSplitError:
@@ -272,19 +271,95 @@ class ReactionNetwork(MSONable):
 
     def concerted_break1_form1(self):
         # A concerted reaction in which one bond is broken and one bond is formed
-        # A + B <-> C + D or A + B <-> C
-        # Either four entries with:
+        # A + B <-> C + D (case I) or A + B <-> C (case II)
+        # Case I:
+        #   Four entries with:
         #     comp(A) + comp(B) = comp(C) + comp(D)
         #     charge(A) + charge(B) = charge(C) + charge(D)
         #     breaking a bond in A (or B) yields two disconnected subgraphs SG1 and SG2,
         #     and joining one of those subgraphs to B (or A) will yield a molecule graph
         #     isomorphic to C or D while the unjoined subgraph will be isomorphic to D or C.
-        # Or three entries with:
+        # Case II:
+        #   Three entries with:
         #     comp(A) + comp(B) = comp(C)
         #     charge(A) + charge(B) = charge(C)
         #     breaking a bond in A (or B) yields one connected subgraph, and joining that
         #     subgroup to B (or A) will yield a molecule graph isomorphic to C.
-        pass
+        for formula0 in self.entries:
+            print("formula0",formula0,len(self.graph.nodes))
+            for Nbonds0 in self.entries[formula0]:
+                if Nbonds0 > 0:
+                    for charge0 in self.entries[formula0][Nbonds0]:
+                        for entry0 in self.entries[formula0][Nbonds0][charge0]:
+                            for edge0 in entry0.edges:
+                                bond0 = [(edge0[0],edge0[1])]
+                                split_success0 = None
+                                try:
+                                    frags0 = entry0.mol_graph.split_molecule_subgraphs(bond0, allow_reverse=True)
+                                    split_success0 = True
+                                except MolGraphSplitError:
+                                    split_success0 = False
+
+                                if split_success0: # Case I
+                                    frags_to_join = []
+                                    for ii,frag in enumerate(frags0):
+                                        formula1 = frag.molecule.composition.alphabetical_formula
+                                        if formula1 in self.entries:
+                                            Nbonds1 = len(frag.graph.edges())
+                                            if Nbonds1 in self.entries[formula1]:
+                                                for charge1 in self.entries[formula1][Nbonds1]:
+                                                    for entry1 in self.entries[formula1][Nbonds1][charge1]:
+                                                        if frag.isomorphic_to(entry1.mol_graph):
+                                                            frags_to_join.append([entry1,frags0[1-ii],charge0-charge1])
+                                    for joinable in frags_to_join:
+                                        entry1 = joinable[0]
+                                        frag = joinable[1]
+                                        frag_charge = joinable[2]
+                                        frag_Nbonds = len(frag.graph.edges())
+                                        for formula2 in self.entries:
+                                            eg_Nbonds = list(self.entries[formula2].keys())[0]
+                                            eg_charge = list(self.entries[formula2][eg_Nbonds].keys())[0]
+                                            eg_comp = self.entries[formula2][eg_Nbonds][eg_charge][0].molecule.composition
+                                            pos_comp = False
+                                            try:
+                                                diff_comp = eg_comp - frag.molecule.composition
+                                                pos_comp = True
+                                            except CompositionError:
+                                                pass
+                                            if pos_comp:
+                                                formula3 = diff_comp.alphabetical_formula
+                                                if formula3 in self.entries:
+                                                    for Nbonds2 in self.entries[formula2]:
+                                                        if Nbonds2 > frag_Nbonds:
+                                                            Nbonds3 = Nbonds2 - frag_Nbonds - 1
+                                                            if Nbonds3 in self.entries[formula3]:
+                                                                for charge2 in self.entries[formula2][Nbonds2]:
+                                                                    charge3 = charge2 - frag_charge
+                                                                    if charge3 in self.entries[formula3][Nbonds3]:
+                                                                        for entry2 in self.entries[formula2][Nbonds2][charge2]:
+                                                                            for edge2 in entry2.edges:
+                                                                                bond2 = [(edge2[0],edge2[1])]
+                                                                                split_success2 = None
+                                                                                try:
+                                                                                    frags2 = entry2.mol_graph.split_molecule_subgraphs(bond2, allow_reverse=True)
+                                                                                    split_success2 = True
+                                                                                except MolGraphSplitError:
+                                                                                    split_success2 = False
+                                                                                if split_success2:
+                                                                                    for jj,frag2 in enumerate(frags2):
+                                                                                        if frag.isomorphic_to(frag2):
+                                                                                            for entry3 in self.entries[formula3][Nbonds3][charge3]:
+                                                                                                if frags2[1-jj].isomorphic_to(entry3.mol_graph):
+                                                                                                    self.add_reaction([entry0,entry3],[entry1,entry2],"concerted_break1_form1")
+                                                                                                    # print(entry0.parameters["ind"],entry3.parameters["ind"],entry1.parameters["ind"],entry2.parameters["ind"])
+                                                                                                    break
+                                                                                                    break
+                                else: # Case II
+                                    # mg = copy.deepcopy(entry0.mol_graph)
+                                    # mg.break_edge(edge0[0],edge0[1],allow_reverse=True)
+                                    # assert(nx.is_weakly_connected(mg.graph))
+                                    pass
+
 
     def concerted_break2_form2(self):
         # A concerted reaction in which two bonds are broken and two bonds are formed
@@ -322,6 +397,12 @@ class ReactionNetwork(MSONable):
         elif rxn_type == "coordination_bond_change":
             if len(entries0) != 1 or len(entries1) != 2:
                 raise RuntimeError("Coordination bond change requires two lists that contain one entry and two entries, respectively!")
+        elif rxn_type == "concerted_break1_form1":
+            if len(entries0) != 2 or (len(entries1) != 2 and len(entries1) != 1):
+                raise RuntimeError("Concerted breaking and forming one bond requires two lists that contain two entries and one or two entries, respectively!")
+        elif rxn_type == "concerted_break2_form2":
+            if len(entries0) != 2 or len(entries1) != 2:
+                raise RuntimeError("Concerted breaking and forming two bonds requires two lists that each contain two entries!")
         else:
             raise RuntimeError("Reaction type "+rxn_type+" is not supported!")
         if rxn_type == "one_electron_redox" or rxn_type == "intramol_single_bond_change":
@@ -460,6 +541,122 @@ class ReactionNetwork(MSONable):
                                 softplus=0.0,
                                 exponent=0.0,
                                 weight=1.0)
+
+        elif rxn_type == "concerted_break1_form1":
+            entryA = entries0[0]
+            entryB = entries0[1]
+            if entryA.parameters["ind"] <= entryB.parameters["ind"]:
+                AB_name = str(entryA.parameters["ind"])+"+"+str(entryB.parameters["ind"])
+            else:
+                AB_name = str(entryB.parameters["ind"])+"+"+str(entryA.parameters["ind"])
+            A_PR_B_name = str(entryA.parameters["ind"])+"+PR_"+str(entryB.parameters["ind"])
+            B_PR_A_name = str(entryB.parameters["ind"])+"+PR_"+str(entryA.parameters["ind"])
+
+            if len(entries1) == 2: # Case I
+                entryC = entries1[0]
+                entryD = entries1[1]
+                if entryC.parameters["ind"] <= entryD.parameters["ind"]:
+                    CD_name = str(entryC.parameters["ind"])+"+"+str(entryD.parameters["ind"])
+                else:
+                    CD_name = str(entryD.parameters["ind"])+"+"+str(entryC.parameters["ind"])
+                
+                C_PR_D_name = str(entryC.parameters["ind"])+"+PR_"+str(entryD.parameters["ind"])
+                D_PR_C_name = str(entryD.parameters["ind"])+"+PR_"+str(entryC.parameters["ind"])
+                node_name_1 = A_PR_B_name+","+CD_name
+                node_name_2 = B_PR_A_name+","+CD_name
+                node_name_3 = C_PR_D_name+","+AB_name
+                node_name_4 = D_PR_C_name+","+AB_name
+                AB_CD_energy = entryC.energy + entryD.energy - entryA.energy - entryB.energy
+                CD_AB_energy = entryA.energy + entryB.energy - entryC.energy - entryD.energy
+                if entryA.free_energy != None and entryB.free_energy != None and entryC.free_energy != None and entryD.free_energy != None:
+                    AB_CD_free_energy = entryC.free_energy + entryD.free_energy - entryA.free_energy - entryB.free_energy
+                    CD_AB_free_energy = entryA.free_energy + entryB.free_energy - entryC.free_energy - entryD.free_energy
+
+                self.graph.add_node(node_name_1,rxn_type=rxn_type,bipartite=1,energy=AB_CD_energy,free_energy=AB_CD_free_energy)
+                self.graph.add_edge(entryA.parameters["ind"],
+                                    node_name_1,
+                                    softplus=self.softplus(AB_CD_free_energy),
+                                    exponent=self.exponent(AB_CD_free_energy),
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_1,
+                                    entryC.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_1,
+                                    entryD.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+
+                self.graph.add_node(node_name_2,rxn_type=rxn_type,bipartite=1,energy=AB_CD_energy,free_energy=AB_CD_free_energy)
+                self.graph.add_edge(entryB.parameters["ind"],
+                                    node_name_2,
+                                    softplus=self.softplus(AB_CD_free_energy),
+                                    exponent=self.exponent(AB_CD_free_energy),
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_2,
+                                    entryC.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_2,
+                                    entryD.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+
+                self.graph.add_node(node_name_3,rxn_type=rxn_type,bipartite=1,energy=CD_AB_energy,free_energy=CD_AB_free_energy)
+                self.graph.add_edge(entryC.parameters["ind"],
+                                    node_name_3,
+                                    softplus=self.softplus(CD_AB_free_energy),
+                                    exponent=self.exponent(CD_AB_free_energy),
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_3,
+                                    entryA.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_3,
+                                    entryB.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+
+                self.graph.add_node(node_name_4,rxn_type=rxn_type,bipartite=1,energy=CD_AB_energy,free_energy=CD_AB_free_energy)
+                self.graph.add_edge(entryD.parameters["ind"],
+                                    node_name_4,
+                                    softplus=self.softplus(CD_AB_free_energy),
+                                    exponent=self.exponent(CD_AB_free_energy),
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_4,
+                                    entryA.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_4,
+                                    entryB.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+
+            elif len(entries1) == 1: # Case II
+                pass
+
+        elif rxn_type == "concerted_break2_form2":
+            pass
 
     def softplus(self,free_energy):
         return np.log(1 + (273.0 / 500.0) * np.exp(free_energy))
