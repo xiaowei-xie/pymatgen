@@ -335,10 +335,10 @@ class ReactionNetwork(MSONable):
             else:
                 OHminus_H3Oplus_name = str(H3Oplus_entry.parameters["ind"])+"+"+str(OHminus_entry.parameters["ind"])
 
-            2OHminus_H2_name = str(OHminus_entry.parameters["ind"])+"+"+str(OHminus_entry.parameters["ind"])+"+"+str(H2_entry.parameters["ind"])
+            OHminus2_H2_name = str(OHminus_entry.parameters["ind"])+"+"+str(OHminus_entry.parameters["ind"])+"+"+str(H2_entry.parameters["ind"])
 
             rxn_node_1 = H2O_PR_H2O_name+","+OHminus_H3Oplus_name
-            rxn_node_2 = H2O_PR_H2O_name+","+2OHminus_H2_name
+            rxn_node_2 = H2O_PR_H2O_name+","+OHminus2_H2_name
             
             rxn1_energy = OHminus_entry.energy + H3Oplus_entry.energy - 2*H2O_entry.energy
             rxn2_energy = 2*OHminus_entry.energy + H2_entry.energy - 2*H2O_entry.energy
