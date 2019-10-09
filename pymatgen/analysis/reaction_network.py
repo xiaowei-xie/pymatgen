@@ -108,13 +108,13 @@ class ReactionNetwork(MSONable):
         self.graph = nx.DiGraph()
         self.graph.add_nodes_from(range(len(self.entries_list)),bipartite=0)
 
+        self.num_reactions = 0
         self.one_electron_redox()
         self.intramol_single_bond_change()
         self.intermol_single_bond_change()
         self.coordination_bond_change()
-        self.concerted_break1_form1()
-        self.concerted_break2_form2()
-        self.concerted_redox_single_bond_change()
+        self.add_water_reactions()
+        # self.concerted_2_steps()
 
         self.PR_record = self.build_PR_record()
         self.min_cost = {}
@@ -269,113 +269,122 @@ class ReactionNetwork(MSONable):
                                         except MolGraphSplitError:
                                             pass
 
-    def concerted_break1_form1(self):
-        # A concerted reaction in which one bond is broken and one bond is formed
-        # A + B <-> C + D (case I) or A + B <-> C (case II)
-        # Case I:
-        #   Four entries with:
-        #     comp(A) + comp(B) = comp(C) + comp(D)
-        #     charge(A) + charge(B) = charge(C) + charge(D)
-        #     breaking a bond in A (or B) yields two disconnected subgraphs SG1 and SG2,
-        #     and joining one of those subgraphs to B (or A) will yield a molecule graph
-        #     isomorphic to C or D while the unjoined subgraph will be isomorphic to D or C.
-        # Case II:
-        #   Three entries with:
-        #     comp(A) + comp(B) = comp(C)
-        #     charge(A) + charge(B) = charge(C)
-        #     breaking a bond in A (or B) yields one connected subgraph, and joining that
-        #     subgroup to B (or A) will yield a molecule graph isomorphic to C.
-        for formula0 in self.entries:
-            print("formula0",formula0,len(self.graph.nodes))
-            for Nbonds0 in self.entries[formula0]:
-                if Nbonds0 > 0:
-                    for charge0 in self.entries[formula0][Nbonds0]:
-                        for entry0 in self.entries[formula0][Nbonds0][charge0]:
-                            for edge0 in entry0.edges:
-                                bond0 = [(edge0[0],edge0[1])]
-                                split_success0 = None
-                                try:
-                                    frags0 = entry0.mol_graph.split_molecule_subgraphs(bond0, allow_reverse=True)
-                                    split_success0 = True
-                                except MolGraphSplitError:
-                                    split_success0 = False
+    def concerted_2_steps(self):
+        reactions_to_add = []
+        for node0 in self.graph.nodes():
+            if self.graph.node[node0]["bipartite"] == 0:
+                node0_rxns = list(self.graph.neighbors(node0))
+                for rxn0 in node0_rxns:
+                    if self.graph.node[rxn0]["free_energy"] > 0:
+                        rxn0_products = list(self.graph.neighbors(rxn0))
+                        if len(rxn0_products) == 2: # This must be an A -> B+C bond breaking reaction
+                            for node1 in rxn0_products:
+                                node1_rxns = list(self.graph.neighbors(node1))
+                                for rxn1 in node1_rxns:
+                                    if self.graph.node[rxn0]["free_energy"] + self.graph.node[rxn1]["free_energy"] < 0 and "PR" in rxn1: # This must be an A+B -> C bond forming reaction"
+                                        reactant_nodes = [node0]
+                                        product_nodes = list(self.graph.neighbors(rxn1))
+                                        if "PR" in rxn0:
+                                            reactant_nodes.append(int(rxn0.split(",")[0].split("+PR_")[1]))
+                                        if "PR" in rxn1:
+                                            reactant_nodes.append(int(rxn1.split(",")[0].split("+PR_")[1]))
+                                        if len(reactant_nodes) > 2:
+                                            print("WARNING: More than two reactants! Ignoring...")
+                                        for prod in rxn0_products:
+                                            if prod != node1:
+                                                product_nodes.append(prod)
+                                        if len(product_nodes) > 2:
+                                            print("WARNING: More than two products! Ignoring...")
+                                        if len(reactant_nodes) <= 2 and len(product_nodes) <= 2:
+                                            entries0 = []
+                                            for ind in reactant_nodes:
+                                                entries0.append(self.entries_list[ind])
+                                            entries1 = []
+                                            for ind in product_nodes:
+                                                entries1.append(self.entries_list[ind])
+                                            reactions_to_add.append([entries0,entries1])
+        for to_add in reactions_to_add:
+            print(len(to_add[0]),len(to_add[1]))
+            self.add_reaction(to_add[0],to_add[1],"concerted")
 
-                                if split_success0: # Case I
-                                    frags_to_join = []
-                                    for ii,frag in enumerate(frags0):
-                                        formula1 = frag.molecule.composition.alphabetical_formula
-                                        if formula1 in self.entries:
-                                            Nbonds1 = len(frag.graph.edges())
-                                            if Nbonds1 in self.entries[formula1]:
-                                                for charge1 in self.entries[formula1][Nbonds1]:
-                                                    for entry1 in self.entries[formula1][Nbonds1][charge1]:
-                                                        if frag.isomorphic_to(entry1.mol_graph):
-                                                            frags_to_join.append([entry1,frags0[1-ii],charge0-charge1])
-                                    for joinable in frags_to_join:
-                                        entry1 = joinable[0]
-                                        frag = joinable[1]
-                                        frag_charge = joinable[2]
-                                        frag_Nbonds = len(frag.graph.edges())
-                                        for formula2 in self.entries:
-                                            eg_Nbonds = list(self.entries[formula2].keys())[0]
-                                            eg_charge = list(self.entries[formula2][eg_Nbonds].keys())[0]
-                                            eg_comp = self.entries[formula2][eg_Nbonds][eg_charge][0].molecule.composition
-                                            pos_comp = False
-                                            try:
-                                                diff_comp = eg_comp - frag.molecule.composition
-                                                pos_comp = True
-                                            except CompositionError:
-                                                pass
-                                            if pos_comp:
-                                                formula3 = diff_comp.alphabetical_formula
-                                                if formula3 in self.entries:
-                                                    for Nbonds2 in self.entries[formula2]:
-                                                        if Nbonds2 > frag_Nbonds:
-                                                            Nbonds3 = Nbonds2 - frag_Nbonds - 1
-                                                            if Nbonds3 in self.entries[formula3]:
-                                                                for charge2 in self.entries[formula2][Nbonds2]:
-                                                                    charge3 = charge2 - frag_charge
-                                                                    if charge3 in self.entries[formula3][Nbonds3]:
-                                                                        for entry2 in self.entries[formula2][Nbonds2][charge2]:
-                                                                            for edge2 in entry2.edges:
-                                                                                bond2 = [(edge2[0],edge2[1])]
-                                                                                split_success2 = None
-                                                                                try:
-                                                                                    frags2 = entry2.mol_graph.split_molecule_subgraphs(bond2, allow_reverse=True)
-                                                                                    split_success2 = True
-                                                                                except MolGraphSplitError:
-                                                                                    split_success2 = False
-                                                                                if split_success2:
-                                                                                    for jj,frag2 in enumerate(frags2):
-                                                                                        if frag.isomorphic_to(frag2):
-                                                                                            for entry3 in self.entries[formula3][Nbonds3][charge3]:
-                                                                                                if frags2[1-jj].isomorphic_to(entry3.mol_graph):
-                                                                                                    self.add_reaction([entry0,entry3],[entry1,entry2],"concerted_break1_form1")
-                                                                                                    # print(entry0.parameters["ind"],entry3.parameters["ind"],entry1.parameters["ind"],entry2.parameters["ind"])
-                                                                                                    break
-                                                                                                    break
-                                else: # Case II
-                                    # mg = copy.deepcopy(entry0.mol_graph)
-                                    # mg.break_edge(edge0[0],edge0[1],allow_reverse=True)
-                                    # assert(nx.is_weakly_connected(mg.graph))
-                                    pass
+    def add_water_reactions(self):
+        # Since concerted reactions remain intractable, this function adds two specific concerted
+        # reactions involving water so that realisic paths to OH- are possible:
+        # 2H2O -> OH- + H3O+
+        # 2H2O + 2e- -> H2 + 2OH-
+        # Note that in the 2nd reaction, H2 should be in gas phase, but all calcs are currently in SMD.
+        all_four_found = False
+        try:
+            H2O_entry = self.entries["H2 O1"][2][0][0]
+            OHminus_entry = self.entries["H1 O1"][1][-1][0]
+            H3Oplus_entry = self.entries["H3 O1"][3][1][0]
+            H2_entry = self.entries["H2"][1][0][0]
+            print("H2O_entry",H2O_entry)
+            print("OHminus_entry",OHminus_entry)
+            print("H3Oplus_entry",H3Oplus_entry)
+            print("H2_entry",H2_entry)
+            all_four_found = True
+        except KeyError:
+            pass
 
+        if all_four_found:
+            H2O_PR_H2O_name = str(H2O_entry.parameters["ind"])+"+PR_"+str(H2O_entry.parameters["ind"])
 
-    def concerted_break2_form2(self):
-        # A concerted reaction in which two bonds are broken and two bonds are formed
-        # A + B <-> C + D
-        # Four entries with:
-        #     comp(A) + comp(B) = comp(C) + comp(D)
-        #     charge(A) + charge(B) = charge(C) + charge(D)
-        #     breaking a bond in A yields two disconnected subgraphs A1 and A2 and breaking
-        #     a bond in B yields two disconnected subgraphs B1 and B2 and joining A1 (or A2)
-        #     with B1 or B2 yields a molecule graph isomorphic to C or D while joining A2 (or A1)
-        #     with the unused B2 or B1 yields a molecule graph isomorphic to the unused D or C.
-        pass
+            if OHminus_entry.parameters["ind"] <= H3Oplus_entry.parameters["ind"]:
+                OHminus_H3Oplus_name = str(OHminus_entry.parameters["ind"])+"+"+str(H3Oplus_entry.parameters["ind"])
+            else:
+                OHminus_H3Oplus_name = str(H3Oplus_entry.parameters["ind"])+"+"+str(OHminus_entry.parameters["ind"])
 
-    def concerted_redox_single_bond_change(self):
-        # does this need to be different for inter vs intra bond changes?
-        pass
+            OHminus2_H2_name = str(OHminus_entry.parameters["ind"])+"+"+str(OHminus_entry.parameters["ind"])+"+"+str(H2_entry.parameters["ind"])
+
+            rxn_node_1 = H2O_PR_H2O_name+","+OHminus_H3Oplus_name
+            rxn_node_2 = H2O_PR_H2O_name+","+OHminus2_H2_name
+            
+            rxn1_energy = OHminus_entry.energy + H3Oplus_entry.energy - 2*H2O_entry.energy
+            rxn2_energy = 2*OHminus_entry.energy + H2_entry.energy - 2*H2O_entry.energy
+
+            rxn1_free_energy = OHminus_entry.free_energy + H3Oplus_entry.free_energy - 2*H2O_entry.free_energy
+            rxn2_free_energy = 2*OHminus_entry.energy + H2_entry.energy - 2*H2O_entry.energy - 2*self.electron_free_energy
+
+            self.graph.add_node(rxn_node_1,rxn_type="water_dissociation",bipartite=1,energy=rxn1_energy,free_energy=rxn1_free_energy)
+            self.graph.add_edge(H2O_entry.parameters["ind"],
+                                rxn_node_1,
+                                softplus=self.softplus(rxn1_free_energy),
+                                exponent=self.exponent(rxn1_free_energy),
+                                weight=1.0
+                                )
+            self.graph.add_edge(rxn_node_1,
+                                OHminus_entry.parameters["ind"],
+                                softplus=0.0,
+                                exponent=0.0,
+                                weight=1.0
+                                )
+            self.graph.add_edge(rxn_node_1,
+                                H3Oplus_entry.parameters["ind"],
+                                softplus=0.0,
+                                exponent=0.0,
+                                weight=1.0
+                                )
+
+            self.graph.add_node(rxn_node_2,rxn_type="water_2e_redox",bipartite=1,energy=rxn2_energy,free_energy=rxn2_free_energy)
+            self.graph.add_edge(H2O_entry.parameters["ind"],
+                                rxn_node_2,
+                                softplus=self.softplus(rxn2_free_energy),
+                                exponent=self.exponent(rxn2_free_energy),
+                                weight=1.0
+                                )
+            self.graph.add_edge(rxn_node_2,
+                                OHminus_entry.parameters["ind"],
+                                softplus=0.0,
+                                exponent=0.0,
+                                weight=1.0
+                                )
+            self.graph.add_edge(rxn_node_2,
+                                H2_entry.parameters["ind"],
+                                softplus=0.0,
+                                exponent=0.0,
+                                weight=1.0
+                                )
 
     def add_reaction(self,entries0,entries1,rxn_type):
         """
@@ -385,6 +394,7 @@ class ReactionNetwork(MSONable):
             rxn_type (string): general reaction category. At present, must be one_electron_redox or 
                               intramol_single_bond_change or intermol_single_bond_change.
         """
+        self.num_reactions += 1
         if rxn_type == "one_electron_redox":
             if len(entries0) != 1 or len(entries1) != 1:
                 raise RuntimeError("One electron redox requires two lists that each contain one entry!")
@@ -397,15 +407,12 @@ class ReactionNetwork(MSONable):
         elif rxn_type == "coordination_bond_change":
             if len(entries0) != 1 or len(entries1) != 2:
                 raise RuntimeError("Coordination bond change requires two lists that contain one entry and two entries, respectively!")
-        elif rxn_type == "concerted_break1_form1":
-            if len(entries0) != 2 or (len(entries1) != 2 and len(entries1) != 1):
-                raise RuntimeError("Concerted breaking and forming one bond requires two lists that contain two entries and one or two entries, respectively!")
-        elif rxn_type == "concerted_break2_form2":
-            if len(entries0) != 2 or len(entries1) != 2:
-                raise RuntimeError("Concerted breaking and forming two bonds requires two lists that each contain two entries!")
+        elif rxn_type == "concerted":
+            if len(entries0) > 2 or len(entries1) > 2:
+                raise RuntimeError("Concerted reactions require two lists that each contain two or fewer entries!")
         else:
             raise RuntimeError("Reaction type "+rxn_type+" is not supported!")
-        if rxn_type == "one_electron_redox" or rxn_type == "intramol_single_bond_change":
+        if rxn_type == "one_electron_redox" or rxn_type == "intramol_single_bond_change" or (rxn_type == "concerted" and len(entries0) == 1 and len(entries1) == 1):
             entry0 = entries0[0]
             entry1 = entries1[0]
             if rxn_type == "one_electron_redox":
@@ -426,6 +433,9 @@ class ReactionNetwork(MSONable):
                 else:
                     rxn_type_A = "Intramolecular single bond formation"
                     rxn_type_B = "Intramolecular single bond breakage"
+            elif rxn_type == "concerted":
+                rxn_type_A = "Concerted"
+                rxn_type_B = "Concerted"
             node_name_A = str(entry0.parameters["ind"])+","+str(entry1.parameters["ind"])
             node_name_B = str(entry1.parameters["ind"])+","+str(entry0.parameters["ind"])
             energy_A = entry1.energy-entry0.energy
@@ -440,6 +450,15 @@ class ReactionNetwork(MSONable):
                     else:
                         free_energy_A += self.electron_free_energy
                         free_energy_B += -self.electron_free_energy
+                elif rxn_type == "concerted":
+                    if entry0.charge - entry1.charge == 1:
+                        free_energy_A += -self.electron_free_energy
+                        free_energy_B += self.electron_free_energy
+                    elif entry0.charge - entry1.charge == -1:
+                        free_energy_A += self.electron_free_energy
+                        free_energy_B += -self.electron_free_energy
+                    elif entry0.charge != entry1.charge:
+                        raise RuntimeError("Concerted charge difference of "+str(abs(entry0.charge - entry1.charge))+" detected!")
             else:
                 free_energy_A = None
                 free_energy_B = None
@@ -467,7 +486,7 @@ class ReactionNetwork(MSONable):
                                 exponent=self.exponent(free_energy_B),
                                 weight=1.0)
 
-        elif rxn_type == "intermol_single_bond_change" or rxn_type == "coordination_bond_change":
+        elif rxn_type == "intermol_single_bond_change" or rxn_type == "coordination_bond_change" or (rxn_type == "concerted" and len(entries0) == 1 and len(entries1) == 2):
             entry = entries0[0]
             entry0 = entries1[0]
             entry1 = entries1[1]
@@ -486,11 +505,23 @@ class ReactionNetwork(MSONable):
             elif rxn_type == "coordination_bond_change":
                 rxn_type_A = "Coordination bond breaking AM -> A+M"
                 rxn_type_B = "Coordination bond forming A+M -> AM"
+            elif rxn_type == "concerted":
+                rxn_type_A = "Concerted"
+                rxn_type_B = "Concerted"
             energy_A = entry0.energy + entry1.energy - entry.energy
             energy_B = entry.energy - entry0.energy - entry1.energy
             if entry1.free_energy != None and entry0.free_energy != None and entry.free_energy != None:
                 free_energy_A = entry0.free_energy + entry1.free_energy - entry.free_energy
                 free_energy_B = entry.free_energy - entry0.free_energy - entry1.free_energy
+                if rxn_type == "concerted":
+                    if entry.charge - (entry0.charge + entry1.charge) == 1:
+                        free_energy_A += -self.electron_free_energy
+                        free_energy_B += self.electron_free_energy
+                    elif entry.charge - (entry0.charge + entry1.charge) == -1:
+                        free_energy_A += self.electron_free_energy
+                        free_energy_B += -self.electron_free_energy
+                    elif entry.charge != (entry0.charge + entry1.charge):
+                        raise RuntimeError("Concerted charge difference of "+str(abs(entry.charge - (entry0.charge + entry1.charge)))+" detected!")
 
             self.graph.add_node(node_name_A,rxn_type=rxn_type_A,bipartite=1,energy=energy_A,free_energy=free_energy_A)
             
@@ -542,17 +573,19 @@ class ReactionNetwork(MSONable):
                                 exponent=0.0,
                                 weight=1.0)
 
-        elif rxn_type == "concerted_break1_form1":
-            entryA = entries0[0]
-            entryB = entries0[1]
-            if entryA.parameters["ind"] <= entryB.parameters["ind"]:
-                AB_name = str(entryA.parameters["ind"])+"+"+str(entryB.parameters["ind"])
-            else:
-                AB_name = str(entryB.parameters["ind"])+"+"+str(entryA.parameters["ind"])
-            A_PR_B_name = str(entryA.parameters["ind"])+"+PR_"+str(entryB.parameters["ind"])
-            B_PR_A_name = str(entryB.parameters["ind"])+"+PR_"+str(entryA.parameters["ind"])
+        elif rxn_type == "concerted":
+            if len(entries0) == 2 and len(entries1) == 1:
+                print("Concerted 2,1 found! Ignoring for now...")
+            elif len(entries0) == 2 and len(entries1) == 2:
+                entryA = entries0[0]
+                entryB = entries0[1]
+                if entryA.parameters["ind"] <= entryB.parameters["ind"]:
+                    AB_name = str(entryA.parameters["ind"])+"+"+str(entryB.parameters["ind"])
+                else:
+                    AB_name = str(entryB.parameters["ind"])+"+"+str(entryA.parameters["ind"])
+                A_PR_B_name = str(entryA.parameters["ind"])+"+PR_"+str(entryB.parameters["ind"])
+                B_PR_A_name = str(entryB.parameters["ind"])+"+PR_"+str(entryA.parameters["ind"])
 
-            if len(entries1) == 2: # Case I
                 entryC = entries1[0]
                 entryD = entries1[1]
                 if entryC.parameters["ind"] <= entryD.parameters["ind"]:
@@ -651,12 +684,8 @@ class ReactionNetwork(MSONable):
                                     exponent=0.0,
                                     weight=1.0
                                     )
-
-            elif len(entries1) == 1: # Case II
-                pass
-
-        elif rxn_type == "concerted_break2_form2":
-            pass
+            else:
+                print("Concerted "+str(len(entries0))+","+str(len(entries1))+" found! Ignoring for now...")
 
     def softplus(self,free_energy):
         return np.log(1 + (273.0 / 500.0) * np.exp(free_energy))
