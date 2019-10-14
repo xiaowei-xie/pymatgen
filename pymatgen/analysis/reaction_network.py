@@ -344,7 +344,9 @@ class ReactionNetwork(MSONable):
             rxn2_energy = 2*OHminus_entry.energy + H2_entry.energy - 2*H2O_entry.energy
 
             rxn1_free_energy = OHminus_entry.free_energy + H3Oplus_entry.free_energy - 2*H2O_entry.free_energy
-            rxn2_free_energy = 2*OHminus_entry.energy + H2_entry.energy - 2*H2O_entry.energy - 2*self.electron_free_energy
+            print("Water rxn1 free energy =",rxn1_free_energy)
+            rxn2_free_energy = 2*OHminus_entry.free_energy + H2_entry.free_energy - 2*H2O_entry.free_energy - 2*self.electron_free_energy
+            print("Water rxn2 free energy =",rxn2_free_energy)
 
             self.graph.add_node(rxn_node_1,rxn_type="water_dissociation",bipartite=1,energy=rxn1_energy,free_energy=rxn1_free_energy)
             self.graph.add_edge(H2O_entry.parameters["ind"],
@@ -825,6 +827,7 @@ class ReactionNetwork(MSONable):
             if self.graph.node[node]["bipartite"] == 0 and node != target:
                 if node not in PRs:
                     PRs[node] = {}
+
         while len(new_solved_PRs) > 0:
             min_cost = {}
             for PR in PRs:
@@ -875,7 +878,15 @@ class ReactionNetwork(MSONable):
             for PR_ind in min_cost:
                 for node in self.PR_record[PR_ind]:
                     split_node = node.split(",")
-                    attrs[(node,int(split_node[1]))] = {weight:orig_graph[node][int(split_node[1])][weight]+min_cost[PR_ind]}
+                    prod_nodes = []
+                    if "+" in split_node[1]:
+                        tmp = split_node[1].split("+")
+                        for prod_ind in tmp:
+                            prod_nodes.append(int(prod_ind))
+                    else:
+                        prod_nodes.append(int(split_node[1]))
+                    for prod_node in prod_nodes:
+                        attrs[(node,prod_node)] = {weight:orig_graph[node][prod_node][weight]+min_cost[PR_ind]}
             nx.set_edge_attributes(self.graph,attrs)
             self.min_cost = copy.deepcopy(min_cost)
             old_solved_PRs = copy.deepcopy(solved_PRs)
@@ -883,14 +894,17 @@ class ReactionNetwork(MSONable):
 
         for PR in PRs:
             path_found = False
-            for start in starts:
-                if PRs[PR][start] != "no_path":
-                    path_found = True
-                    path_dict = self.characterize_path(PRs[PR][start]["path"],weight,PRs,True)
-                    if abs(path_dict["cost"]-path_dict["pure_cost"])>0.0001:
-                        print("WARNING: cost mismatch for PR",PR,path_dict["cost"],path_dict["pure_cost"],path_dict["full_path"])
-            if not path_found:
-                print("No path found from any start to PR",PR)
+            if PRs[PR] != {}:
+                for start in starts:
+                    if PRs[PR][start] != "no_path":
+                        path_found = True
+                        path_dict = self.characterize_path(PRs[PR][start]["path"],weight,PRs,True)
+                        if abs(path_dict["cost"]-path_dict["pure_cost"])>0.0001:
+                            print("WARNING: cost mismatch for PR",PR,path_dict["cost"],path_dict["pure_cost"],path_dict["full_path"])
+                if not path_found:
+                    print("No path found from any start to PR",PR)
+            else:
+                print("Unsolvable path from any start to PR",PR)
 
         return PRs
 
