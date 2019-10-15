@@ -269,43 +269,43 @@ class ReactionNetwork(MSONable):
                                         except MolGraphSplitError:
                                             pass
 
-    def concerted_2_steps(self):
-        reactions_to_add = []
-        for node0 in self.graph.nodes():
-            if self.graph.node[node0]["bipartite"] == 0:
-                node0_rxns = list(self.graph.neighbors(node0))
-                for rxn0 in node0_rxns:
-                    if self.graph.node[rxn0]["free_energy"] > 0:
-                        rxn0_products = list(self.graph.neighbors(rxn0))
-                        if len(rxn0_products) == 2: # This must be an A -> B+C bond breaking reaction
-                            for node1 in rxn0_products:
-                                node1_rxns = list(self.graph.neighbors(node1))
-                                for rxn1 in node1_rxns:
-                                    if self.graph.node[rxn0]["free_energy"] + self.graph.node[rxn1]["free_energy"] < 0 and "PR" in rxn1: # This must be an A+B -> C bond forming reaction"
-                                        reactant_nodes = [node0]
-                                        product_nodes = list(self.graph.neighbors(rxn1))
-                                        if "PR" in rxn0:
-                                            reactant_nodes.append(int(rxn0.split(",")[0].split("+PR_")[1]))
-                                        if "PR" in rxn1:
-                                            reactant_nodes.append(int(rxn1.split(",")[0].split("+PR_")[1]))
-                                        if len(reactant_nodes) > 2:
-                                            print("WARNING: More than two reactants! Ignoring...")
-                                        for prod in rxn0_products:
-                                            if prod != node1:
-                                                product_nodes.append(prod)
-                                        if len(product_nodes) > 2:
-                                            print("WARNING: More than two products! Ignoring...")
-                                        if len(reactant_nodes) <= 2 and len(product_nodes) <= 2:
-                                            entries0 = []
-                                            for ind in reactant_nodes:
-                                                entries0.append(self.entries_list[ind])
-                                            entries1 = []
-                                            for ind in product_nodes:
-                                                entries1.append(self.entries_list[ind])
-                                            reactions_to_add.append([entries0,entries1])
-        for to_add in reactions_to_add:
-            print(len(to_add[0]),len(to_add[1]))
-            self.add_reaction(to_add[0],to_add[1],"concerted")
+    # def concerted_2_steps(self):
+    #     reactions_to_add = []
+    #     for node0 in self.graph.nodes():
+    #         if self.graph.node[node0]["bipartite"] == 0:
+    #             node0_rxns = list(self.graph.neighbors(node0))
+    #             for rxn0 in node0_rxns:
+    #                 if self.graph.node[rxn0]["free_energy"] > 0:
+    #                     rxn0_products = list(self.graph.neighbors(rxn0))
+    #                     if len(rxn0_products) == 2: # This must be an A -> B+C bond breaking reaction
+    #                         for node1 in rxn0_products:
+    #                             node1_rxns = list(self.graph.neighbors(node1))
+    #                             for rxn1 in node1_rxns:
+    #                                 if self.graph.node[rxn0]["free_energy"] + self.graph.node[rxn1]["free_energy"] < 0 and "PR" in rxn1: # This must be an A+B -> C bond forming reaction"
+    #                                     reactant_nodes = [node0]
+    #                                     product_nodes = list(self.graph.neighbors(rxn1))
+    #                                     if "PR" in rxn0:
+    #                                         reactant_nodes.append(int(rxn0.split(",")[0].split("+PR_")[1]))
+    #                                     if "PR" in rxn1:
+    #                                         reactant_nodes.append(int(rxn1.split(",")[0].split("+PR_")[1]))
+    #                                     if len(reactant_nodes) > 2:
+    #                                         print("WARNING: More than two reactants! Ignoring...")
+    #                                     for prod in rxn0_products:
+    #                                         if prod != node1:
+    #                                             product_nodes.append(prod)
+    #                                     if len(product_nodes) > 2:
+    #                                         print("WARNING: More than two products! Ignoring...")
+    #                                     if len(reactant_nodes) <= 2 and len(product_nodes) <= 2:
+    #                                         entries0 = []
+    #                                         for ind in reactant_nodes:
+    #                                             entries0.append(self.entries_list[ind])
+    #                                         entries1 = []
+    #                                         for ind in product_nodes:
+    #                                             entries1.append(self.entries_list[ind])
+    #                                         reactions_to_add.append([entries0,entries1])
+    #     for to_add in reactions_to_add:
+    #         print(len(to_add[0]),len(to_add[1]))
+    #         self.add_reaction(to_add[0],to_add[1],"concerted")
 
     def add_water_reactions(self):
         # Since concerted reactions remain intractable, this function adds two specific concerted
@@ -313,80 +313,103 @@ class ReactionNetwork(MSONable):
         # 2H2O -> OH- + H3O+
         # 2H2O + 2e- -> H2 + 2OH-
         # Note that in the 2nd reaction, H2 should be in gas phase, but all calcs are currently in SMD.
-        all_four_found = False
+        H2O_found = False
+        OHminus_found = False
+        H3Oplus_found = False
+        H2_found = False
         try:
             H2O_entry = self.entries["H2 O1"][2][0][0]
-            OHminus_entry = self.entries["H1 O1"][1][-1][0]
-            H3Oplus_entry = self.entries["H3 O1"][3][1][0]
-            H2_entry = self.entries["H2"][1][0][0]
             print("H2O_entry",H2O_entry)
-            print("OHminus_entry",OHminus_entry)
-            print("H3Oplus_entry",H3Oplus_entry)
-            print("H2_entry",H2_entry)
-            all_four_found = True
+            H2O_found = True
         except KeyError:
-            pass
+            print("Missing H2O, will not add either concerted water splitting reaction")
 
-        if all_four_found:
-            H2O_PR_H2O_name = str(H2O_entry.parameters["ind"])+"+PR_"+str(H2O_entry.parameters["ind"])
+        try:
+            OHminus_entry = self.entries["H1 O1"][1][-1][0]
+            print("OHminus_entry",OHminus_entry)
+            OHminus_found = True
+        except KeyError:
+            print("Missing OH-, will not add either concerted water splitting reaction")
 
-            if OHminus_entry.parameters["ind"] <= H3Oplus_entry.parameters["ind"]:
-                OHminus_H3Oplus_name = str(OHminus_entry.parameters["ind"])+"+"+str(H3Oplus_entry.parameters["ind"])
-            else:
-                OHminus_H3Oplus_name = str(H3Oplus_entry.parameters["ind"])+"+"+str(OHminus_entry.parameters["ind"])
+        if H2O_found and OHminus_found:
+            try:
+                H3Oplus_entry = self.entries["H3 O1"][3][1][0]
+                print("H3Oplus_entry",H3Oplus_entry)
+                H3Oplus_found = True
+            except KeyError:
+                print("Missing H3O+, will not add concerted water splitting rxn1")
 
-            OHminus2_H2_name = str(OHminus_entry.parameters["ind"])+"+"+str(OHminus_entry.parameters["ind"])+"+"+str(H2_entry.parameters["ind"])
+            try:
+                H2_entry = self.entries["H2"][1][0][0]
+                print("H2_entry",H2_entry)
+                H2_found = True
+            except KeyError:
+                print("Missing H2, will not add concerted water splitting rxn2")
 
-            rxn_node_1 = H2O_PR_H2O_name+","+OHminus_H3Oplus_name
-            rxn_node_2 = H2O_PR_H2O_name+","+OHminus2_H2_name
-            
-            rxn1_energy = OHminus_entry.energy + H3Oplus_entry.energy - 2*H2O_entry.energy
-            rxn2_energy = 2*OHminus_entry.energy + H2_entry.energy - 2*H2O_entry.energy
+            if H3Oplus_found or H2_found:
+                H2O_PR_H2O_name = str(H2O_entry.parameters["ind"])+"+PR_"+str(H2O_entry.parameters["ind"])
 
-            rxn1_free_energy = OHminus_entry.free_energy + H3Oplus_entry.free_energy - 2*H2O_entry.free_energy
-            print("Water rxn1 free energy =",rxn1_free_energy)
-            rxn2_free_energy = 2*OHminus_entry.free_energy + H2_entry.free_energy - 2*H2O_entry.free_energy - 2*self.electron_free_energy
-            print("Water rxn2 free energy =",rxn2_free_energy)
+                if H3Oplus_found:
+                    print("Adding concerted water splitting rxn1: 2H2O -> OH- + H3O+")
 
-            self.graph.add_node(rxn_node_1,rxn_type="water_dissociation",bipartite=1,energy=rxn1_energy,free_energy=rxn1_free_energy)
-            self.graph.add_edge(H2O_entry.parameters["ind"],
-                                rxn_node_1,
-                                softplus=self.softplus(rxn1_free_energy),
-                                exponent=self.exponent(rxn1_free_energy),
-                                weight=1.0
-                                )
-            self.graph.add_edge(rxn_node_1,
-                                OHminus_entry.parameters["ind"],
-                                softplus=0.0,
-                                exponent=0.0,
-                                weight=1.0
-                                )
-            self.graph.add_edge(rxn_node_1,
-                                H3Oplus_entry.parameters["ind"],
-                                softplus=0.0,
-                                exponent=0.0,
-                                weight=1.0
-                                )
+                    if OHminus_entry.parameters["ind"] <= H3Oplus_entry.parameters["ind"]:
+                        OHminus_H3Oplus_name = str(OHminus_entry.parameters["ind"])+"+"+str(H3Oplus_entry.parameters["ind"])
+                    else:
+                        OHminus_H3Oplus_name = str(H3Oplus_entry.parameters["ind"])+"+"+str(OHminus_entry.parameters["ind"])
 
-            self.graph.add_node(rxn_node_2,rxn_type="water_2e_redox",bipartite=1,energy=rxn2_energy,free_energy=rxn2_free_energy)
-            self.graph.add_edge(H2O_entry.parameters["ind"],
-                                rxn_node_2,
-                                softplus=self.softplus(rxn2_free_energy),
-                                exponent=self.exponent(rxn2_free_energy),
-                                weight=1.0
-                                )
-            self.graph.add_edge(rxn_node_2,
-                                OHminus_entry.parameters["ind"],
-                                softplus=0.0,
-                                exponent=0.0,
-                                weight=1.0
-                                )
-            self.graph.add_edge(rxn_node_2,
-                                H2_entry.parameters["ind"],
-                                softplus=0.0,
-                                exponent=0.0,
-                                weight=1.0
-                                )
+                    rxn_node_1 = H2O_PR_H2O_name+","+OHminus_H3Oplus_name
+                    rxn1_energy = OHminus_entry.energy + H3Oplus_entry.energy - 2*H2O_entry.energy
+                    rxn1_free_energy = OHminus_entry.free_energy + H3Oplus_entry.free_energy - 2*H2O_entry.free_energy
+                    print("Rxn1 free energy =",rxn1_free_energy)
+
+                    self.graph.add_node(rxn_node_1,rxn_type="water_dissociation",bipartite=1,energy=rxn1_energy,free_energy=rxn1_free_energy)
+                    self.graph.add_edge(H2O_entry.parameters["ind"],
+                                        rxn_node_1,
+                                        softplus=self.softplus(rxn1_free_energy),
+                                        exponent=self.exponent(rxn1_free_energy),
+                                        weight=1.0
+                                        )
+                    self.graph.add_edge(rxn_node_1,
+                                        OHminus_entry.parameters["ind"],
+                                        softplus=0.0,
+                                        exponent=0.0,
+                                        weight=1.0
+                                        )
+                    self.graph.add_edge(rxn_node_1,
+                                        H3Oplus_entry.parameters["ind"],
+                                        softplus=0.0,
+                                        exponent=0.0,
+                                        weight=1.0
+                                        )
+
+                if H2_found:
+                    print("Adding concerted water splitting rxn2: 2H2O + 2e- -> H2 + 2OH-")
+
+                    OHminus2_H2_name = str(OHminus_entry.parameters["ind"])+"+"+str(OHminus_entry.parameters["ind"])+"+"+str(H2_entry.parameters["ind"])
+                    rxn_node_2 = H2O_PR_H2O_name+","+OHminus2_H2_name
+                    rxn2_energy = 2*OHminus_entry.energy + H2_entry.energy - 2*H2O_entry.energy
+                    rxn2_free_energy = 2*OHminus_entry.free_energy + H2_entry.free_energy - 2*H2O_entry.free_energy - 2*self.electron_free_energy
+                    print("Water rxn2 free energy =",rxn2_free_energy)
+
+                    self.graph.add_node(rxn_node_2,rxn_type="water_2e_redox",bipartite=1,energy=rxn2_energy,free_energy=rxn2_free_energy)
+                    self.graph.add_edge(H2O_entry.parameters["ind"],
+                                        rxn_node_2,
+                                        softplus=self.softplus(rxn2_free_energy),
+                                        exponent=self.exponent(rxn2_free_energy),
+                                        weight=1.0
+                                        )
+                    self.graph.add_edge(rxn_node_2,
+                                        OHminus_entry.parameters["ind"],
+                                        softplus=0.0,
+                                        exponent=0.0,
+                                        weight=1.0
+                                        )
+                    self.graph.add_edge(rxn_node_2,
+                                        H2_entry.parameters["ind"],
+                                        softplus=0.0,
+                                        exponent=0.0,
+                                        weight=1.0
+                                        )
 
     def add_reaction(self,entries0,entries1,rxn_type):
         """
@@ -409,12 +432,12 @@ class ReactionNetwork(MSONable):
         elif rxn_type == "coordination_bond_change":
             if len(entries0) != 1 or len(entries1) != 2:
                 raise RuntimeError("Coordination bond change requires two lists that contain one entry and two entries, respectively!")
-        elif rxn_type == "concerted":
-            if len(entries0) > 2 or len(entries1) > 2:
-                raise RuntimeError("Concerted reactions require two lists that each contain two or fewer entries!")
+        # elif rxn_type == "concerted":
+        #     if len(entries0) > 2 or len(entries1) > 2:
+        #         raise RuntimeError("Concerted reactions require two lists that each contain two or fewer entries!")
         else:
             raise RuntimeError("Reaction type "+rxn_type+" is not supported!")
-        if rxn_type == "one_electron_redox" or rxn_type == "intramol_single_bond_change" or (rxn_type == "concerted" and len(entries0) == 1 and len(entries1) == 1):
+        if rxn_type == "one_electron_redox" or rxn_type == "intramol_single_bond_change":# or (rxn_type == "concerted" and len(entries0) == 1 and len(entries1) == 1):
             entry0 = entries0[0]
             entry1 = entries1[0]
             if rxn_type == "one_electron_redox":
@@ -435,9 +458,9 @@ class ReactionNetwork(MSONable):
                 else:
                     rxn_type_A = "Intramolecular single bond formation"
                     rxn_type_B = "Intramolecular single bond breakage"
-            elif rxn_type == "concerted":
-                rxn_type_A = "Concerted"
-                rxn_type_B = "Concerted"
+            # elif rxn_type == "concerted":
+            #     rxn_type_A = "Concerted"
+            #     rxn_type_B = "Concerted"
             node_name_A = str(entry0.parameters["ind"])+","+str(entry1.parameters["ind"])
             node_name_B = str(entry1.parameters["ind"])+","+str(entry0.parameters["ind"])
             energy_A = entry1.energy-entry0.energy
@@ -452,15 +475,15 @@ class ReactionNetwork(MSONable):
                     else:
                         free_energy_A += self.electron_free_energy
                         free_energy_B += -self.electron_free_energy
-                elif rxn_type == "concerted":
-                    if entry0.charge - entry1.charge == 1:
-                        free_energy_A += -self.electron_free_energy
-                        free_energy_B += self.electron_free_energy
-                    elif entry0.charge - entry1.charge == -1:
-                        free_energy_A += self.electron_free_energy
-                        free_energy_B += -self.electron_free_energy
-                    elif entry0.charge != entry1.charge:
-                        raise RuntimeError("Concerted charge difference of "+str(abs(entry0.charge - entry1.charge))+" detected!")
+                # elif rxn_type == "concerted":
+                #     if entry0.charge - entry1.charge == 1:
+                #         free_energy_A += -self.electron_free_energy
+                #         free_energy_B += self.electron_free_energy
+                #     elif entry0.charge - entry1.charge == -1:
+                #         free_energy_A += self.electron_free_energy
+                #         free_energy_B += -self.electron_free_energy
+                #     elif entry0.charge != entry1.charge:
+                #         raise RuntimeError("Concerted charge difference of "+str(abs(entry0.charge - entry1.charge))+" detected!")
             else:
                 free_energy_A = None
                 free_energy_B = None
@@ -468,27 +491,27 @@ class ReactionNetwork(MSONable):
             self.graph.add_node(node_name_A,rxn_type=rxn_type_A,bipartite=1,energy=energy_A,free_energy=free_energy_A)
             self.graph.add_edge(entry0.parameters["ind"],
                                 node_name_A,
-                                softplus=0.0,
-                                exponent=0.0,
+                                softplus=self.softplus(free_energy_A),
+                                exponent=self.exponent(free_energy_A),
                                 weight=1.0)
             self.graph.add_edge(node_name_A,
                                 entry1.parameters["ind"],
-                                softplus=self.softplus(free_energy_A),
-                                exponent=self.exponent(free_energy_A),
+                                softplus=0.0,
+                                exponent=0.0,
                                 weight=1.0)
             self.graph.add_node(node_name_B,rxn_type=rxn_type_B,bipartite=1,energy=energy_B,free_energy=free_energy_B)
             self.graph.add_edge(entry1.parameters["ind"],
                                 node_name_B,
-                                softplus=0.0,
-                                exponent=0.0,
-                                weight=1.0)
-            self.graph.add_edge(node_name_B,
-                                entry0.parameters["ind"],
                                 softplus=self.softplus(free_energy_B),
                                 exponent=self.exponent(free_energy_B),
                                 weight=1.0)
+            self.graph.add_edge(node_name_B,
+                                entry0.parameters["ind"],
+                                softplus=0.0,
+                                exponent=0.0,
+                                weight=1.0)
 
-        elif rxn_type == "intermol_single_bond_change" or rxn_type == "coordination_bond_change" or (rxn_type == "concerted" and len(entries0) == 1 and len(entries1) == 2):
+        elif rxn_type == "intermol_single_bond_change" or rxn_type == "coordination_bond_change":# or (rxn_type == "concerted" and len(entries0) == 1 and len(entries1) == 2):
             entry = entries0[0]
             entry0 = entries1[0]
             entry1 = entries1[1]
@@ -507,23 +530,23 @@ class ReactionNetwork(MSONable):
             elif rxn_type == "coordination_bond_change":
                 rxn_type_A = "Coordination bond breaking AM -> A+M"
                 rxn_type_B = "Coordination bond forming A+M -> AM"
-            elif rxn_type == "concerted":
-                rxn_type_A = "Concerted"
-                rxn_type_B = "Concerted"
+            # elif rxn_type == "concerted":
+            #     rxn_type_A = "Concerted"
+            #     rxn_type_B = "Concerted"
             energy_A = entry0.energy + entry1.energy - entry.energy
             energy_B = entry.energy - entry0.energy - entry1.energy
             if entry1.free_energy != None and entry0.free_energy != None and entry.free_energy != None:
                 free_energy_A = entry0.free_energy + entry1.free_energy - entry.free_energy
                 free_energy_B = entry.free_energy - entry0.free_energy - entry1.free_energy
-                if rxn_type == "concerted":
-                    if entry.charge - (entry0.charge + entry1.charge) == 1:
-                        free_energy_A += -self.electron_free_energy
-                        free_energy_B += self.electron_free_energy
-                    elif entry.charge - (entry0.charge + entry1.charge) == -1:
-                        free_energy_A += self.electron_free_energy
-                        free_energy_B += -self.electron_free_energy
-                    elif entry.charge != (entry0.charge + entry1.charge):
-                        raise RuntimeError("Concerted charge difference of "+str(abs(entry.charge - (entry0.charge + entry1.charge)))+" detected!")
+                # if rxn_type == "concerted":
+                #     if entry.charge - (entry0.charge + entry1.charge) == 1:
+                #         free_energy_A += -self.electron_free_energy
+                #         free_energy_B += self.electron_free_energy
+                #     elif entry.charge - (entry0.charge + entry1.charge) == -1:
+                #         free_energy_A += self.electron_free_energy
+                #         free_energy_B += -self.electron_free_energy
+                #     elif entry.charge != (entry0.charge + entry1.charge):
+                #         raise RuntimeError("Concerted charge difference of "+str(abs(entry.charge - (entry0.charge + entry1.charge)))+" detected!")
 
             self.graph.add_node(node_name_A,rxn_type=rxn_type_A,bipartite=1,energy=energy_A,free_energy=free_energy_A)
             
@@ -552,142 +575,142 @@ class ReactionNetwork(MSONable):
 
             self.graph.add_edge(node_name_B0,
                                 entry.parameters["ind"],
-                                softplus=self.softplus(free_energy_B),
-                                exponent=self.exponent(free_energy_B),
+                                softplus=0.0,
+                                exponent=0.0,
                                 weight=1.0
                                 )
             self.graph.add_edge(node_name_B1,
                                 entry.parameters["ind"],
-                                softplus=self.softplus(free_energy_B),
-                                exponent=self.exponent(free_energy_B),
+                                softplus=0.0,
+                                exponent=0.0,
                                 weight=1.0
                                 )
 
             self.graph.add_edge(entry0.parameters["ind"],
                                 node_name_B0,
-                                softplus=0.0,
-                                exponent=0.0,
+                                softplus=self.softplus(free_energy_B),
+                                exponent=self.exponent(free_energy_B),
                                 weight=1.0
                                 )
             self.graph.add_edge(entry1.parameters["ind"],
                                 node_name_B1,
-                                softplus=0.0,
-                                exponent=0.0,
+                                softplus=self.softplus(free_energy_B),
+                                exponent=self.exponent(free_energy_B),
                                 weight=1.0)
 
-        elif rxn_type == "concerted":
-            if len(entries0) == 2 and len(entries1) == 1:
-                print("Concerted 2,1 found! Ignoring for now...")
-            elif len(entries0) == 2 and len(entries1) == 2:
-                entryA = entries0[0]
-                entryB = entries0[1]
-                if entryA.parameters["ind"] <= entryB.parameters["ind"]:
-                    AB_name = str(entryA.parameters["ind"])+"+"+str(entryB.parameters["ind"])
-                else:
-                    AB_name = str(entryB.parameters["ind"])+"+"+str(entryA.parameters["ind"])
-                A_PR_B_name = str(entryA.parameters["ind"])+"+PR_"+str(entryB.parameters["ind"])
-                B_PR_A_name = str(entryB.parameters["ind"])+"+PR_"+str(entryA.parameters["ind"])
+        # elif rxn_type == "concerted":
+        #     if len(entries0) == 2 and len(entries1) == 1:
+        #         print("Concerted 2,1 found! Ignoring for now...")
+        #     elif len(entries0) == 2 and len(entries1) == 2:
+        #         entryA = entries0[0]
+        #         entryB = entries0[1]
+        #         if entryA.parameters["ind"] <= entryB.parameters["ind"]:
+        #             AB_name = str(entryA.parameters["ind"])+"+"+str(entryB.parameters["ind"])
+        #         else:
+        #             AB_name = str(entryB.parameters["ind"])+"+"+str(entryA.parameters["ind"])
+        #         A_PR_B_name = str(entryA.parameters["ind"])+"+PR_"+str(entryB.parameters["ind"])
+        #         B_PR_A_name = str(entryB.parameters["ind"])+"+PR_"+str(entryA.parameters["ind"])
 
-                entryC = entries1[0]
-                entryD = entries1[1]
-                if entryC.parameters["ind"] <= entryD.parameters["ind"]:
-                    CD_name = str(entryC.parameters["ind"])+"+"+str(entryD.parameters["ind"])
-                else:
-                    CD_name = str(entryD.parameters["ind"])+"+"+str(entryC.parameters["ind"])
+        #         entryC = entries1[0]
+        #         entryD = entries1[1]
+        #         if entryC.parameters["ind"] <= entryD.parameters["ind"]:
+        #             CD_name = str(entryC.parameters["ind"])+"+"+str(entryD.parameters["ind"])
+        #         else:
+        #             CD_name = str(entryD.parameters["ind"])+"+"+str(entryC.parameters["ind"])
                 
-                C_PR_D_name = str(entryC.parameters["ind"])+"+PR_"+str(entryD.parameters["ind"])
-                D_PR_C_name = str(entryD.parameters["ind"])+"+PR_"+str(entryC.parameters["ind"])
-                node_name_1 = A_PR_B_name+","+CD_name
-                node_name_2 = B_PR_A_name+","+CD_name
-                node_name_3 = C_PR_D_name+","+AB_name
-                node_name_4 = D_PR_C_name+","+AB_name
-                AB_CD_energy = entryC.energy + entryD.energy - entryA.energy - entryB.energy
-                CD_AB_energy = entryA.energy + entryB.energy - entryC.energy - entryD.energy
-                if entryA.free_energy != None and entryB.free_energy != None and entryC.free_energy != None and entryD.free_energy != None:
-                    AB_CD_free_energy = entryC.free_energy + entryD.free_energy - entryA.free_energy - entryB.free_energy
-                    CD_AB_free_energy = entryA.free_energy + entryB.free_energy - entryC.free_energy - entryD.free_energy
+        #         C_PR_D_name = str(entryC.parameters["ind"])+"+PR_"+str(entryD.parameters["ind"])
+        #         D_PR_C_name = str(entryD.parameters["ind"])+"+PR_"+str(entryC.parameters["ind"])
+        #         node_name_1 = A_PR_B_name+","+CD_name
+        #         node_name_2 = B_PR_A_name+","+CD_name
+        #         node_name_3 = C_PR_D_name+","+AB_name
+        #         node_name_4 = D_PR_C_name+","+AB_name
+        #         AB_CD_energy = entryC.energy + entryD.energy - entryA.energy - entryB.energy
+        #         CD_AB_energy = entryA.energy + entryB.energy - entryC.energy - entryD.energy
+        #         if entryA.free_energy != None and entryB.free_energy != None and entryC.free_energy != None and entryD.free_energy != None:
+        #             AB_CD_free_energy = entryC.free_energy + entryD.free_energy - entryA.free_energy - entryB.free_energy
+        #             CD_AB_free_energy = entryA.free_energy + entryB.free_energy - entryC.free_energy - entryD.free_energy
 
-                self.graph.add_node(node_name_1,rxn_type=rxn_type,bipartite=1,energy=AB_CD_energy,free_energy=AB_CD_free_energy)
-                self.graph.add_edge(entryA.parameters["ind"],
-                                    node_name_1,
-                                    softplus=self.softplus(AB_CD_free_energy),
-                                    exponent=self.exponent(AB_CD_free_energy),
-                                    weight=1.0
-                                    )
-                self.graph.add_edge(node_name_1,
-                                    entryC.parameters["ind"],
-                                    softplus=0.0,
-                                    exponent=0.0,
-                                    weight=1.0
-                                    )
-                self.graph.add_edge(node_name_1,
-                                    entryD.parameters["ind"],
-                                    softplus=0.0,
-                                    exponent=0.0,
-                                    weight=1.0
-                                    )
+        #         self.graph.add_node(node_name_1,rxn_type=rxn_type,bipartite=1,energy=AB_CD_energy,free_energy=AB_CD_free_energy)
+        #         self.graph.add_edge(entryA.parameters["ind"],
+        #                             node_name_1,
+        #                             softplus=self.softplus(AB_CD_free_energy),
+        #                             exponent=self.exponent(AB_CD_free_energy),
+        #                             weight=1.0
+        #                             )
+        #         self.graph.add_edge(node_name_1,
+        #                             entryC.parameters["ind"],
+        #                             softplus=0.0,
+        #                             exponent=0.0,
+        #                             weight=1.0
+        #                             )
+        #         self.graph.add_edge(node_name_1,
+        #                             entryD.parameters["ind"],
+        #                             softplus=0.0,
+        #                             exponent=0.0,
+        #                             weight=1.0
+        #                             )
 
-                self.graph.add_node(node_name_2,rxn_type=rxn_type,bipartite=1,energy=AB_CD_energy,free_energy=AB_CD_free_energy)
-                self.graph.add_edge(entryB.parameters["ind"],
-                                    node_name_2,
-                                    softplus=self.softplus(AB_CD_free_energy),
-                                    exponent=self.exponent(AB_CD_free_energy),
-                                    weight=1.0
-                                    )
-                self.graph.add_edge(node_name_2,
-                                    entryC.parameters["ind"],
-                                    softplus=0.0,
-                                    exponent=0.0,
-                                    weight=1.0
-                                    )
-                self.graph.add_edge(node_name_2,
-                                    entryD.parameters["ind"],
-                                    softplus=0.0,
-                                    exponent=0.0,
-                                    weight=1.0
-                                    )
+        #         self.graph.add_node(node_name_2,rxn_type=rxn_type,bipartite=1,energy=AB_CD_energy,free_energy=AB_CD_free_energy)
+        #         self.graph.add_edge(entryB.parameters["ind"],
+        #                             node_name_2,
+        #                             softplus=self.softplus(AB_CD_free_energy),
+        #                             exponent=self.exponent(AB_CD_free_energy),
+        #                             weight=1.0
+        #                             )
+        #         self.graph.add_edge(node_name_2,
+        #                             entryC.parameters["ind"],
+        #                             softplus=0.0,
+        #                             exponent=0.0,
+        #                             weight=1.0
+        #                             )
+        #         self.graph.add_edge(node_name_2,
+        #                             entryD.parameters["ind"],
+        #                             softplus=0.0,
+        #                             exponent=0.0,
+        #                             weight=1.0
+        #                             )
 
-                self.graph.add_node(node_name_3,rxn_type=rxn_type,bipartite=1,energy=CD_AB_energy,free_energy=CD_AB_free_energy)
-                self.graph.add_edge(entryC.parameters["ind"],
-                                    node_name_3,
-                                    softplus=self.softplus(CD_AB_free_energy),
-                                    exponent=self.exponent(CD_AB_free_energy),
-                                    weight=1.0
-                                    )
-                self.graph.add_edge(node_name_3,
-                                    entryA.parameters["ind"],
-                                    softplus=0.0,
-                                    exponent=0.0,
-                                    weight=1.0
-                                    )
-                self.graph.add_edge(node_name_3,
-                                    entryB.parameters["ind"],
-                                    softplus=0.0,
-                                    exponent=0.0,
-                                    weight=1.0
-                                    )
+        #         self.graph.add_node(node_name_3,rxn_type=rxn_type,bipartite=1,energy=CD_AB_energy,free_energy=CD_AB_free_energy)
+        #         self.graph.add_edge(entryC.parameters["ind"],
+        #                             node_name_3,
+        #                             softplus=self.softplus(CD_AB_free_energy),
+        #                             exponent=self.exponent(CD_AB_free_energy),
+        #                             weight=1.0
+        #                             )
+        #         self.graph.add_edge(node_name_3,
+        #                             entryA.parameters["ind"],
+        #                             softplus=0.0,
+        #                             exponent=0.0,
+        #                             weight=1.0
+        #                             )
+        #         self.graph.add_edge(node_name_3,
+        #                             entryB.parameters["ind"],
+        #                             softplus=0.0,
+        #                             exponent=0.0,
+        #                             weight=1.0
+        #                             )
 
-                self.graph.add_node(node_name_4,rxn_type=rxn_type,bipartite=1,energy=CD_AB_energy,free_energy=CD_AB_free_energy)
-                self.graph.add_edge(entryD.parameters["ind"],
-                                    node_name_4,
-                                    softplus=self.softplus(CD_AB_free_energy),
-                                    exponent=self.exponent(CD_AB_free_energy),
-                                    weight=1.0
-                                    )
-                self.graph.add_edge(node_name_4,
-                                    entryA.parameters["ind"],
-                                    softplus=0.0,
-                                    exponent=0.0,
-                                    weight=1.0
-                                    )
-                self.graph.add_edge(node_name_4,
-                                    entryB.parameters["ind"],
-                                    softplus=0.0,
-                                    exponent=0.0,
-                                    weight=1.0
-                                    )
-            else:
-                print("Concerted "+str(len(entries0))+","+str(len(entries1))+" found! Ignoring for now...")
+        #         self.graph.add_node(node_name_4,rxn_type=rxn_type,bipartite=1,energy=CD_AB_energy,free_energy=CD_AB_free_energy)
+        #         self.graph.add_edge(entryD.parameters["ind"],
+        #                             node_name_4,
+        #                             softplus=self.softplus(CD_AB_free_energy),
+        #                             exponent=self.exponent(CD_AB_free_energy),
+        #                             weight=1.0
+        #                             )
+        #         self.graph.add_edge(node_name_4,
+        #                             entryA.parameters["ind"],
+        #                             softplus=0.0,
+        #                             exponent=0.0,
+        #                             weight=1.0
+        #                             )
+        #         self.graph.add_edge(node_name_4,
+        #                             entryB.parameters["ind"],
+        #                             softplus=0.0,
+        #                             exponent=0.0,
+        #                             weight=1.0
+        #                             )
+        #     else:
+        #         print("Concerted "+str(len(entries0))+","+str(len(entries1))+" found! Ignoring for now...")
 
     def softplus(self,free_energy):
         return np.log(1 + (273.0 / 500.0) * np.exp(free_energy))
@@ -724,14 +747,22 @@ class ReactionNetwork(MSONable):
                     if "+PR_" in rxn[0]:
                         PR = int(rxn[0].split("+PR_")[1])
                         path_dict["all_prereqs"].append(PR)
-                    elif "+" in rxn[1]:
+                    if "+" in rxn[1]:
+                        desired_prod_satisfied = False
                         prods = rxn[1].split("+")
-                        if prods[0] == prods[1]:
-                            path_dict["byproducts"].append(int(prods[0]))
-                        else:
-                            for prod in prods:
-                                if int(prod) != path[ii+1]:
-                                    path_dict["byproducts"].append(int(prod))
+                        # if prods[0] == prods[1]:
+                        #     path_dict["byproducts"].append(int(prods[0]))
+                        # else:
+                        #     for prod in prods:
+                        #         if int(prod) != path[ii+1]:
+                        #             path_dict["byproducts"].append(int(prod))
+                        for prod in prods:
+                            if int(prod) != path[ii+1]:
+                                path_dict["byproducts"].append(int(prod))
+                            elif desired_prod_satisfied:
+                                path_dict["byproducts"].append(int(prod))
+                            else:
+                                desired_prod_satisfied = True
         for PR in path_dict["all_prereqs"]:
             if PR in path_dict["byproducts"]:
                 # Note that we're ignoring the order in which BPs are made vs they come up as PRs...
@@ -828,14 +859,25 @@ class ReactionNetwork(MSONable):
                 if node not in PRs:
                     PRs[node] = {}
 
-        while len(new_solved_PRs) > 0:
+        old_attrs = {}
+        new_attrs = {}
+
+        while (len(new_solved_PRs) > 0 or old_attrs != new_attrs) and ii < 5:
             min_cost = {}
+            cost_from_start = {}
             for PR in PRs:
+                cost_from_start[PR] = {}
                 min_cost[PR] = 10000000000000000.0
                 for start in PRs[PR]:
                     if PRs[PR][start] != "no_path":
+                        cost_from_start[PR][start] = PRs[PR][start]["cost"]
                         if PRs[PR][start]["cost"] < min_cost[PR]:
                             min_cost[PR] = PRs[PR][start]["cost"]
+                    else:
+                        cost_from_start[PR][start] = "no_path"
+                for start in starts:
+                    if start not in cost_from_start[PR]:
+                        cost_from_start[PR][start] = 0.0
             for node in self.graph.nodes():
                 if self.graph.node[node]["bipartite"] == 0 and node not in old_solved_PRs and node != target:
                     for start in starts:
@@ -851,9 +893,11 @@ class ReactionNetwork(MSONable):
                             except nx.exception.NetworkXNoPath:
                                 PRs[node][start] = "no_path"
                                 path_exists = False
+                                cost_from_start[node][start] = "no_path"
                             if path_exists:
                                 if len(dij_path) > 1 and len(dij_path)%2 == 1:
                                     path = self.characterize_path(dij_path,weight,old_solved_PRs)
+                                    cost_from_start[node][start] = path["cost"]
                                     if len(path["unsolved_prereqs"]) == 0:
                                         PRs[node][start] = path
                                         # print("Solved PR",node,PRs[node])
@@ -866,6 +910,25 @@ class ReactionNetwork(MSONable):
             for PR in PRs:
                 if len(PRs[PR].keys()) == self.num_starts:
                     solved_PRs.append(PR)
+                else:
+                    best_start_so_far = [None,10000000000000000.0]
+                    for start in PRs[PR]:
+                        if PRs[PR][start] != "no_path":
+                            if PRs[PR][start]["cost"] < best_start_so_far[1]:
+                                best_start_so_far[0] = start
+                                best_start_so_far[1] = PRs[PR][start]["cost"]
+                    if best_start_so_far[0] != None:
+                        num_beaten = 0
+                        for start in cost_from_start[PR]:
+                            if start != best_start_so_far[0]:
+                                if cost_from_start[PR][start] == "no_path":
+                                    num_beaten += 1
+                                elif cost_from_start[PR][start] > best_start_so_far[1]:
+                                    num_beaten += 1
+                        if num_beaten == self.num_starts - 1:
+                            solved_PRs.append(PR)
+
+
 
             new_solved_PRs = []
             for PR in solved_PRs:
@@ -876,35 +939,40 @@ class ReactionNetwork(MSONable):
             attrs = {}
 
             for PR_ind in min_cost:
-                for node in self.PR_record[PR_ind]:
-                    split_node = node.split(",")
-                    prod_nodes = []
-                    if "+" in split_node[1]:
-                        tmp = split_node[1].split("+")
-                        for prod_ind in tmp:
-                            prod_nodes.append(int(prod_ind))
-                    else:
-                        prod_nodes.append(int(split_node[1]))
-                    for prod_node in prod_nodes:
-                        attrs[(node,prod_node)] = {weight:orig_graph[node][prod_node][weight]+min_cost[PR_ind]}
+                for rxn_node in self.PR_record[PR_ind]:
+                    non_PR_reactant_node = int(rxn_node.split(",")[0].split("+PR_")[0])
+                    PR_node = int(rxn_node.split(",")[0].split("+PR_")[1])
+                    assert(int(PR_node)==PR_ind)
+                    attrs[(non_PR_reactant_node,rxn_node)] = {weight:orig_graph[non_PR_reactant_node][rxn_node][weight]+min_cost[PR_ind]}
+                    # prod_nodes = []
+                    # if "+" in split_node[1]:
+                    #     tmp = split_node[1].split("+")
+                    #     for prod_ind in tmp:
+                    #         prod_nodes.append(int(prod_ind))
+                    # else:
+                    #     prod_nodes.append(int(split_node[1]))
+                    # for prod_node in prod_nodes:
+                    #     attrs[(node,prod_node)] = {weight:orig_graph[node][prod_node][weight]+min_cost[PR_ind]}
             nx.set_edge_attributes(self.graph,attrs)
             self.min_cost = copy.deepcopy(min_cost)
             old_solved_PRs = copy.deepcopy(solved_PRs)
             ii += 1
+            old_attrs = copy.deepcopy(new_attrs)
+            new_attrs = copy.deepcopy(attrs)
 
-        for PR in PRs:
-            path_found = False
-            if PRs[PR] != {}:
-                for start in starts:
-                    if PRs[PR][start] != "no_path":
-                        path_found = True
-                        path_dict = self.characterize_path(PRs[PR][start]["path"],weight,PRs,True)
-                        if abs(path_dict["cost"]-path_dict["pure_cost"])>0.0001:
-                            print("WARNING: cost mismatch for PR",PR,path_dict["cost"],path_dict["pure_cost"],path_dict["full_path"])
-                if not path_found:
-                    print("No path found from any start to PR",PR)
-            else:
-                print("Unsolvable path from any start to PR",PR)
+        # for PR in PRs:
+        #     path_found = False
+        #     if PRs[PR] != {}:
+        #         for start in PRs[PR]:
+        #             if PRs[PR][start] != "no_path":
+        #                 path_found = True
+        #                 path_dict = self.characterize_path(PRs[PR][start]["path"],weight,PRs,True)
+        #                 if abs(path_dict["cost"]-path_dict["pure_cost"])>0.0001:
+        #                     print("WARNING: cost mismatch for PR",PR,path_dict["cost"],path_dict["pure_cost"],path_dict["full_path"])
+        #         if not path_found:
+        #             print("No path found from any start to PR",PR)
+        #     else:
+        #         print("Unsolvable path from any start to PR",PR)
 
         return PRs
 
@@ -964,6 +1032,8 @@ class ReactionNetwork(MSONable):
     def identify_sinks(self):
         sinks = []
         for node in self.graph.nodes():
+            self.graph.node[node]["local_sink"] = 0
+        for node in self.graph.nodes():
             if self.graph.node[node]["bipartite"] == 0:
                 neighbor_list = list(self.graph.neighbors(node))
                 if len(neighbor_list) > 0:
@@ -973,6 +1043,13 @@ class ReactionNetwork(MSONable):
                             neg_found = True
                             break
                     if not neg_found:
+                        self.graph.node[node]["local_sink"] = 1
                         sinks.append(node)
+                        for neighbor in neighbor_list:
+                            self.graph.node[neighbor]["local_sink"] = 1
+                            second_neighbor_list = list(self.graph.neighbors(neighbor))
+                            for second_neighbor in second_neighbor_list:
+                                self.graph.node[second_neighbor]["local_sink"] = 2
+
         return sinks
 
