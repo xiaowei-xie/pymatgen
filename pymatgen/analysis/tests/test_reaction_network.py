@@ -124,12 +124,12 @@ class TestReactionNetwork(PymatgenTest):
 
         # PR_paths, paths = RN.find_paths([H2O_ind],OHminus_ind,weight="softplus",num_paths=10)
         # PR_paths, paths = RN.find_paths([EC_ind,Li1_ind,H2O_ind],OHminus_ind,weight="softplus",num_paths=10)
-        # PR_paths, paths = RN.find_paths([EC_ind,Li1_ind,H2O_ind],LEMC_ind,weight="softplus",num_paths=10)
+        PR_paths, paths = RN.find_paths([EC_ind,Li1_ind,H2O_ind],LEMC_ind,weight="softplus",num_paths=10)
         # for path in paths:
         #     for val in path:
         #         print(val, path[val])
         #     print()
-        RN.identify_sinks()
+        # RN.identify_sinks()
 
     def _test_reextended(self):
         RN = ReactionNetwork(

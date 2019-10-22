@@ -319,14 +319,14 @@ class ReactionNetwork(MSONable):
         H2_found = False
         try:
             H2O_entry = self.entries["H2 O1"][2][0][0]
-            print("H2O_entry",H2O_entry)
+            # print("H2O_entry",H2O_entry)
             H2O_found = True
         except KeyError:
             print("Missing H2O, will not add either concerted water splitting reaction")
 
         try:
             OHminus_entry = self.entries["H1 O1"][1][-1][0]
-            print("OHminus_entry",OHminus_entry)
+            # print("OHminus_entry",OHminus_entry)
             OHminus_found = True
         except KeyError:
             print("Missing OH-, will not add either concerted water splitting reaction")
@@ -334,14 +334,14 @@ class ReactionNetwork(MSONable):
         if H2O_found and OHminus_found:
             try:
                 H3Oplus_entry = self.entries["H3 O1"][3][1][0]
-                print("H3Oplus_entry",H3Oplus_entry)
+                # print("H3Oplus_entry",H3Oplus_entry)
                 H3Oplus_found = True
             except KeyError:
                 print("Missing H3O+, will not add concerted water splitting rxn1")
 
             try:
                 H2_entry = self.entries["H2"][1][0][0]
-                print("H2_entry",H2_entry)
+                # print("H2_entry",H2_entry)
                 H2_found = True
             except KeyError:
                 print("Missing H2, will not add concerted water splitting rxn2")
@@ -838,12 +838,14 @@ class ReactionNetwork(MSONable):
                 path_dict["hardest_step_deltaG"] = self.graph.node[path_dict["hardest_step"]]["free_energy"]
         return path_dict
 
-    def solve_prerequisites(self,starts,target,weight):
+    def solve_prerequisites(self,starts,target,weight,max_iter=20):
         PRs = {}
         old_solved_PRs = []
         new_solved_PRs = ["placeholder"]
         orig_graph = copy.deepcopy(self.graph)
-        ii = 0
+        old_attrs = {}
+        new_attrs = {}
+
         for start in starts:
             PRs[start] = {}
         for PR in PRs:
@@ -859,25 +861,23 @@ class ReactionNetwork(MSONable):
                 if node not in PRs:
                     PRs[node] = {}
 
-        old_attrs = {}
-        new_attrs = {}
-
-        while (len(new_solved_PRs) > 0 or old_attrs != new_attrs) and ii < 5:
+        ii = 0
+        while (len(new_solved_PRs) > 0 or old_attrs != new_attrs) and ii < max_iter:
             min_cost = {}
             cost_from_start = {}
             for PR in PRs:
                 cost_from_start[PR] = {}
                 min_cost[PR] = 10000000000000000.0
                 for start in PRs[PR]:
-                    if PRs[PR][start] != "no_path":
+                    if PRs[PR][start] == "no_path":
+                        cost_from_start[PR][start] = "no_path"
+                    else:
                         cost_from_start[PR][start] = PRs[PR][start]["cost"]
                         if PRs[PR][start]["cost"] < min_cost[PR]:
                             min_cost[PR] = PRs[PR][start]["cost"]
-                    else:
-                        cost_from_start[PR][start] = "no_path"
                 for start in starts:
                     if start not in cost_from_start[PR]:
-                        cost_from_start[PR][start] = 0.0
+                        cost_from_start[PR][start] = "unsolved"
             for node in self.graph.nodes():
                 if self.graph.node[node]["bipartite"] == 0 and node not in old_solved_PRs and node != target:
                     for start in starts:
@@ -906,34 +906,38 @@ class ReactionNetwork(MSONable):
                                 else:
                                     print("Does this ever happen?")
 
-            solved_PRs = []
-            for PR in PRs:
-                if len(PRs[PR].keys()) == self.num_starts:
-                    solved_PRs.append(PR)
-                else:
-                    best_start_so_far = [None,10000000000000000.0]
-                    for start in PRs[PR]:
-                        if PRs[PR][start] != "no_path":
-                            if PRs[PR][start]["cost"] < best_start_so_far[1]:
-                                best_start_so_far[0] = start
-                                best_start_so_far[1] = PRs[PR][start]["cost"]
-                    if best_start_so_far[0] != None:
-                        num_beaten = 0
-                        for start in cost_from_start[PR]:
-                            if start != best_start_so_far[0]:
-                                if cost_from_start[PR][start] == "no_path":
-                                    num_beaten += 1
-                                elif cost_from_start[PR][start] > best_start_so_far[1]:
-                                    num_beaten += 1
-                        if num_beaten == self.num_starts - 1:
-                            solved_PRs.append(PR)
-
-
-
+            solved_PRs = copy.deepcopy(old_solved_PRs)
             new_solved_PRs = []
-            for PR in solved_PRs:
-                if PR not in old_solved_PRs:
-                    new_solved_PRs.append(PR)
+            for PR in PRs:
+                if PR not in solved_PRs:
+                    if len(PRs[PR].keys()) == self.num_starts:
+                        solved_PRs.append(PR)
+                        new_solved_PRs.append(PR)
+                    else:
+                        best_start_so_far = [None,10000000000000000.0]
+                        for start in PRs[PR]:
+                            if PRs[PR][start] != "no_path":
+                                if PRs[PR][start] == "unsolved":
+                                    print("ERROR: unsolved should never be encountered here!")
+                                if PRs[PR][start]["cost"] < best_start_so_far[1]:
+                                    best_start_so_far[0] = start
+                                    best_start_so_far[1] = PRs[PR][start]["cost"]
+                        if best_start_so_far[0] != None:
+                            num_beaten = 0
+                            for start in cost_from_start[PR]:
+                                if start != best_start_so_far[0]:
+                                    if cost_from_start[PR][start] == "no_path":
+                                        num_beaten += 1
+                                    elif cost_from_start[PR][start] > best_start_so_far[1]:
+                                        num_beaten += 1
+                            if num_beaten == self.num_starts - 1:
+                                solved_PRs.append(PR)
+                                new_solved_PRs.append(PR)
+
+            # new_solved_PRs = []
+            # for PR in solved_PRs:
+            #     if PR not in old_solved_PRs:
+            #         new_solved_PRs.append(PR)
 
             print(ii,len(old_solved_PRs),len(new_solved_PRs))
             attrs = {}
