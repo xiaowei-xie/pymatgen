@@ -16,6 +16,7 @@ from pymatgen.core import Molecule
 
 from pymatgen.analysis.graphs import MoleculeGraph
 from pymatgen.analysis.local_env import OpenBabelNN
+from pymatgen.analysis.fragmenter import metal_edge_extender
 import networkx as nx
 
 try:
@@ -439,7 +440,7 @@ class QCOutput(MSONable):
                              r"(?:\s*\-+\s+OpenMP\s+Integral\s+computing\s+Module\s+" \
                              r"(?:Release:\s+version\s+[\d\-\.]+\,\s+\w+\s+[\d\-\.]+\, " \
                              r"Q-Chem Inc\. Pittsburgh\s+)*\-+)*\n"
-            table_pattern = r"(?:\n[a-zA-Z_\s/]+\.C::(?:WARNING energy changes are now smaller than effective " \
+            table_pattern = r"(?:\n[a-zA-Z_\s/]+(?:\.C)*::(?:WARNING energy changes are now smaller than effective " \
                             r"accuracy\.)*(?:\s+calculation will continue, but THRESH should be increased)*" \
                             r"(?:\s+or SCF_CONVERGENCE decreased\. )*(?:\s+effective_thresh = [\d\-\.]+e[\d\-]+)*)*" \
                             r"(?:\s*Nonlocal correlation = [\d\-\.]+e[\d\-]+)*" \
@@ -678,6 +679,8 @@ class QCOutput(MSONable):
         for scf in self.data["SCF"]:
             if abs(scf[0][0] - scf[1][0]) > 10.0:
                 self.data["warnings"]["bad_roothaan"] = True
+                if abs(scf[0][0] - scf[1][0]) > 100.0:
+                    self.data["warnings"]["very_bad_roothaan"] = True
 
     def _read_geometries(self):
         """
@@ -1141,6 +1144,12 @@ class QCOutput(MSONable):
                 },
                 terminate_on_match=True).get('key') == [[]]:
             self.data["errors"] += ["driver_error"]
+        elif read_pattern(
+                self.text, {
+                    "key": r"gen_scfman_exception:  GDM:: Zero or negative preconditioner scaling factor"
+                },
+                terminate_on_match=True).get('key') == [[]]:
+            self.data["errors"] += ["gdm_neg_precon_error"]
         else:
             tmp_failed_line_searches = read_pattern(
                 self.text, {
@@ -1162,40 +1171,42 @@ class QCOutput(MSONable):
 
 
 def check_for_structure_changes(mol1, mol2):
-    special_elements = ["Li", "Na", "Mg", "Ca", "Zn"]
-    mol_list = [copy.deepcopy(mol1), copy.deepcopy(mol2)]
+    # special_elements = ["Li", "Na", "Mg", "Ca", "Zn"]
+    # mol_list = [copy.deepcopy(mol1), copy.deepcopy(mol2)]
 
     if mol1.composition != mol2.composition:
         raise RuntimeError("Molecules have different compositions! Exiting...")
 
-    for ii, site in enumerate(mol1):
-        if site.specie.symbol != mol2[ii].specie.symbol:
-            print(
-                "WARNING: Comparing molecules with different atom ordering! Turning off special treatment for "
-                "coordinating metals.")
-            special_elements = []
+    # for ii, site in enumerate(mol1):
+    #     if site.specie.symbol != mol2[ii].specie.symbol:
+    #         print(
+    #             "WARNING: Comparing molecules with different atom ordering! Turning off special treatment for "
+    #             "coordinating metals.")
+    #         special_elements = []
 
-    special_sites = [[], []]
-    for ii, mol in enumerate(mol_list):
-        for jj, site in enumerate(mol):
-            if site.specie.symbol in special_elements:
-                distances = [[kk, site.distance(other_site)] for kk, other_site in enumerate(mol)]
-                special_sites[ii].append([jj, site, distances])
-        for jj, site in enumerate(mol):
-            if site.specie.symbol in special_elements:
-                mol.__delitem__(jj)
+    # special_sites = [[], []]
+    # for ii, mol in enumerate(mol_list):
+    #     for jj, site in enumerate(mol):
+    #         if site.specie.symbol in special_elements:
+    #             distances = [[kk, site.distance(other_site)] for kk, other_site in enumerate(mol)]
+    #             special_sites[ii].append([jj, site, distances])
+    #     for jj, site in enumerate(mol):
+    #         if site.specie.symbol in special_elements:
+    #             mol.__delitem__(jj)
 
     # Can add logic to check the distances in the future if desired
 
-    initial_mol_graph = MoleculeGraph.with_local_env_strategy(mol_list[0],
+    initial_mol_graph = MoleculeGraph.with_local_env_strategy(mol1,
                                                               OpenBabelNN(),
                                                               reorder=False,
                                                               extend_structure=False)
+    initial_mol_graph = metal_edge_extender(initial_mol_graph)
     initial_graph = initial_mol_graph.graph
-    last_mol_graph = MoleculeGraph.with_local_env_strategy(mol_list[1],
+    last_mol_graph = MoleculeGraph.with_local_env_strategy(mol2,
                                                            OpenBabelNN(),
                                                            reorder=False,
                                                            extend_structure=False)
+    last_mol_graph = metal_edge_extender(last_mol_graph)
     last_graph = last_mol_graph.graph
     if initial_mol_graph.isomorphic_to(last_mol_graph):
         return "no_change"
