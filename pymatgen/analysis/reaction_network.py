@@ -721,10 +721,10 @@ class ReactionNetwork(MSONable):
     def build_PR_record(self):
         PR_record = {}
         for node in self.graph.nodes():
-            if self.graph.node[node]["bipartite"] == 0:
+            if self.graph.nodes[node]["bipartite"] == 0:
                 PR_record[node] = []
         for node in self.graph.nodes():
-            if self.graph.node[node]["bipartite"] == 1:
+            if self.graph.nodes[node]["bipartite"] == 1:
                 if "+PR_" in node.split(",")[0]:
                     PR = int(node.split(",")[0].split("+PR_")[1])
                     PR_record[PR].append(node)
@@ -816,26 +816,26 @@ class ReactionNetwork(MSONable):
                     print("WARNING: Matching prereq and byproduct found!",PR)
 
             for ii,step in enumerate(full_path):
-                if self.graph.node[step]["bipartite"] == 1:
+                if self.graph.nodes[step]["bipartite"] == 1:
                     if weight == "softplus":
-                        path_dict["pure_cost"] += self.softplus(self.graph.node[step]["free_energy"])
+                        path_dict["pure_cost"] += self.softplus(self.graph.nodes[step]["free_energy"])
                     elif weight == "exponent":
-                        path_dict["pure_cost"] += self.exponent(self.graph.node[step]["free_energy"])
-                    path_dict["overall_free_energy_change"] += self.graph.node[step]["free_energy"]
+                        path_dict["pure_cost"] += self.exponent(self.graph.nodes[step]["free_energy"])
+                    path_dict["overall_free_energy_change"] += self.graph.nodes[step]["free_energy"]
                     if path_dict["description"] == "":
-                        path_dict["description"] += self.graph.node[step]["rxn_type"]
+                        path_dict["description"] += self.graph.nodes[step]["rxn_type"]
                     else:
-                        path_dict["description"] += ", " + self.graph.node[step]["rxn_type"]
+                        path_dict["description"] += ", " + self.graph.nodes[step]["rxn_type"]
                     if path_dict["hardest_step"] == None:
                         path_dict["hardest_step"] = step
-                    elif self.graph.node[step]["free_energy"] > self.graph.node[path_dict["hardest_step"]]["free_energy"]:
+                    elif self.graph.nodes[step]["free_energy"] > self.graph.nodes[path_dict["hardest_step"]]["free_energy"]:
                         path_dict["hardest_step"] = step
             del path_dict["path"]
             path_dict["full_path"] = full_path
             if path_dict["hardest_step"] == None:
                 path_dict["hardest_step_deltaG"] = None
             else:
-                path_dict["hardest_step_deltaG"] = self.graph.node[path_dict["hardest_step"]]["free_energy"]
+                path_dict["hardest_step_deltaG"] = self.graph.nodes[path_dict["hardest_step"]]["free_energy"]
         return path_dict
 
     def solve_prerequisites(self,starts,target,weight,max_iter=20):
@@ -857,7 +857,7 @@ class ReactionNetwork(MSONable):
             old_solved_PRs.append(PR)
             self.min_cost[PR] = PRs[PR][PR]["cost"]
         for node in self.graph.nodes():
-            if self.graph.node[node]["bipartite"] == 0 and node != target:
+            if self.graph.nodes[node]["bipartite"] == 0 and node != target:
                 if node not in PRs:
                     PRs[node] = {}
 
@@ -879,7 +879,7 @@ class ReactionNetwork(MSONable):
                     if start not in cost_from_start[PR]:
                         cost_from_start[PR][start] = "unsolved"
             for node in self.graph.nodes():
-                if self.graph.node[node]["bipartite"] == 0 and node not in old_solved_PRs and node != target:
+                if self.graph.nodes[node]["bipartite"] == 0 and node not in old_solved_PRs and node != target:
                     for start in starts:
                         if start not in PRs[node]:
                             path_exists = True
@@ -1036,24 +1036,24 @@ class ReactionNetwork(MSONable):
     def identify_sinks(self):
         sinks = []
         for node in self.graph.nodes():
-            self.graph.node[node]["local_sink"] = 0
+            self.graph.nodes[node]["local_sink"] = 0
         for node in self.graph.nodes():
-            if self.graph.node[node]["bipartite"] == 0:
+            if self.graph.nodes[node]["bipartite"] == 0:
                 neighbor_list = list(self.graph.neighbors(node))
                 if len(neighbor_list) > 0:
                     neg_found = False
                     for neighbor in neighbor_list:
-                        if self.graph.node[neighbor]["free_energy"] < 0:
+                        if self.graph.nodes[neighbor]["free_energy"] < 0:
                             neg_found = True
                             break
                     if not neg_found:
-                        self.graph.node[node]["local_sink"] = 1
+                        self.graph.nodes[node]["local_sink"] = 1
                         sinks.append(node)
                         for neighbor in neighbor_list:
-                            self.graph.node[neighbor]["local_sink"] = 1
+                            self.graph.nodes[neighbor]["local_sink"] = 1
                             second_neighbor_list = list(self.graph.neighbors(neighbor))
                             for second_neighbor in second_neighbor_list:
-                                self.graph.node[second_neighbor]["local_sink"] = 2
+                                self.graph.nodes[second_neighbor]["local_sink"] = 2
 
         return sinks
 
