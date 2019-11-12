@@ -10,7 +10,7 @@ from monty.json import MontyEncoder, MontyDecoder
 from pymatgen.core.composition import Composition
 from monty.json import MSONable
 from pymatgen.analysis.graphs import MoleculeGraph, MolGraphSplitError
-from pymatgen.analysis.local_env import OpenBabelNN, JmolNN
+from pymatgen.analysis.local_env import OpenBabelNN
 from pymatgen.io.babel import BabelMolAdaptor
 from pymatgen import Molecule
 from pymatgen.analysis.fragmenter import metal_edge_extender
@@ -64,17 +64,11 @@ class MoleculeEntry(MSONable):
         self.entry_id = entry_id
         self.attribute = attribute
 
-        if self.composition.alphabetical_formula == "H3 O1":
-            self.mol_graph = MoleculeGraph.with_local_env_strategy(self.molecule,
-                                                                   JmolNN(),
-                                                                   reorder=True,
-                                                                   extend_structure=True)
-        else:
-            mol_graph = MoleculeGraph.with_local_env_strategy(self.molecule,
-                                                              OpenBabelNN(),
-                                                              reorder=False,
-                                                              extend_structure=False)
-            self.mol_graph = metal_edge_extender(mol_graph)
+        mol_graph = MoleculeGraph.with_local_env_strategy(self.molecule,
+                                                          OpenBabelNN(),
+                                                          reorder=False,
+                                                          extend_structure=False)
+        self.mol_graph = metal_edge_extender(mol_graph)
 
     @property
     def graph(self):
