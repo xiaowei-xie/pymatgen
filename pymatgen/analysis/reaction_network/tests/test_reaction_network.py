@@ -8,7 +8,7 @@ from pymatgen.core.structure import Molecule
 from pymatgen.analysis.graphs import MoleculeGraph
 from pymatgen.analysis.local_env import OpenBabelNN
 from pymatgen.util.testing import PymatgenTest
-from pymatgen.analysis.reaction_network import ReactionNetwork
+from pymatgen.analysis.reaction_network.reaction_network import ReactionNetwork
 from pymatgen.entries.mol_entry import MoleculeEntry
 from monty.serialization import dumpfn, loadfn
 from pymatgen.analysis.fragmenter import metal_edge_extender
@@ -21,7 +21,7 @@ except ImportError:
 __author__ = "Samuel Blau"
 __email__ = "samblau1@gmail.com"
 
-test_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..",
+test_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..","..",
                         'test_files', 'reaction_network_files')
 
 
@@ -90,7 +90,7 @@ class TestReactionNetwork(PymatgenTest):
             else:
                 cls.LiEC_reextended_entries.append(mol_entry)
 
-    def test_LEMC(self):
+    def _test_LEMC(self):
         RN = ReactionNetwork(
             self.LiEC_reextended_entries,
             electron_free_energy=-2.15)
@@ -131,7 +131,7 @@ class TestReactionNetwork(PymatgenTest):
         #     print()
         # RN.identify_sinks()
 
-    def _test_reextended(self):
+    def test_reextended(self):
         RN = ReactionNetwork(
             self.LiEC_reextended_entries,
             electron_free_energy=-2.15)
@@ -185,7 +185,7 @@ class TestReactionNetwork(PymatgenTest):
         #         print(val, path[val])
         #     print()
 
-    def _test_build_graph(self):
+    def test_build_graph(self):
         RN = ReactionNetwork(
             self.LiEC_extended_entries,
             electron_free_energy=-2.15)
@@ -196,7 +196,7 @@ class TestReactionNetwork(PymatgenTest):
         loaded_RN = loadfn("RN.json")
         self.assertEqual(RN.as_dict(),loaded_RN.as_dict())
 
-    def _test_solve_prerequisites(self):
+    def test_solve_prerequisites(self):
         RN = loadfn("RN.json")
         LiEC_ind = None
         LEDC_ind = None
@@ -224,7 +224,7 @@ class TestReactionNetwork(PymatgenTest):
                 self.assertTrue(abs(new_path["overall_free_energy_change"]-old_path["overall_free_energy_change"])<0.000000000001)
                 self.assertTrue(abs(new_path["cost"]-old_path["cost"])<0.000000000001)
 
-    def _test_find_paths(self):
+    def test_find_paths(self):
         RN = loadfn("RN.json")
         LiEC_ind = None
         LEDC_ind = None
