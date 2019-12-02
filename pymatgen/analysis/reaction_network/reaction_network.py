@@ -113,8 +113,9 @@ class ReactionNetwork(MSONable):
         self.intramol_single_bond_change()
         self.intermol_single_bond_change()
         self.coordination_bond_change()
-        self.add_water_reactions()
+        #self.add_water_reactions()
         # self.concerted_2_steps()
+        self.add_LEDC_concerted_reactions()
 
         self.PR_record = self.build_PR_record()
         self.min_cost = {}
@@ -410,6 +411,149 @@ class ReactionNetwork(MSONable):
                                         exponent=0.0,
                                         weight=1.0
                                         )
+
+    def add_LEDC_concerted_reactions(self):
+        # 2LiEC-RO -> LEDC + C2H4
+        # LiCO3 -1 + LiEC 1 -> LEDC
+        # LiEC-RO: 'C3 H4 Li1 O3'
+
+        LEDC_found = False
+        C2H4_found = False
+        LiEC_RO_found = False
+        LiCO3_minus_found = False
+        LiEC_plus_found = False
+        '''
+        try:
+            LEDC_entry = self.entries['C4 H4 Li2 O6'][17][0][0]
+            LEDC_found = True
+        except KeyError:
+            print("Missing LEDC, will not add either 2LiEC-RO -> LEDC + C2H4 reaction or LiCO3 -1 + LiEC 1 -> LEDC reactions")
+
+        try:
+            LiEC_RO_entry = self.entries['C3 H4 Li1 O3'][11][0][0]
+            LiEC_RO_found = True
+        except KeyError:
+            print("Missing LiEC-RO, will not add 2LiEC-RO -> LEDC + C2H4 reaction")
+
+        try:
+            C2H4_entry = self.entries['C2 H4'][5][0][0]
+            C2H4_found = True
+        except KeyError:
+            print("Missing C2H4, will not add 2LiEC-RO -> LEDC + C2H4 reaction")
+
+        try:
+            LiCO3_minus_entry = self.entries['C1 Li1 O3'][5][-1][0]
+            LiCO3_minus_found = True
+        except KeyError:
+            print("Missing LiCO3-, will not add LiCO3 -1 + LiEC 1 -> LEDC reaction")
+
+        try:
+            LiEC_plus_entry = self.entries['C3 H4 Li1 O3'][12][1][0]
+            LiEC_plus_found = True
+        except KeyError:
+            print("Missing LiEC+, will not add LiCO3 -1 + LiEC 1 -> LEDC reaction")
+        
+        '''
+
+        try:
+            LEDC_entry = self.entries['C4 H4 Li2 O6'][15][0][0]
+            LEDC_found = True
+        except KeyError:
+            print("Missing LEDC, will not add either 2LiEC-RO -> LEDC + C2H4 reaction or LiCO3 -1 + LiEC 1 -> LEDC reactions")
+
+        try:
+            LiEC_RO_entry = self.entries['C3 H4 Li1 O3'][10][0][1]
+            LiEC_RO_found = True
+        except KeyError:
+            print("Missing LiEC-RO, will not add 2LiEC-RO -> LEDC + C2H4 reaction")
+
+        try:
+            C2H4_entry = self.entries['C2 H4'][5][0][0]
+            C2H4_found = True
+        except KeyError:
+            print("Missing C2H4, will not add 2LiEC-RO -> LEDC + C2H4 reaction")
+
+        try:
+            LiCO3_minus_entry = self.entries['C1 Li1 O3'][4][-1][0]
+            LiCO3_minus_found = True
+        except KeyError:
+            print("Missing LiCO3-, will not add LiCO3 -1 + LiEC 1 -> LEDC reaction")
+
+        try:
+            LiEC_plus_entry = self.entries['C3 H4 Li1 O3'][11][1][0]
+            LiEC_plus_found = True
+        except KeyError:
+            print("Missing LiEC+, will not add LiCO3 -1 + LiEC 1 -> LEDC reaction")
+
+
+        if LiEC_RO_found and C2H4_found and LEDC_found:
+            print("Adding concerted reaction 2LiEC-RO -> LEDC + C2H4")
+            LiEC_RO_PR_LiEC_RO_name = str(LiEC_RO_entry.parameters["ind"]) + "+PR_" + str(LiEC_RO_entry.parameters["ind"])
+
+            if LEDC_entry.parameters["ind"] <= C2H4_entry.parameters["ind"]:
+                LEDC_C2H4_name = str(LEDC_entry.parameters["ind"]) + "+" + str(C2H4_entry.parameters["ind"])
+            else:
+                LEDC_C2H4_name = str(C2H4_entry.parameters["ind"]) + "+" + str(LEDC_entry.parameters["ind"])
+
+            rxn_node_1 = LiEC_RO_PR_LiEC_RO_name + "," + LEDC_C2H4_name
+            rxn1_energy = LEDC_entry.energy + C2H4_entry.energy - 2 * LiEC_RO_entry.energy
+            rxn1_free_energy = LEDC_entry.free_energy + C2H4_entry.free_energy - 2 * LiEC_RO_entry.free_energy
+            print("2LiEC-RO -> LEDC + C2H4 free energy =", rxn1_free_energy)
+
+            self.graph.add_node(rxn_node_1, rxn_type="2LiEC-RO -> LEDC + C2H4", bipartite=1, energy=rxn1_energy,
+                                free_energy=rxn1_free_energy)
+            self.graph.add_edge(LiEC_RO_entry.parameters["ind"],
+                                rxn_node_1,
+                                softplus=self.softplus(rxn1_free_energy),
+                                exponent=self.exponent(rxn1_free_energy),
+                                weight=1.0
+                                )
+            self.graph.add_edge(rxn_node_1,
+                                LEDC_entry.parameters["ind"],
+                                softplus=0.0,
+                                exponent=0.0,
+                                weight=1.0
+                                )
+            self.graph.add_edge(rxn_node_1,
+                                C2H4_entry.parameters["ind"],
+                                softplus=0.0,
+                                exponent=0.0,
+                                weight=1.0
+                                )
+
+        if LiEC_plus_found and LiCO3_minus_found and LEDC_found:
+            print("LiCO3 -1 + LiEC 1 -> LEDC")
+            if LiEC_plus_entry.parameters["ind"] <= LiCO3_minus_entry.parameters["ind"]:
+                LiEC_plus_LiCO3_minus_name = str(LiEC_plus_entry.parameters["ind"]) + "+" + str(LiCO3_minus_entry.parameters["ind"])
+            else:
+                LiEC_plus_LiCO3_minus_name = str(LiCO3_minus_entry.parameters["ind"]) + "+" + str(LiEC_plus_entry.parameters["ind"])
+            LEDC_name = str(LEDC_entry.parameters["ind"])
+
+            rxn_node_2 = LiEC_plus_LiCO3_minus_name+","+LEDC_name
+            rxn2_energy =LEDC_entry.energy - LiEC_plus_entry.energy - LiCO3_minus_entry.energy
+            rxn2_free_energy = LEDC_entry.free_energy - LiEC_plus_entry.free_energy - LiCO3_minus_entry.free_energy
+            print("LiCO3 -1 + LiEC 1 -> LEDC free energy =",rxn2_free_energy)
+
+            self.graph.add_node(rxn_node_2,rxn_type="LiCO3 -1 + LiEC 1 -> LEDC",bipartite=1,energy=rxn2_energy,free_energy=rxn2_free_energy)
+            self.graph.add_edge(LiEC_plus_entry.parameters["ind"],
+                                rxn_node_2,
+                                softplus=self.softplus(rxn2_free_energy),
+                                exponent=self.exponent(rxn2_free_energy),
+                                weight=1.0
+                                )
+            self.graph.add_edge(LiCO3_minus_entry.parameters["ind"],
+                                rxn_node_2,
+                                softplus=0.0,
+                                exponent=0.0,
+                                weight=1.0
+                                )
+            self.graph.add_edge(rxn_node_2,
+                                LEDC_entry.parameters["ind"],
+                                softplus=0.0,
+                                exponent=0.0,
+                                weight=1.0
+                                )
+
 
     def add_reaction(self,entries0,entries1,rxn_type):
         """

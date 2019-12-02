@@ -64,11 +64,11 @@ class MoleculeEntry(MSONable):
         self.entry_id = entry_id
         self.attribute = attribute
 
-        mol_graph = MoleculeGraph.with_local_env_strategy(self.molecule,
+        self.mol_graph = MoleculeGraph.with_local_env_strategy(self.molecule,
                                                           OpenBabelNN(),
                                                           reorder=False,
                                                           extend_structure=False)
-        self.mol_graph = metal_edge_extender(mol_graph)
+        #self.mol_graph = metal_edge_extender(mol_graph)
 
     @property
     def graph(self):
