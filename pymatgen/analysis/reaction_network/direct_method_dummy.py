@@ -68,6 +68,11 @@ class Stochastic_Simulation_Dummy:
         :return: t: time vector (Nreaction_events x 1); x:  species amounts (Nreaction_events x Nspecies);
                  rxns: rxns that have been fired up (Nreaction_events x 1).
         '''
+        records = {}
+        records['a'] = []
+        records['random_rxn'] = []
+        records['a0'] = []
+        records['mu'] = []
         t = np.zeros(max_output_length)
         x = np.zeros([max_output_length, self.num_species])
         rxns = np.zeros(max_output_length)
@@ -82,6 +87,10 @@ class Stochastic_Simulation_Dummy:
             random_rxn = random.uniform(0, 1)
             tau = -np.log(random_t) / a0
             mu = np.where(np.cumsum(a) >= random_rxn * a0)[0][0]
+            records['a'].append(a)
+            records['random_rxn'].append(random_rxn)
+            records['a0'].append(a0)
+            records['mu'].append(mu)
 
             if rxn_count + 1 > max_output_length:
                 t = t[:rxn_count]
@@ -111,7 +120,7 @@ class Stochastic_Simulation_Dummy:
             t[-1] = time_span
             x[-1, :] = x[rxn_count - 1, :]
             rxns[-1] = rxns[rxn_count - 1]
-        return t, x, rxns
+        return t, x, rxns, records
 
 if __name__ == '__main__':
     SS = Stochastic_Simulation_Dummy()
@@ -121,7 +130,7 @@ if __name__ == '__main__':
     initial_conc[21] = 30
     initial_conc[4720] = 1000
 
-    t, x, rxns = SS.direct_method(initial_conc, 1000000, 10000000)
+    t, x, rxns,records = SS.direct_method(initial_conc, 1000000, 10000000)
 
     sorted_species_index = np.argsort(x[-1, :])[::-1]
     fig, ax = plt.subplots()
@@ -148,5 +157,5 @@ if __name__ == '__main__':
     for rxn in sorted_rxns:
         rxn = int(rxn)
         print(SS.reactions[rxn], SS.reaction_rates[rxn])
-
-
+    non_zero_index = [i for i in range(len(records['a'][0])) if records['a'][0][i] != 0]
+    non_zero_as = [records['a'][0][i] for i in range(len(records['a'][0])) if records['a'][0][i]!=0]

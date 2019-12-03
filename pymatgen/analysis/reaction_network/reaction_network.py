@@ -116,7 +116,7 @@ class ReactionNetwork(MSONable):
         #self.add_water_reactions()
         # self.concerted_2_steps()
         self.add_LEDC_concerted_reactions()
-
+        self.add_water_lithium_reaction()
         self.PR_record = self.build_PR_record()
         self.min_cost = {}
         self.num_starts = None
@@ -411,6 +411,83 @@ class ReactionNetwork(MSONable):
                                         exponent=0.0,
                                         weight=1.0
                                         )
+    def add_water_lithium_reaction(self):
+        # 2Li+ + 2H2O + 2e- -> 2LiOH +H2
+        H2O_found = False
+        Li_plus_found = False
+        LiOH_found = False
+        H2_found = False
+        try:
+            H2O_entry = self.entries["H2 O1"][2][0][0]
+            # print("H2O_entry",H2O_entry)
+            H2O_found = True
+        except KeyError:
+            print("Missing H2O, will not add 2Li+ + 2H2O + 2e- -> 2LiOH +H2 reaction")
+
+        try:
+            Li_plus_entry = self.entries["Li1"][0][1][0]
+            # print("OHminus_entry",OHminus_entry)
+            Li_plus_found = True
+        except KeyError:
+            print("Missing OH-, will not add 2Li+ + 2H2O + 2e- -> 2LiOH +H2 reaction")
+
+        try:
+            LiOH_entry = self.entries['H1 Li1 O1'][2][0][0]
+            # print("H3Oplus_entry",H3Oplus_entry)
+            LiOH_found = True
+        except KeyError:
+            print("Missing H3O+, will not add 2Li+ + 2H2O + 2e- -> 2LiOH +H2 reaction")
+
+        try:
+            H2_entry = self.entries["H2"][1][0][0]
+            # print("H2_entry",H2_entry)
+            H2_found = True
+        except KeyError:
+            print("Missing H2, will not add 2Li+ + 2H2O + 2e- -> 2LiOH +H2 reaction")
+
+        if H2O_found and Li_plus_found and LiOH_found and H2_found:
+            print("Adding concerted water splitting rxn1: 2H2O -> OH- + H3O+")
+            if H2O_entry.parameters["ind"] <= Li_plus_entry.parameters["ind"]:
+                H2O_Li_name = str(H2O_entry.parameters["ind"])+ "+" +str(Li_plus_entry.parameters["ind"])
+            else:
+                H2O_Li_name = str(Li_plus_entry.parameters["ind"])+ "+" +str(H2O_entry.parameters["ind"])
+
+            if LiOH_entry.parameters["ind"] <= H2_entry.parameters["ind"]:
+                LiOH_H2_name = str(LiOH_entry.parameters["ind"]) + "+" + str(H2_entry.parameters["ind"])
+            else:
+                LiOH_H2_name = str(H2_entry.parameters["ind"]) + "+" + str(LiOH_entry.parameters["ind"])
+
+            rxn_node = H2O_Li_name + "," + LiOH_H2_name
+            rxn_energy = 2 * LiOH_entry.energy + H2_entry.energy - 2 * H2O_entry.energy - 2 * Li_plus_entry.energy
+            rxn_free_energy = 2 * LiOH_entry.free_energy + H2_entry.free_energy - 2 * H2O_entry.free_energy - \
+                              2 * Li_plus_entry.free_energy - 2 * self.electron_free_energy
+            print("Rxn free energy =", rxn_free_energy)
+
+            self.graph.add_node(rxn_node,rxn_type="water_lithium_reaction",bipartite=1,energy=rxn_energy,free_energy=rxn_free_energy)
+            self.graph.add_edge(H2O_entry.parameters["ind"],
+                                rxn_node,
+                                softplus=self.softplus(rxn_free_energy),
+                                exponent=self.exponent(rxn_free_energy),
+                                weight=1.0
+                                )
+            self.graph.add_edge(Li_plus_entry.parameters["ind"],
+                                rxn_node,
+                                softplus=self.softplus(rxn_free_energy),
+                                exponent=self.exponent(rxn_free_energy),
+                                weight=1.0
+                                )
+            self.graph.add_edge(rxn_node,
+                                LiOH_entry.parameters["ind"],
+                                softplus=0.0,
+                                exponent=0.0,
+                                weight=1.0
+                                )
+            self.graph.add_edge(rxn_node,
+                                H2_entry.parameters["ind"],
+                                softplus=0.0,
+                                exponent=0.0,
+                                weight=1.0
+                                )
 
     def add_LEDC_concerted_reactions(self):
         # 2LiEC-RO -> LEDC + C2H4

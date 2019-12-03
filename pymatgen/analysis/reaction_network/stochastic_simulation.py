@@ -134,6 +134,10 @@ class StochaticSimulation:
                 elif num_of_reactants == 3:
                     propensity *= 1/6 * num_of_mols[int(reactant)] * (num_of_mols[int(reactant)] - 1) \
                                   * (num_of_mols[int(reactant)] - 2)
+            if self.graph.node[rxn_node]["rxn_type"] == "One electron reduction":
+                propensity *= num_of_mols[-1]
+            elif self.graph.node[rxn_node]["rxn_type"] == "water_lithium_reaction":
+                propensity *= 0.5 * num_of_mols[-1] * (num_of_mols[-1] - 1)
             self.propensities.append(propensity)
         return self.propensities
 
@@ -249,6 +253,8 @@ class StochaticSimulation:
                 x[rxn_count + 1, -1] += 1
             elif self.graph.node[current_reaction]["rxn_type"] == "One electron reduction":
                 x[rxn_count + 1, -1] -= 1
+            elif self.graph.node[current_reaction]["rxn_type"] == "water_lithium_reaction":
+                x[rxn_count + 1, -1] -= 2
             rxns[rxn_count+1] = mu
             rxn_count += 1
 
@@ -348,7 +354,7 @@ if __name__ == '__main__':
     initial_conc[Li1_ind] = 1000
     initial_conc[H2O_ind] = 30
     initial_conc[-1] = 1000
-    SS.get_rates(1.08,1.3)
+    SS.get_rates(1.0841025975148306,1.3009231170177968)
     SS.remove_gas_reactions()
     t, x, rxns, records = SS.direct_method(initial_conc,1000000,10000000)
 
@@ -374,7 +380,7 @@ if __name__ == '__main__':
     plt.show()
     for rxn in sorted_rxns:
         rxn = int(rxn)
-        print(SS.reaction_nodes[rxn], SS.reaction_rates[rxn])
+        print(SS.unique_reaction_nodes[rxn], SS.reaction_rates[rxn])
 
     '''
     for i in range(len(RN.entries_list)):
