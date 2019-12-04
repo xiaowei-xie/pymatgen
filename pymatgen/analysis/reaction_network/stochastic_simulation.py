@@ -150,7 +150,7 @@ class StochaticSimulation:
             OpenBabelNN(),
             reorder=False,
             extend_structure=False)
-        for entry in RN.entries['C2 H4'][5][0]:
+        for entry in self.reaction_network.entries['C2 H4'][5][0]:
             if C2H4_mg.isomorphic_to(entry.mol_graph):
                 C2H4_ind = entry.parameters["ind"]
                 break
@@ -160,7 +160,7 @@ class StochaticSimulation:
             OpenBabelNN(),
             reorder=False,
             extend_structure=False)
-        for entry in RN.entries['C1 O1'][1][0]:
+        for entry in self.reaction_network.entries['C1 O1'][1][0]:
             if CO_mg.isomorphic_to(entry.mol_graph):
                 CO_ind = entry.parameters["ind"]
                 break
@@ -170,7 +170,7 @@ class StochaticSimulation:
             OpenBabelNN(),
             reorder=False,
             extend_structure=False)
-        for entry in RN.entries['C1 O2'][2][0]:
+        for entry in self.reaction_network.entries['C1 O2'][2][0]:
             if CO2_mg.isomorphic_to(entry.mol_graph):
                 CO2_ind = entry.parameters["ind"]
                 break
@@ -180,7 +180,7 @@ class StochaticSimulation:
             OpenBabelNN(),
             reorder=False,
             extend_structure=False)
-        for entry in RN.entries['H2'][1][0]:
+        for entry in self.reaction_network.entries['H2'][1][0]:
             if H2_mg.isomorphic_to(entry.mol_graph):
                 H2_ind = entry.parameters["ind"]
                 break
@@ -190,7 +190,7 @@ class StochaticSimulation:
             OpenBabelNN(),
             reorder=False,
             extend_structure=False)
-        for entry in RN.entries['F5 P1'][5][0]:
+        for entry in self.reaction_network.entries['F5 P1'][5][0]:
             if PF5_mg.isomorphic_to(entry.mol_graph):
                 PF5_ind = entry.parameters["ind"]
                 break
