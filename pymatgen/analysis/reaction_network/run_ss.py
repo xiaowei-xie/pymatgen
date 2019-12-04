@@ -42,7 +42,7 @@ RN = ReactionNetwork(
 
 SS = StochaticSimulation(RN)
 
-test_dir = '/Users/xiaowei_xie/Desktop/Sam_production/xyzs/'
+test_dir = '/home/xiaowei/Sam_production/xyzs/'
 EC_mg = MoleculeGraph.with_local_env_strategy(
     Molecule.from_file(os.path.join(test_dir, "EC.xyz")),
     OpenBabelNN(),

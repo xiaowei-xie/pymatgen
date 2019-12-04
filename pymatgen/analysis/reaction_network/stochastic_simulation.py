@@ -58,13 +58,11 @@ class StochaticSimulation:
         self.num_species = len(self.entries_list) + 1
         self.num_reactions = self.reaction_network.num_reactions
         self.graph = self.reaction_network.graph
-        self.reaction_nodes = []
-        # This is unique reactions. i.e. "233+PR_5914,2130"  == "5914+PR_2233,2130"
         self.reactions = []
+        # This is unique reactions. i.e. "233+PR_5914,2130"  == "5914+PR_2233,2130"
         self.unique_reaction_nodes = []
         for node0 in self.reaction_network.graph.nodes():
              if self.graph.node[node0]["bipartite"] == 1:
-                 self.reaction_nodes.append(node0)
                  reactants = node0.split(",")[0].split("+")
                  reactants = [reac.replace("PR_", "") for reac in reactants]
                  products = node0.split(",")[1].split("+")
@@ -73,9 +71,19 @@ class StochaticSimulation:
                  if [reactants, products] not in self.reactions:
                     self.reactions.append([reactants, products])
                     self.unique_reaction_nodes.append(node0)
+        # create a key "charge_change" indicating the total charge change in the reaction : total charge of products - total charge of reactants
+        for node in self.unique_reaction_nodes:
+            if self.graph.node[node]["rxn_type"] == "One electron oxidation":
+                self.graph.node[node]["charge_change"] = 1
+            elif self.graph.node[node]["rxn_type"] == "One electron reduction":
+                self.graph.node[node]["charge_change"] = -1
+            elif self.graph.node[node]["rxn_type"] == "water_lithium_reaction":
+                self.graph.node[node]["charge_change"] = -2
+            elif self.graph.node[node]["rxn_type"] == "water_2e_redox":
+                self.graph.node[node]["charge_change"] = -2
         return
 
-    def get_rates(self, barrier_uni, barrier_bi):
+    def get_rates(self, barrier_uni, barrier_bi, barrier_tri):
         '''
         Approximate rates for all the reactions in reaction_nodes. All exergonic unimolecular reactions have the same rate; all exergonic bmolecular reactions have the same rate.
         Rates of endergonic reactions are computed from delta G and the corresponding reverse exergonic reaction rate.
@@ -86,30 +94,36 @@ class StochaticSimulation:
         '''
         self.reaction_rates = []
         for rxn_node in self.unique_reaction_nodes:
-            if self.graph.nodes[rxn_node]['rxn_type'] == 'LiCO3 -1 + LiEC 1 -> LEDC':
-                barrier = eV/J*mol * barrier_uni
-                rate = k_b * T / h * np.exp(-barrier / R / T)
-            elif self.graph.nodes[rxn_node]['rxn_type'] == '2LiEC-RO -> LEDC + C2H4':
-                barrier = eV/J*mol * barrier_uni
-                rate = k_b * T / h * np.exp(-barrier / R / T)
-            else:
-                reaction_energy = self.graph.node[rxn_node]["free_energy"]
-                reactants = rxn_node.split(",")[0].split("+")
-                num_reactants = len(reactants)
-                if reaction_energy <= 0:
-                    if num_reactants == 1:
-                        barrier = eV/J*mol * barrier_uni
-                        rate = k_b * T / h * np.exp(-barrier / R / T)
-                    elif num_reactants == 2:
-                        barrier =  eV/J*mol * barrier_bi
-                        rate = k_b * T / h * np.exp(-barrier / R / T)
-                elif reaction_energy > 0:
-                    if num_reactants == 1:
-                        barrier = eV/J*mol * (barrier_uni + reaction_energy)
-                        rate = k_b * T / h * np.exp(-barrier / R / T)
-                    elif num_reactants == 2:
-                        barrier = eV/J*mol * (barrier_bi + reaction_energy)
-                        rate = k_b * T / h * np.exp(-barrier / R / T)
+            # if self.graph.nodes[rxn_node]['rxn_type'] == 'LiCO3 -1 + LiEC 1 -> LEDC':
+            #     barrier = eV/J*mol * barrier_uni
+            #     rate = k_b * T / h * np.exp(-barrier / R / T)
+            # elif self.graph.nodes[rxn_node]['rxn_type'] == '2LiEC-RO -> LEDC + C2H4':
+            #     barrier = eV/J*mol * barrier_uni
+            #     rate = k_b * T / h * np.exp(-barrier / R / T)
+            #else:
+            reaction_energy = self.graph.node[rxn_node]["free_energy"]
+            reactants = rxn_node.split(",")[0].split("+")
+            num_reactants = len(reactants)
+            if reaction_energy <= 0:
+                if num_reactants == 1:
+                    barrier = eV/J*mol * barrier_uni
+                    rate = k_b * T / h * np.exp(-barrier / R / T)
+                elif num_reactants == 2:
+                    barrier =  eV/J*mol * barrier_bi
+                    rate = k_b * T / h * np.exp(-barrier / R / T)
+                elif num_reactants == 3:
+                    barrier = eV / J * mol * barrier_tri
+                    rate = k_b * T / h * np.exp(-barrier / R / T)
+            elif reaction_energy > 0:
+                if num_reactants == 1:
+                    barrier = eV/J*mol * (barrier_uni + reaction_energy)
+                    rate = k_b * T / h * np.exp(-barrier / R / T)
+                elif num_reactants == 2:
+                    barrier = eV/J*mol * (barrier_bi + reaction_energy)
+                    rate = k_b * T / h * np.exp(-barrier / R / T)
+                elif num_reactants == 3:
+                    barrier = eV / J * mol * (barrier_tri + reaction_energy)
+                    rate = k_b * T / h * np.exp(-barrier / R / T)
             self.reaction_rates.append(rate)
         return
 
@@ -134,16 +148,16 @@ class StochaticSimulation:
                 elif num_of_reactants == 3:
                     propensity *= 1/6 * num_of_mols[int(reactant)] * (num_of_mols[int(reactant)] - 1) \
                                   * (num_of_mols[int(reactant)] - 2)
-            if self.graph.node[rxn_node]["rxn_type"] == "One electron reduction":
+            if self.graph.node[rxn_node]["charge_change"] == -1:
                 propensity *= num_of_mols[-1]
-            elif self.graph.node[rxn_node]["rxn_type"] == "water_lithium_reaction":
+            elif self.graph.node[rxn_node]["charge_change"] == -2:
                 propensity *= 0.5 * num_of_mols[-1] * (num_of_mols[-1] - 1)
             self.propensities.append(propensity)
         return self.propensities
 
-    def remove_gas_reactions(self):
+    def remove_gas_reactions(self,xyz_dir):
         # find the indices of gases
-        test_dir = '/Users/xiaowei_xie/Desktop/Sam_production/xyzs/'
+        test_dir = xyz_dir
         C2H4_mg = MoleculeGraph.with_local_env_strategy(
             Molecule.from_file(os.path.join(test_dir, "ethylene.xyz")),
             OpenBabelNN(),
@@ -200,6 +214,89 @@ class StochaticSimulation:
             if any(reac in gas_indices for reac in reactants):
                 self.reaction_rates[i] = 0.0
         return
+
+    def add_concerted_reactions_2_step(self, num_of_mols, num_thresh):
+        '''
+        Add concerted reactions on the fly, only for species that have non-zero concentration.
+        This function only adds two-step concerted reactions.
+        :param num_of_mols:
+        :return:
+        '''
+
+        non_zero_indices = [i for i in range(len(num_of_mols)) if num_of_mols[i] > num_thresh]
+        for mol_id in non_zero_indices:
+            neighbor_rxns = list(self.graph.neighbors(mol_id))
+            for rxn0 in neighbor_rxns:
+                if self.graph.node[rxn0]["free_energy"] > 0:
+                    rxn0_reactants = rxn0.split(",")
+                    rxn0_reactants = [reac.replace("PR_","") for reac in rxn0_reactants]
+                    rxn0_products = list(self.graph.neighbors(rxn0))
+                    for node1 in rxn0_products:
+                        #rxn0_products_copy = copy.deepcopy(rxn0_products)
+                        rxn0_products.remove(str(node1))
+                        middle_products = rxn0_products
+                        node1_rxns = list(self.graph.neighbors(node1))
+                        for rxn1 in node1_rxns:
+                            if self.graph.node[rxn0]["free_energy"] + self.graph.node[rxn1]["free_energy"] < 0:
+                                rxn1_reactants = rxn1.split(",")
+                                rxn1_reactants = [reac.replace("PR_", "") for reac in rxn1_reactants]
+                                #rxn1_reactants_copy = copy.deepcopy(rxn1_reactants)
+                                rxn1_reactants.remove(str(node1))
+                                middle_reactants = rxn1_reactants
+                                rxn1_products = list(self.graph.neighbors(rxn1))
+                                total_reactants = rxn0_reactants + middle_reactants
+                                total_products = middle_products + rxn1_products
+                                total_reactants.sort()
+                                total_products.sort()
+                                # check the reaction is not in the existing reactions, and both the number of reactants and products less than 3
+                                if (not [total_reactants, total_products] in self.reactions) and \
+                                        (len(total_reactants) <= 3) and (len(total_products) <= 3):
+                                    # check stoichiometry
+                                    total_species = total_reactants + total_products
+                                    total_species_set = list(set(total_species))
+                                    # remove species that appear both in reactants and products
+                                    for species in total_species_set:
+                                        while (species in total_reactants and species in total_products):
+                                            total_reactants.remove(species)
+                                            total_products.remove(species)
+                                    unique_elements = []
+                                    for species in total_species_set:
+                                        unique_elements += list(self.entries_list[int(species)].molecule.atomic_numbers)
+                                    unique_elements = list(set(unique_elements))
+                                    reactant_elements, product_elements = [], []
+                                    for species in total_reactants:
+                                        reactant_elements += list(self.entries_list[int(species)].molecule.atomic_numbers)
+                                    for species in total_products:
+                                        product_elements += list(self.entries_list[int(species)].molecule.atomic_numbers)
+                                    if all(reactant_elements.count(ele) == product_elements.count(ele) for ele in unique_elements):
+                                        # check total charge
+                                        reactant_total_charge = np.sum([self.entries_list[int(item)].charge for item in total_reactants])
+                                        product_total_charge = np.sum([self.entries_list[int(item)].charge for item in total_products])
+                                        if abs(reactant_total_charge - product_total_charge) >= 3:
+                                            print("WARNING: total charges differ by more than 3! Ignoring...")
+                                        else:
+                                            reactant_name = "+".join(total_reactants)
+                                            product_name = "+".join(total_products)
+                                            reaction_forward_name = reactant_name + "," + product_name
+                                            reaction_reverse_name = product_name + "," + reactant_name
+                                            total_energy_reactant = np.sum([self.entries_list[int(item)].energy for item in total_reactants])
+                                            total_energy_product = np.sum([self.entries_list[int(item)].energy for item in total_products])
+                                            total_free_energy_reactant = np.sum([self.entries_list[int(item)].free_energy for item in total_reactants])
+                                            total_free_energy_product = np.sum([self.entries_list[int(item)].free_energy for item in total_products])
+                                            energy_forward = total_energy_product - total_energy_reactant
+                                            energy_reverse = - energy_forward
+                                            total_charge_change = product_total_charge - reactant_total_charge
+                                            free_energy_forward = total_free_energy_product - total_free_energy_reactant + \
+                                                                  total_charge_change * self.reaction_network.electron_free_energy
+                                            free_energy_reverse = - free_energy_forward
+                                            self.graph.add_node(reaction_forward_name, rxn_type="concerted_two_step",
+                                                      bipartite=1, energy=energy_forward, free_energy=free_energy_forward, charge_change=total_charge_change)
+                                            self.graph.add_node(reaction_reverse_name, rxn_type="concerted_two_step",bipartite=1, energy=energy_reverse,
+                                                                free_energy=free_energy_reverse,charge_change=-total_charge_change)
+                                            self.unique_reaction_nodes.append(reaction_forward_name)
+                                            self.unique_reaction_nodes.append(reaction_reverse_name)
+                                            self.reactions.append([total_reactants, total_products])
+
 
     def direct_method(self, initial_conc, time_span, max_output_length):
         '''
@@ -267,11 +364,21 @@ class StochaticSimulation:
             rxns[-1] = rxns[rxn_count-1]
         return t, x, rxns, records
 
+    def add_concerted_reactions_on_the_fly(self, initial_conc, time_span, max_output_length, barrier_uni, barrier_bi, barrier_tri, iterations=5):
+        iter = 0
+        t, x, rxns, records = 0,0,0,0
+        print("current nums of reactions:", len(self.unique_reaction_nodes))
+        while iter < iterations:
+            t, x, rxns, records = self.direct_method(initial_conc, time_span, max_output_length)
+            self.add_concerted_reactions_2_step(x[-1,:], 10)
+            print("current nums of reactions:", len(self.unique_reaction_nodes))
+            self.get_rates(barrier_uni, barrier_bi, barrier_tri)
+        return t,x,rxns,records
 
 
 if __name__ == '__main__':
     prod_entries = []
-    entries = loadfn("/Users/xiaowei_xie/pymatgen/pymatgen/analysis/reaction_network/smd_production_entries.json")
+    entries = loadfn("/Users/xiaowei_xie/pymatgen/pymatgen/analysis/reaction_network/LiEC_reextended_entries.json")
     for entry in entries:
         if "optimized_molecule" in entry["output"]:
             molecule = entry["output"]["optimized_molecule"]
@@ -288,8 +395,6 @@ if __name__ == '__main__':
         electron_free_energy=-2.15)
 
     SS = StochaticSimulation(RN)
-
-
 
     test_dir = '/Users/xiaowei_xie/Desktop/Sam_production/xyzs/'
     EC_mg = MoleculeGraph.with_local_env_strategy(
