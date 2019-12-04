@@ -2,22 +2,13 @@
 # Copyright (c) Pymatgen Development Team.
 # Distributed under the terms of the MIT License.
 
-
-import abc
 import logging
-import copy
-import itertools
-import heapq
 import numpy as np
-from typing import List
-from monty.json import MSONable, MontyDecoder
 from pymatgen.analysis.graphs import MoleculeGraph, MolGraphSplitError
 from pymatgen.analysis.local_env import OpenBabelNN
 from pymatgen.io.babel import BabelMolAdaptor
 from pymatgen import Molecule
 from pymatgen.analysis.fragmenter import metal_edge_extender
-import networkx as nx
-from networkx.algorithms import bipartite
 from pymatgen.entries.mol_entry import MoleculeEntry
 from pymatgen.analysis.reaction_network.reaction_network import ReactionNetwork
 from monty.serialization import dumpfn, loadfn
@@ -25,7 +16,6 @@ import random
 import os
 import matplotlib.pyplot as plt
 from ase.units import eV, J, mol
-from pymatgen.core.composition import CompositionError
 
 
 __author__ = "Xiaowei Xie"
@@ -52,8 +42,8 @@ class StochaticSimulation:
             electron_free_energy (float): The Gibbs free energy of an electron.
                 Defaults to -2.15 eV, the value at which the LiEC SEI forms.
         """
-    def __init__(self, ReactionNetwork):
-        self.reaction_network = ReactionNetwork
+    def __init__(self, reaction_network):
+        self.reaction_network = reaction_network
         self.entries_list = self.reaction_network.entries_list
         self.num_species = len(self.entries_list) + 1
         self.num_reactions = self.reaction_network.num_reactions
@@ -81,11 +71,14 @@ class StochaticSimulation:
                 self.graph.node[node]["charge_change"] = -2
             elif self.graph.node[node]["rxn_type"] == "water_2e_redox":
                 self.graph.node[node]["charge_change"] = -2
+            else:
+                self.graph.node[node]["charge_change"] = 0
         return
 
-    def get_rates(self, barrier_uni, barrier_bi, barrier_tri):
+    def get_rates(self, barrier_uni, barrier_bi):
         '''
-        Approximate rates for all the reactions in reaction_nodes. All exergonic unimolecular reactions have the same rate; all exergonic bmolecular reactions have the same rate.
+        Approximate rates for all the reactions in reaction_nodes. All exergonic unimolecular reactions have the same rate;
+        all exergonic bmolecular reactions have the same rate.
         Rates of endergonic reactions are computed from delta G and the corresponding reverse exergonic reaction rate.
         :param reaction_energy:
         :param barrier_uni: Barrier in eV for unimolecular exergonic reactions.
@@ -111,18 +104,12 @@ class StochaticSimulation:
                 elif num_reactants == 2:
                     barrier =  eV/J*mol * barrier_bi
                     rate = k_b * T / h * np.exp(-barrier / R / T)
-                elif num_reactants == 3:
-                    barrier = eV / J * mol * barrier_tri
-                    rate = k_b * T / h * np.exp(-barrier / R / T)
             elif reaction_energy > 0:
                 if num_reactants == 1:
                     barrier = eV/J*mol * (barrier_uni + reaction_energy)
                     rate = k_b * T / h * np.exp(-barrier / R / T)
                 elif num_reactants == 2:
                     barrier = eV/J*mol * (barrier_bi + reaction_energy)
-                    rate = k_b * T / h * np.exp(-barrier / R / T)
-                elif num_reactants == 3:
-                    barrier = eV / J * mol * (barrier_tri + reaction_energy)
                     rate = k_b * T / h * np.exp(-barrier / R / T)
             self.reaction_rates.append(rate)
         return
@@ -248,17 +235,17 @@ class StochaticSimulation:
                                 total_products = middle_products + rxn1_products
                                 total_reactants.sort()
                                 total_products.sort()
+
+                                total_species = total_reactants + total_products
+                                total_species_set = list(set(total_species))
+                                # remove species that appear both in reactants and products
+                                for species in total_species_set:
+                                    while (species in total_reactants and species in total_products):
+                                        total_reactants.remove(species)
+                                        total_products.remove(species)
                                 # check the reaction is not in the existing reactions, and both the number of reactants and products less than 2
-                                if (not [total_reactants, total_products] in self.reactions) and \
+                                if ([total_reactants, total_products] not in self.reactions) and \
                                         (len(total_reactants) <= 2) and (len(total_products) <= 2):
-                                    # check stoichiometry
-                                    total_species = total_reactants + total_products
-                                    total_species_set = list(set(total_species))
-                                    # remove species that appear both in reactants and products
-                                    for species in total_species_set:
-                                        while (species in total_reactants and species in total_products):
-                                            total_reactants.remove(species)
-                                            total_products.remove(species)
                                     unique_elements = []
                                     for species in total_species_set:
                                         unique_elements += list(self.entries_list[int(species)].molecule.atomic_numbers)
@@ -268,6 +255,7 @@ class StochaticSimulation:
                                         reactant_elements += list(self.entries_list[int(species)].molecule.atomic_numbers)
                                     for species in total_products:
                                         product_elements += list(self.entries_list[int(species)].molecule.atomic_numbers)
+                                    # check stoichiometry
                                     if all(reactant_elements.count(ele) == product_elements.count(ele) for ele in unique_elements):
                                         # check total charge
                                         reactant_total_charge = np.sum([self.entries_list[int(item)].charge for item in total_reactants])
@@ -346,12 +334,8 @@ class StochaticSimulation:
                 x[rxn_count+1, int(reac)] -= 1
             for prod in products:
                 x[rxn_count+1, int(prod)] += 1
-            if self.graph.node[current_reaction]["rxn_type"] == "One electron oxidation":
-                x[rxn_count + 1, -1] += 1
-            elif self.graph.node[current_reaction]["rxn_type"] == "One electron reduction":
-                x[rxn_count + 1, -1] -= 1
-            elif self.graph.node[current_reaction]["rxn_type"] == "water_lithium_reaction":
-                x[rxn_count + 1, -1] -= 2
+            if self.graph.node[current_reaction]["charge_change"] != 0:
+                x[rxn_count + 1, -1] += self.graph.node[current_reaction]["charge_change"]
             rxns[rxn_count+1] = mu
             rxn_count += 1
 
@@ -364,7 +348,7 @@ class StochaticSimulation:
             rxns[-1] = rxns[rxn_count-1]
         return t, x, rxns, records
 
-    def add_concerted_reactions_on_the_fly(self, initial_conc, time_span, max_output_length, barrier_uni, barrier_bi, barrier_tri, iterations=5):
+    def add_concerted_reactions_on_the_fly(self, initial_conc, time_span, max_output_length, barrier_uni, barrier_bi, xyz_dir,iterations=5):
         iter = 0
         t, x, rxns, records = 0,0,0,0
         print("current nums of reactions:", len(self.unique_reaction_nodes))
@@ -372,7 +356,8 @@ class StochaticSimulation:
             t, x, rxns, records = self.direct_method(initial_conc, time_span, max_output_length)
             self.add_concerted_reactions_2_step(x[-1,:], 10)
             print("current nums of reactions:", len(self.unique_reaction_nodes))
-            self.get_rates(barrier_uni, barrier_bi, barrier_tri)
+            self.get_rates(barrier_uni, barrier_bi)
+            self.remove_gas_reactions(xyz_dir)
         return t,x,rxns,records
 
 

@@ -1,11 +1,4 @@
-import abc
-import logging
-import copy
-import itertools
-import heapq
 import numpy as np
-from typing import List
-from monty.json import MSONable, MontyDecoder
 from pymatgen.analysis.graphs import MoleculeGraph, MolGraphSplitError
 from pymatgen.analysis.local_env import OpenBabelNN
 from pymatgen.io.babel import BabelMolAdaptor
@@ -106,8 +99,9 @@ initial_conc[Li1_ind] = 1000
 initial_conc[H2O_ind] = 30
 initial_conc[-1] = 1000
 SS.get_rates(1.0841025975148306, 1.3009231170177968)
-SS.remove_gas_reactions()
-t, x, rxns, records = SS.direct_method(initial_conc, 1000000, 10000000)
+SS.remove_gas_reactions('/home/xiaowei/Sam_production/xyzs')
+t, x, rxns, records = SS.add_concerted_reactions_on_the_fly(initial_conc, 1000000, 100000000, 1.0841025975148306, 1.3009231170177968, iterations=2)
+
 
 sorted_species_index = np.argsort(x[-1, :])[::-1]
 fig, ax = plt.subplots()
@@ -117,9 +111,9 @@ for i in range(100):
             species_index) != SS.num_species - 1:
         ax.step(t, x[:, int(species_index)], where='mid', label=str(species_index))
         # ax.plot(T,X[:,int(species_index)], 'C0o', alpha=0.5)
-plt.title('test')
+plt.title('KMC')
 plt.legend(loc='upper left')
-plt.show()
+plt.savefig('concerted_one_iteration.png')
 
 rxns_set = list(set(rxns))
 rxns_count = [list(rxns).count(rxn) for rxn in rxns_set]
@@ -129,7 +123,8 @@ x0 = np.arange(len(rxns_set))
 fig, ax = plt.subplots()
 plt.bar(x0, rxns_count)
 # plt.xticks(x, ([str(int(rxn)) for rxn in rxns_set]))
-plt.show()
+plt.title('reaction decomposition')
+plt.savefig('reaction_decomposition.png')
 for rxn in sorted_rxns:
     rxn = int(rxn)
     print(SS.unique_reaction_nodes[rxn], SS.reaction_rates[rxn])
