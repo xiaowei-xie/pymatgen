@@ -248,9 +248,9 @@ class StochaticSimulation:
                                 total_products = middle_products + rxn1_products
                                 total_reactants.sort()
                                 total_products.sort()
-                                # check the reaction is not in the existing reactions, and both the number of reactants and products less than 3
+                                # check the reaction is not in the existing reactions, and both the number of reactants and products less than 2
                                 if (not [total_reactants, total_products] in self.reactions) and \
-                                        (len(total_reactants) <= 3) and (len(total_products) <= 3):
+                                        (len(total_reactants) <= 2) and (len(total_products) <= 2):
                                     # check stoichiometry
                                     total_species = total_reactants + total_products
                                     total_species_set = list(set(total_species))
