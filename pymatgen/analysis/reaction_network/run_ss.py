@@ -17,7 +17,7 @@ from pymatgen.core.composition import CompositionError
 from pymatgen.analysis.reaction_network.stochastic_simulation import StochaticSimulation
 
 prod_entries = []
-entries = loadfn("/home/xiaowei/pymatgen/pymatgen/analysis/reaction_network/smd_production_entries.json")
+entries = loadfn("/Users/xiaowei_xie/pymatgen/pymatgen/analysis/reaction_network/smd_production_entries.json")
 for entry in entries:
     if "optimized_molecule" in entry["output"]:
         molecule = entry["output"]["optimized_molecule"]
@@ -35,34 +35,13 @@ RN = ReactionNetwork(
 
 SS = StochaticSimulation(RN)
 
-test_dir = '/home/xiaowei/Sam_production/xyzs/'
+test_dir = '/Users/xiaowei_xie/Desktop/Sam_production/xyzs/'
 EC_mg = MoleculeGraph.with_local_env_strategy(
     Molecule.from_file(os.path.join(test_dir, "EC.xyz")),
     OpenBabelNN(),
     reorder=False,
     extend_structure=False)
 EC_mg = metal_edge_extender(EC_mg)
-
-LiEC_mg = MoleculeGraph.with_local_env_strategy(
-    Molecule.from_file(os.path.join(test_dir, "LiEC.xyz")),
-    OpenBabelNN(),
-    reorder=False,
-    extend_structure=False)
-LiEC_mg = metal_edge_extender(LiEC_mg)
-
-LEDC_mg = MoleculeGraph.with_local_env_strategy(
-    Molecule.from_file(os.path.join(test_dir, "LEDC.xyz")),
-    OpenBabelNN(),
-    reorder=False,
-    extend_structure=False)
-LEDC_mg = metal_edge_extender(LEDC_mg)
-
-LEMC_mg = MoleculeGraph.with_local_env_strategy(
-    Molecule.from_file(os.path.join(test_dir, "LEMC.xyz")),
-    OpenBabelNN(),
-    reorder=False,
-    extend_structure=False)
-LEMC_mg = metal_edge_extender(LEMC_mg)
 
 H2O_mg = MoleculeGraph.with_local_env_strategy(
     Molecule.from_file(os.path.join(test_dir, "water.xyz")),
@@ -77,19 +56,7 @@ for entry in RN.entries["C3 H4 O3"][10][0]:
     if EC_mg.isomorphic_to(entry.mol_graph):
         EC_ind = entry.parameters["ind"]
         break
-for entry in RN.entries["C3 H5 Li1 O4"][13][0]:
-    if LEMC_mg.isomorphic_to(entry.mol_graph):
-        LEMC_ind = entry.parameters["ind"]
-        break
-for entry in RN.entries["H2 O1"][2][0]:
-    if H2O_mg.isomorphic_to(entry.mol_graph):
-        H2O_ind = entry.parameters["ind"]
-        break
 
-for entry in RN.entries['C4 H4 Li2 O6'][15][0]:
-    if LEDC_mg.isomorphic_to(entry.mol_graph):
-        LEDC_ind = entry.parameters["ind"]
-        break
 Li1_ind = RN.entries["Li1"][0][1][0].parameters["ind"]
 OHminus_ind = RN.entries["H1 O1"][1][-1][0].parameters["ind"]
 
@@ -99,10 +66,24 @@ initial_conc[Li1_ind] = 1000
 initial_conc[H2O_ind] = 30
 initial_conc[-1] = 1000
 SS.get_rates(1.0841025975148306, 1.3009231170177968)
-SS.remove_gas_reactions('/home/xiaowei/Sam_production/xyzs')
-t, x, rxns, records = SS.add_concerted_reactions_on_the_fly(initial_conc, 1000000, 100000000, 1.0841025975148306, 1.3009231170177968, iterations=2)
+SS.remove_gas_reactions('/Users/xiaowei_xie/Desktop/Sam_production/xyzs')
+xyz_dir = '/Users/xiaowei_xie/Desktop/Sam_production/xyzs'
+
+print("current nums of reactions:", len(SS.unique_reaction_nodes))
+
+t, x, rxns, records = SS.direct_method(initial_conc, 100000, 100000)
+'''
+self.add_concerted_reactions_2_step(x[-1, :], 10)
+print("current nums of reactions:", len(self.unique_reaction_nodes))
+self.get_rates(barrier_uni, barrier_bi)
+self.remove_gas_reactions(xyz_dir)
 
 
+
+t, x, rxns, records = SS.add_concerted_reactions_on_the_fly(initial_conc, 1000000, 100000000,
+                                                            1.0841025975148306, 1.3009231170177968, xyz_dir, iterations=2)
+'''
+'''
 sorted_species_index = np.argsort(x[-1, :])[::-1]
 fig, ax = plt.subplots()
 for i in range(100):
@@ -127,4 +108,4 @@ plt.title('reaction decomposition')
 plt.savefig('reaction_decomposition.png')
 for rxn in sorted_rxns:
     rxn = int(rxn)
-    print(SS.unique_reaction_nodes[rxn], SS.reaction_rates[rxn])
+    print(SS.unique_reaction_nodes[rxn], SS.reaction_rates[rxn])'''

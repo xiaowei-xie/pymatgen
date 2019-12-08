@@ -1275,7 +1275,7 @@ class StochaticSimulation:
                                             self.reactions.append([total_reactants, total_products])
 
 
-    def direct_method(self, initial_conc, time_span, max_output_length):
+    def direct_method(self, initial_conc, time_span):
         '''
         :param initial_conc
         :param time_span: int, number of time steps
@@ -1289,10 +1289,10 @@ class StochaticSimulation:
         records['random_rxn'] = []
         records['a0'] = []
         records['mu'] = []
-        t = np.zeros(max_output_length)
-        x = np.zeros([max_output_length, self.num_species])
-        rxns = np.zeros(max_output_length)
-        t[0] = 0
+        t = np.zeros(1)
+        x = np.zeros([1, self.num_species])
+        rxns = np.zeros(1)
+        #t[0] = 0
         x[0,:] = initial_conc
         rxn_count = 0
 
@@ -1308,12 +1308,12 @@ class StochaticSimulation:
             records['a0'].append(a0)
             records['mu'].append(mu)
 
-            if rxn_count + 1 > max_output_length:
-                t = t[:rxn_count]
-                x = x[:rxn_count]
-                print("WARNING:Number of reaction events exceeded the number pre-allocated. Simulation terminated prematurely.")
+            # if rxn_count + 1 > max_output_length:
+            #     t = t[:rxn_count]
+            #     x = x[:rxn_count]
+            #     print("WARNING:Number of reaction events exceeded the number pre-allocated. Simulation terminated prematurely.")
 
-            t[rxn_count + 1] = t[rxn_count] + tau
+            t = np.append(t,t[rxn_count] + tau)
             x[rxn_count + 1] = x[rxn_count]
             current_reaction = self.unique_reaction_nodes[mu]
             reactants = current_reaction.split(",")[0].split("+")
@@ -1351,7 +1351,7 @@ class StochaticSimulation:
 
 
 prod_entries = []
-entries = loadfn("/home/xiaowei/pymatgen/pymatgen/analysis/reaction_network/smd_production_entries.json")
+entries = loadfn("/global/scratch/xiaowei_xie/pymatgen/pymatgen/analysis/reaction_network/smd_production_entries.json")
 for entry in entries:
     if "optimized_molecule" in entry["output"]:
         molecule = entry["output"]["optimized_molecule"]
@@ -1369,7 +1369,7 @@ RN = ReactionNetwork(
 
 SS = StochaticSimulation(RN)
 
-test_dir = '/home/xiaowei/Sam_production/xyzs/'
+test_dir = '/global/scratch/xiaowei_xie//Sam_production/xyzs/'
 EC_mg = MoleculeGraph.with_local_env_strategy(
     Molecule.from_file(os.path.join(test_dir, "EC.xyz")),
     OpenBabelNN(),
@@ -1426,7 +1426,7 @@ initial_conc[Li1_ind] = 1000
 initial_conc[H2O_ind] = 30
 initial_conc[-1] = 1000
 SS.get_rates(1.0841025975148306, 1.3009231170177968)
-SS.remove_gas_reactions('/home/xiaowei/Sam_production/xyzs')
+SS.remove_gas_reactions('/global/scratch/xiaowei_xie/Sam_production/xyzs')
 t, x, rxns, records = SS.direct_method(initial_conc, 1000000, 100000000)
 
 sorted_species_index = np.argsort(x[-1, :])[::-1]

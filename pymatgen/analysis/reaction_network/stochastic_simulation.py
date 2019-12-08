@@ -16,6 +16,7 @@ import random
 import os
 import matplotlib.pyplot as plt
 from ase.units import eV, J, mol
+import copy
 
 
 __author__ = "Xiaowei Xie"
@@ -190,11 +191,11 @@ class StochaticSimulation:
             OpenBabelNN(),
             reorder=False,
             extend_structure=False)
-        for entry in self.reaction_network.entries['F5 P1'][5][0]:
-            if PF5_mg.isomorphic_to(entry.mol_graph):
-                PF5_ind = entry.parameters["ind"]
-                break
-        gas_indices = [C2H4_ind, CO_ind, CO2_ind, H2_ind, PF5_ind]
+        # for entry in self.reaction_network.entries['F5 P1'][5][0]:
+        #     if PF5_mg.isomorphic_to(entry.mol_graph):
+        #         PF5_ind = entry.parameters["ind"]
+        #         break
+        gas_indices = [C2H4_ind, CO_ind, CO2_ind, H2_ind]
         for i,rxn_node in enumerate(self.unique_reaction_nodes):
             reactants = rxn_node.split(",")[0].split("+")
             reactants = [reac.replace("PR_", "") for reac in reactants]
@@ -215,22 +216,24 @@ class StochaticSimulation:
             neighbor_rxns = list(self.graph.neighbors(mol_id))
             for rxn0 in neighbor_rxns:
                 if self.graph.node[rxn0]["free_energy"] > 0:
-                    rxn0_reactants = rxn0.split(",")
+                    rxn0_reactants = rxn0.split(",")[0].split("+")
                     rxn0_reactants = [reac.replace("PR_","") for reac in rxn0_reactants]
                     rxn0_products = list(self.graph.neighbors(rxn0))
+                    rxn0_products = [str(prod) for prod in rxn0_products]
                     for node1 in rxn0_products:
-                        #rxn0_products_copy = copy.deepcopy(rxn0_products)
-                        rxn0_products.remove(str(node1))
-                        middle_products = rxn0_products
-                        node1_rxns = list(self.graph.neighbors(node1))
+                        rxn0_products_copy = copy.deepcopy(rxn0_products)
+                        rxn0_products_copy.remove(str(node1))
+                        middle_products = rxn0_products_copy
+                        node1_rxns = list(self.graph.neighbors(int(node1)))
                         for rxn1 in node1_rxns:
                             if self.graph.node[rxn0]["free_energy"] + self.graph.node[rxn1]["free_energy"] < 0:
-                                rxn1_reactants = rxn1.split(",")
+                                rxn1_reactants = rxn1.split(",")[0].split("+")
                                 rxn1_reactants = [reac.replace("PR_", "") for reac in rxn1_reactants]
                                 #rxn1_reactants_copy = copy.deepcopy(rxn1_reactants)
                                 rxn1_reactants.remove(str(node1))
                                 middle_reactants = rxn1_reactants
                                 rxn1_products = list(self.graph.neighbors(rxn1))
+                                rxn1_products = [str(prod) for prod in rxn1_products]
                                 total_reactants = rxn0_reactants + middle_reactants
                                 total_products = middle_products + rxn1_products
                                 total_reactants.sort()
@@ -245,7 +248,7 @@ class StochaticSimulation:
                                         total_products.remove(species)
                                 # check the reaction is not in the existing reactions, and both the number of reactants and products less than 2
                                 if ([total_reactants, total_products] not in self.reactions) and \
-                                        (len(total_reactants) <= 2) and (len(total_products) <= 2):
+                                        (1 <= len(total_reactants) <= 2) and (1 <= len(total_products) <= 2):
                                     unique_elements = []
                                     for species in total_species_set:
                                         unique_elements += list(self.entries_list[int(species)].molecule.atomic_numbers)
@@ -286,7 +289,7 @@ class StochaticSimulation:
                                             self.reactions.append([total_reactants, total_products])
 
 
-    def direct_method(self, initial_conc, time_span, max_output_length):
+    def direct_method(self, initial_conc, time_span):
         '''
         :param initial_conc
         :param time_span: int, number of time steps
@@ -300,11 +303,13 @@ class StochaticSimulation:
         records['random_rxn'] = []
         records['a0'] = []
         records['mu'] = []
-        t = np.zeros(max_output_length)
-        x = np.zeros([max_output_length, self.num_species])
-        rxns = np.zeros(max_output_length)
-        t[0] = 0
-        x[0,:] = initial_conc
+        # t = np.zeros(max_output_length)
+        # x = np.zeros([max_output_length, self.num_species])
+        # rxns = np.zeros(max_output_length)
+        t = [0]
+        #x[0,:] = initial_conc
+        x = np.array([initial_conc])
+        rxns = []
         rxn_count = 0
 
         while t[rxn_count] < time_span:
@@ -319,13 +324,15 @@ class StochaticSimulation:
             records['a0'].append(a0)
             records['mu'].append(mu)
 
-            if rxn_count + 1 > max_output_length:
-                t = t[:rxn_count]
-                x = x[:rxn_count]
-                print("WARNING:Number of reaction events exceeded the number pre-allocated. Simulation terminated prematurely.")
+            # if rxn_count + 1 > max_output_length:
+            #     t = t[:rxn_count]
+            #     x = x[:rxn_count]
+            #     print("WARNING:Number of reaction events exceeded the number pre-allocated. Simulation terminated prematurely.")
 
-            t[rxn_count + 1] = t[rxn_count] + tau
-            x[rxn_count + 1] = x[rxn_count]
+            #t[rxn_count + 1] = t[rxn_count] + tau
+            #x[rxn_count + 1] = x[rxn_count]
+            t.append(t[rxn_count] + tau)
+            x = np.vstack([x,x[-1]])
             current_reaction = self.unique_reaction_nodes[mu]
             reactants = current_reaction.split(",")[0].split("+")
             reactants = [reac.replace("PR_", "") for reac in reactants]
@@ -336,34 +343,35 @@ class StochaticSimulation:
                 x[rxn_count+1, int(prod)] += 1
             if self.graph.node[current_reaction]["charge_change"] != 0:
                 x[rxn_count + 1, -1] += self.graph.node[current_reaction]["charge_change"]
-            rxns[rxn_count+1] = mu
+            rxns.append(mu)
             rxn_count += 1
 
-        t = t[:rxn_count]
-        x = x[:rxn_count,:]
-        rxns = rxns[:rxn_count]
+        # t = t[:rxn_count]
+        # x = x[:rxn_count,:]
+        # rxns = rxns[:rxn_count]
         if t[-1] > time_span:
             t[-1] = time_span
             x[-1,:] = x[rxn_count-1,:]
             rxns[-1] = rxns[rxn_count-1]
         return t, x, rxns, records
 
-    def add_concerted_reactions_on_the_fly(self, initial_conc, time_span, max_output_length, barrier_uni, barrier_bi, xyz_dir,iterations=5):
+    def add_concerted_reactions_on_the_fly(self, initial_conc, time_span, barrier_uni, barrier_bi, xyz_dir,iterations=5):
         iter = 0
         t, x, rxns, records = 0,0,0,0
         print("current nums of reactions:", len(self.unique_reaction_nodes))
         while iter < iterations:
-            t, x, rxns, records = self.direct_method(initial_conc, time_span, max_output_length)
+            t, x, rxns, records = self.direct_method(initial_conc, time_span)
             self.add_concerted_reactions_2_step(x[-1,:], 10)
             print("current nums of reactions:", len(self.unique_reaction_nodes))
             self.get_rates(barrier_uni, barrier_bi)
             self.remove_gas_reactions(xyz_dir)
+            iter += 1
         return t,x,rxns,records
 
 
 if __name__ == '__main__':
     prod_entries = []
-    entries = loadfn("/Users/xiaowei_xie/pymatgen/pymatgen/analysis/reaction_network/LiEC_reextended_entries.json")
+    entries = loadfn("/Users/xiaowei_xie/pymatgen/pymatgen/analysis/reaction_network/smd_production_entries.json")
     for entry in entries:
         if "optimized_molecule" in entry["output"]:
             molecule = entry["output"]["optimized_molecule"]
@@ -389,27 +397,6 @@ if __name__ == '__main__':
         extend_structure=False)
     EC_mg = metal_edge_extender(EC_mg)
 
-    LiEC_mg = MoleculeGraph.with_local_env_strategy(
-        Molecule.from_file(os.path.join(test_dir, "LiEC.xyz")),
-        OpenBabelNN(),
-        reorder=False,
-        extend_structure=False)
-    LiEC_mg = metal_edge_extender(LiEC_mg)
-
-    LEDC_mg = MoleculeGraph.with_local_env_strategy(
-        Molecule.from_file(os.path.join(test_dir, "LEDC.xyz")),
-        OpenBabelNN(),
-        reorder=False,
-        extend_structure=False)
-    LEDC_mg = metal_edge_extender(LEDC_mg)
-
-    LEMC_mg = MoleculeGraph.with_local_env_strategy(
-        Molecule.from_file(os.path.join(test_dir, "LEMC.xyz")),
-        OpenBabelNN(),
-        reorder=False,
-        extend_structure=False)
-    LEMC_mg = metal_edge_extender(LEMC_mg)
-
     H2O_mg = MoleculeGraph.with_local_env_strategy(
         Molecule.from_file(os.path.join(test_dir, "water.xyz")),
         OpenBabelNN(),
@@ -417,25 +404,16 @@ if __name__ == '__main__':
         extend_structure=False)
     H2O_mg = metal_edge_extender(H2O_mg)
     EC_ind = None
-    LEMC_ind = None
     H2O_ind = None
     for entry in RN.entries["C3 H4 O3"][10][0]:
         if EC_mg.isomorphic_to(entry.mol_graph):
             EC_ind = entry.parameters["ind"]
-            break
-    for entry in RN.entries["C3 H5 Li1 O4"][13][0]:
-        if LEMC_mg.isomorphic_to(entry.mol_graph):
-            LEMC_ind = entry.parameters["ind"]
             break
     for entry in RN.entries["H2 O1"][2][0]:
         if H2O_mg.isomorphic_to(entry.mol_graph):
             H2O_ind = entry.parameters["ind"]
             break
 
-    for entry in RN.entries['C4 H4 Li2 O6'][15][0]:
-        if LEDC_mg.isomorphic_to(entry.mol_graph):
-            LEDC_ind = entry.parameters["ind"]
-            break
     Li1_ind = RN.entries["Li1"][0][1][0].parameters["ind"]
     OHminus_ind = RN.entries["H1 O1"][1][-1][0].parameters["ind"]
 
@@ -445,7 +423,17 @@ if __name__ == '__main__':
     initial_conc[H2O_ind] = 30
     initial_conc[-1] = 1000
     SS.get_rates(1.0841025975148306,1.3009231170177968)
-    SS.remove_gas_reactions()
+    SS.remove_gas_reactions('/Users/xiaowei_xie/Desktop/Sam_production/xyzs/')
+    xyz_dir = '/Users/xiaowei_xie/Desktop/Sam_production/xyzs/'
+
+
+    t, x, rxns, records = SS.add_concerted_reactions_on_the_fly(initial_conc, 1000000,
+                                                                1.0841025975148306, 1.3009231170177968, xyz_dir,
+                                                                iterations=1)
+
+
+
+    '''
     t, x, rxns, records = SS.direct_method(initial_conc,1000000,10000000)
 
     sorted_species_index = np.argsort(x[-1,:])[::-1]
@@ -471,6 +459,7 @@ if __name__ == '__main__':
     for rxn in sorted_rxns:
         rxn = int(rxn)
         print(SS.unique_reaction_nodes[rxn], SS.reaction_rates[rxn])
+    '''
 
     '''
     for i in range(len(RN.entries_list)):
