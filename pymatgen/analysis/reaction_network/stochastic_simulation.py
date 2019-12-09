@@ -361,17 +361,18 @@ class StochaticSimulation:
         print("current nums of reactions:", len(self.unique_reaction_nodes))
         while iter < iterations:
             t, x, rxns, records = self.direct_method(initial_conc, time_span)
-            self.add_concerted_reactions_2_step(x[-1,:], 10)
-            print("current nums of reactions:", len(self.unique_reaction_nodes))
-            self.get_rates(barrier_uni, barrier_bi)
-            self.remove_gas_reactions(xyz_dir)
+            if not iterations - iter == 1:
+                self.add_concerted_reactions_2_step(x[-1,:], 10)
+                print("current nums of reactions:", len(self.unique_reaction_nodes))
+                self.get_rates(barrier_uni, barrier_bi)
+                self.remove_gas_reactions(xyz_dir)
             iter += 1
         return t,x,rxns,records
 
 
 if __name__ == '__main__':
     prod_entries = []
-    entries = loadfn("/Users/xiaowei_xie/pymatgen/pymatgen/analysis/reaction_network/smd_production_entries.json")
+    entries = loadfn("/Users/xiaowei_xie/pymatgen/pymatgen/analysis/reaction_network/LiEC_reextended_entries.json")
     for entry in entries:
         if "optimized_molecule" in entry["output"]:
             molecule = entry["output"]["optimized_molecule"]
@@ -430,7 +431,31 @@ if __name__ == '__main__':
     t, x, rxns, records = SS.add_concerted_reactions_on_the_fly(initial_conc, 1000000,
                                                                 1.0841025975148306, 1.3009231170177968, xyz_dir,
                                                                 iterations=1)
+    sorted_species_index = np.argsort(x[-1, :])[::-1]
+    fig, ax = plt.subplots()
+    for i in range(100):
+        species_index = sorted_species_index[i]
+        if x[-1, int(species_index)] > 0 and int(species_index) != EC_ind and int(species_index) != Li1_ind and int(
+                species_index) != SS.num_species - 1:
+            ax.step(t, x[:, int(species_index)], where='mid', label=str(species_index))
+            # ax.plot(T,X[:,int(species_index)], 'C0o', alpha=0.5)
+    plt.title('KMC')
+    plt.legend(loc='upper left')
+    plt.savefig('concerted_iter_0.png')
 
+    rxns_set = list(set(rxns))
+    rxns_count = [list(rxns).count(rxn) for rxn in rxns_set]
+    index = np.argsort(rxns_count)[::-1]
+    sorted_rxns = np.array(rxns_set)[index]
+    x0 = np.arange(len(rxns_set))
+    fig, ax = plt.subplots()
+    plt.bar(x0, rxns_count)
+    # plt.xticks(x, ([str(int(rxn)) for rxn in rxns_set]))
+    plt.title('reaction decomposition')
+    plt.savefig('reaction_decomp_concerted_iter_0.png')
+    for rxn in sorted_rxns:
+        rxn = int(rxn)
+        print(SS.unique_reaction_nodes[rxn], SS.reaction_rates[rxn])
 
 
     '''
