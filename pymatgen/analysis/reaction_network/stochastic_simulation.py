@@ -17,6 +17,7 @@ import os
 import matplotlib.pyplot as plt
 from ase.units import eV, J, mol
 import copy
+import pickle
 
 
 __author__ = "Xiaowei Xie"
@@ -355,6 +356,63 @@ class StochaticSimulation:
             rxns[-1] = rxns[rxn_count-1]
         return t, x, rxns, records
 
+    def direct_method_no_record(self, initial_conc, time_span):
+        '''
+        :param initial_conc
+        :param time_span: int, number of time steps
+        :param max_output_length
+        Gillespie, D.T. (1977) Exact Stochastic Simulation of Coupled Chemical Reactions. J Phys Chem, 81:25, 2340-2361.
+        :return: t: time vector (Nreaction_events x 1); x:  species amounts (Nreaction_events x Nspecies);
+                 rxns: rxns that have been fired up (Nreaction_events x 1).
+        '''
+        # t = np.zeros(max_output_length)
+        # x = np.zeros([max_output_length, self.num_species])
+        # rxns = np.zeros(max_output_length)
+        t = [0]
+        #x[0,:] = initial_conc
+        x = np.array([initial_conc])
+        rxns = []
+        rxn_count = 0
+
+        while t[rxn_count] < time_span:
+            a = self.get_propensities(x[rxn_count,:])
+            a0 = np.sum(a)
+            random_t = random.uniform(0, 1)
+            random_rxn = random.uniform(0, 1)
+            tau = -np.log(random_t) / a0
+            mu = np.where(np.cumsum(a) >= random_rxn * a0)[0][0]
+
+            # if rxn_count + 1 > max_output_length:
+            #     t = t[:rxn_count]
+            #     x = x[:rxn_count]
+            #     print("WARNING:Number of reaction events exceeded the number pre-allocated. Simulation terminated prematurely.")
+
+            #t[rxn_count + 1] = t[rxn_count] + tau
+            #x[rxn_count + 1] = x[rxn_count]
+            t.append(t[rxn_count] + tau)
+            x = np.vstack([x,x[-1]])
+            current_reaction = self.unique_reaction_nodes[mu]
+            reactants = current_reaction.split(",")[0].split("+")
+            reactants = [reac.replace("PR_", "") for reac in reactants]
+            products = current_reaction.split(",")[1].split("+")
+            for reac in reactants:
+                x[rxn_count+1, int(reac)] -= 1
+            for prod in products:
+                x[rxn_count+1, int(prod)] += 1
+            if self.graph.node[current_reaction]["charge_change"] != 0:
+                x[rxn_count + 1, -1] += self.graph.node[current_reaction]["charge_change"]
+            rxns.append(mu)
+            rxn_count += 1
+
+        # t = t[:rxn_count]
+        # x = x[:rxn_count,:]
+        # rxns = rxns[:rxn_count]
+        if t[-1] > time_span:
+            t[-1] = time_span
+            x[-1,:] = x[rxn_count-1,:]
+            rxns[-1] = rxns[rxn_count-1]
+        return t, x, rxns
+
     def add_concerted_reactions_on_the_fly(self, initial_conc, time_span, barrier_uni, barrier_bi, xyz_dir,iterations=5):
         iter = 0
         t, x, rxns, records = 0,0,0,0
@@ -364,6 +422,58 @@ class StochaticSimulation:
             if not iterations - iter == 1:
                 self.add_concerted_reactions_2_step(x[-1,:], 10)
                 print("current nums of reactions:", len(self.unique_reaction_nodes))
+                self.get_rates(barrier_uni, barrier_bi)
+                self.remove_gas_reactions(xyz_dir)
+            iter += 1
+        return t,x,rxns,records
+
+    def add_concerted_reactions_on_the_fly_save_intermediates(self, initial_conc, time_span, barrier_uni, barrier_bi, xyz_dir,iterations=5):
+        iter = 0
+        t, x, rxns, records = 0,0,0,0
+        print("current nums of reactions at iter {}:".format(iter), len(self.unique_reaction_nodes))
+        while iter < iterations:
+            t, x, rxns = self.direct_method_no_record(initial_conc, time_span)
+
+            np.save('x_iter_{}'.format(iter), x)
+            np.save('t_iter_{}'.format(iter), t)
+            np.save('rxns_iter_{}'.format(iter), rxns)
+
+            sorted_species_index = np.argsort(x[-1, :])[::-1]
+            fig, ax = plt.subplots()
+            for i in range(100):
+                species_index = sorted_species_index[i]
+                if x[-1, int(species_index)] > 0 and int(species_index) != EC_ind and int(
+                        species_index) != Li1_ind and int(
+                        species_index) != SS.num_species - 1:
+                    ax.step(t, x[:, int(species_index)], where='mid', label=str(species_index))
+            plt.title('KMC concerted iter {}'.format(iter))
+            plt.legend(loc='upper left')
+            plt.savefig('concerted_iter_{}.png'.format(iter))
+
+            rxns_set = list(set(rxns))
+            rxns_count = [list(rxns).count(rxn) for rxn in rxns_set]
+            index = np.argsort(rxns_count)[::-1]
+            sorted_rxns = np.array(rxns_set)[index]
+            x0 = np.arange(len(rxns_set))
+
+            fig, ax = plt.subplots()
+            plt.bar(x0, rxns_count)
+            plt.title('reaction decomposition concerted iter {}'.format(iter))
+            plt.savefig('reaction_decomp_concerted_iter_{}.png'.format(iter))
+            for rxn in sorted_rxns:
+                rxn = int(rxn)
+                print(SS.unique_reaction_nodes[rxn], SS.reaction_rates[rxn])
+
+            with open("unique_reaction_nodes_iter_{}.txt".format(iter), "wb") as fp:
+                pickle.dump(SS.unique_reaction_nodes, fp)
+            with open("reaction_rates_iter_{}.txt".format(iter), "wb") as fp:
+                pickle.dump(SS.reaction_rates, fp)
+
+            print('num of species:', SS.num_species)
+
+            if not iterations - iter == 1:
+                self.add_concerted_reactions_2_step(x[-1,:], 10)
+                print("current nums of reactions at iter {}:".format(iter+1), len(self.unique_reaction_nodes))
                 self.get_rates(barrier_uni, barrier_bi)
                 self.remove_gas_reactions(xyz_dir)
             iter += 1
