@@ -434,6 +434,21 @@ class StochaticSimulation:
         while iter < iterations:
             t, x, rxns = self.direct_method_no_record(initial_conc, time_span)
 
+            EC_mg = MoleculeGraph.with_local_env_strategy(
+                Molecule.from_file(os.path.join(xyz_dir, "EC.xyz")),
+                OpenBabelNN(),
+                reorder=False,
+                extend_structure=False)
+            EC_mg = metal_edge_extender(EC_mg)
+
+            EC_ind = None
+            for entry in self.reaction_network.entries["C3 H4 O3"][10][0]:
+                if EC_mg.isomorphic_to(entry.mol_graph):
+                    EC_ind = entry.parameters["ind"]
+                    break
+
+            Li1_ind = self.reaction_network.entries["Li1"][0][1][0].parameters["ind"]
+
             np.save('x_iter_{}'.format(iter), x)
             np.save('t_iter_{}'.format(iter), t)
             np.save('rxns_iter_{}'.format(iter), rxns)
@@ -477,7 +492,7 @@ class StochaticSimulation:
                 self.get_rates(barrier_uni, barrier_bi)
                 self.remove_gas_reactions(xyz_dir)
             iter += 1
-        return t,x,rxns,records
+        return t,x,rxns
 
 
 if __name__ == '__main__':
