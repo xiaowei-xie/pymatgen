@@ -46,15 +46,17 @@ class StochaticSimulation:
         """
     def __init__(self, reaction_network):
         self.reaction_network = reaction_network
-        self.entries_list = self.reaction_network.entries_list
-        self.num_species = len(self.entries_list) + 1
+        self.num_species = len(self.reaction_network.entries_list) + 1
+        # This is the species indices from which concerted reactions have been searched
+        self.searched_species_2_step = []
+        self.searched_species_3_step = []
+        self.searched_species_4_step = []
         self.num_reactions = self.reaction_network.num_reactions
-        self.graph = self.reaction_network.graph
         self.reactions = []
         # This is unique reactions. i.e. "233+PR_5914,2130"  == "5914+PR_2233,2130"
         self.unique_reaction_nodes = []
         for node0 in self.reaction_network.graph.nodes():
-             if self.graph.node[node0]["bipartite"] == 1:
+             if self.reaction_network.graph.node[node0]["bipartite"] == 1:
                  reactants = node0.split(",")[0].split("+")
                  reactants = [reac.replace("PR_", "") for reac in reactants]
                  products = node0.split(",")[1].split("+")
@@ -65,16 +67,17 @@ class StochaticSimulation:
                     self.unique_reaction_nodes.append(node0)
         # create a key "charge_change" indicating the total charge change in the reaction : total charge of products - total charge of reactants
         for node in self.unique_reaction_nodes:
-            if self.graph.node[node]["rxn_type"] == "One electron oxidation":
-                self.graph.node[node]["charge_change"] = 1
-            elif self.graph.node[node]["rxn_type"] == "One electron reduction":
-                self.graph.node[node]["charge_change"] = -1
-            elif self.graph.node[node]["rxn_type"] == "water_lithium_reaction":
-                self.graph.node[node]["charge_change"] = -2
-            elif self.graph.node[node]["rxn_type"] == "water_2e_redox":
-                self.graph.node[node]["charge_change"] = -2
+            if self.reaction_network.graph.node[node]["rxn_type"] == "One electron oxidation":
+                self.reaction_network.graph.node[node]["charge_change"] = 1
+            elif self.reaction_network.graph.node[node]["rxn_type"] == "One electron reduction":
+                self.reaction_network.graph.node[node]["charge_change"] = -1
+            elif self.reaction_network.graph.node[node]["rxn_type"] == "water_lithium_reaction":
+                self.reaction_network.graph.node[node]["charge_change"] = -2
+            elif self.reaction_network.graph.node[node]["rxn_type"] == "water_2e_redox":
+                self.reaction_network.graph.node[node]["charge_change"] = -2
             else:
-                self.graph.node[node]["charge_change"] = 0
+                self.reaction_network.graph.node[node]["charge_change"] = 0
+            self.reaction_network.graph.node[node]["steps"] = 1
         return
 
     def get_rates(self, barrier_uni, barrier_bi):
@@ -89,14 +92,14 @@ class StochaticSimulation:
         '''
         self.reaction_rates = []
         for rxn_node in self.unique_reaction_nodes:
-            # if self.graph.nodes[rxn_node]['rxn_type'] == 'LiCO3 -1 + LiEC 1 -> LEDC':
+            # if self.reaction_network.graph.nodes[rxn_node]['rxn_type'] == 'LiCO3 -1 + LiEC 1 -> LEDC':
             #     barrier = eV/J*mol * barrier_uni
             #     rate = k_b * T / h * np.exp(-barrier / R / T)
-            # elif self.graph.nodes[rxn_node]['rxn_type'] == '2LiEC-RO -> LEDC + C2H4':
+            # elif self.reaction_network.graph.nodes[rxn_node]['rxn_type'] == '2LiEC-RO -> LEDC + C2H4':
             #     barrier = eV/J*mol * barrier_uni
             #     rate = k_b * T / h * np.exp(-barrier / R / T)
             #else:
-            reaction_energy = self.graph.node[rxn_node]["free_energy"]
+            reaction_energy = self.reaction_network.graph.node[rxn_node]["free_energy"]
             reactants = rxn_node.split(",")[0].split("+")
             num_reactants = len(reactants)
             if reaction_energy <= 0:
@@ -137,18 +140,17 @@ class StochaticSimulation:
                 elif num_of_reactants == 3:
                     propensity *= 1/6 * num_of_mols[int(reactant)] * (num_of_mols[int(reactant)] - 1) \
                                   * (num_of_mols[int(reactant)] - 2)
-            if self.graph.node[rxn_node]["charge_change"] == -1:
+            if self.reaction_network.graph.node[rxn_node]["charge_change"] == -1:
                 propensity *= num_of_mols[-1]
-            elif self.graph.node[rxn_node]["charge_change"] == -2:
+            elif self.reaction_network.graph.node[rxn_node]["charge_change"] == -2:
                 propensity *= 0.5 * num_of_mols[-1] * (num_of_mols[-1] - 1)
             self.propensities.append(propensity)
         return self.propensities
 
     def remove_gas_reactions(self,xyz_dir):
         # find the indices of gases
-        test_dir = xyz_dir
         C2H4_mg = MoleculeGraph.with_local_env_strategy(
-            Molecule.from_file(os.path.join(test_dir, "ethylene.xyz")),
+            Molecule.from_file(os.path.join(xyz_dir, "ethylene.xyz")),
             OpenBabelNN(),
             reorder=False,
             extend_structure=False)
@@ -158,7 +160,7 @@ class StochaticSimulation:
                 break
 
         CO_mg = MoleculeGraph.with_local_env_strategy(
-            Molecule.from_file(os.path.join(test_dir, "CO.xyz")),
+            Molecule.from_file(os.path.join(xyz_dir, "CO.xyz")),
             OpenBabelNN(),
             reorder=False,
             extend_structure=False)
@@ -168,7 +170,7 @@ class StochaticSimulation:
                 break
 
         CO2_mg = MoleculeGraph.with_local_env_strategy(
-            Molecule.from_file(os.path.join(test_dir, "CO2.xyz")),
+            Molecule.from_file(os.path.join(xyz_dir, "CO2.xyz")),
             OpenBabelNN(),
             reorder=False,
             extend_structure=False)
@@ -178,7 +180,7 @@ class StochaticSimulation:
                 break
 
         H2_mg = MoleculeGraph.with_local_env_strategy(
-            Molecule.from_file(os.path.join(test_dir, "H2.xyz")),
+            Molecule.from_file(os.path.join(xyz_dir, "H2.xyz")),
             OpenBabelNN(),
             reorder=False,
             extend_structure=False)
@@ -188,52 +190,424 @@ class StochaticSimulation:
                 break
 
         PF5_mg = MoleculeGraph.with_local_env_strategy(
-            Molecule.from_file(os.path.join(test_dir, "PF5.xyz")),
+            Molecule.from_file(os.path.join(xyz_dir, "PF5.xyz")),
             OpenBabelNN(),
             reorder=False,
             extend_structure=False)
-        # for entry in self.reaction_network.entries['F5 P1'][5][0]:
-        #     if PF5_mg.isomorphic_to(entry.mol_graph):
-        #         PF5_ind = entry.parameters["ind"]
-        #         break
-        gas_indices = [C2H4_ind, CO_ind, CO2_ind, H2_ind]
+        for entry in self.reaction_network.entries['F5 P1'][5][0]:
+            if PF5_mg.isomorphic_to(entry.mol_graph):
+                PF5_ind = entry.parameters["ind"]
+                break
+        gas_indices = [C2H4_ind, CO_ind, CO2_ind, H2_ind, PF5_ind]
         for i,rxn_node in enumerate(self.unique_reaction_nodes):
             reactants = rxn_node.split(",")[0].split("+")
             reactants = [reac.replace("PR_", "") for reac in reactants]
             if any(reac in gas_indices for reac in reactants):
                 self.reaction_rates[i] = 0.0
         return
+    
+    def remove_Li_reduction_reaction(self, xyz_dir):
+        Li_mg = MoleculeGraph.with_local_env_strategy(
+            Molecule.from_file(os.path.join(xyz_dir, "Li.xyz")),
+            OpenBabelNN(),
+            reorder=False,
+            extend_structure=False)
+        for entry in self.reaction_network.entries['Li'][0][1]:
+            if Li_mg.isomorphic_to(entry.mol_graph):
+                Li1_ind = entry.parameters["ind"]
+                break
+        for entry in self.reaction_network.entries['Li'][0][0]:
+            if Li_mg.isomorphic_to(entry.mol_graph):
+                Li0_ind = entry.parameters["ind"]
+                break
+        for i,rxn_node in enumerate(self.unique_reaction_nodes):
+            if rxn_node == '{},{}'.format(str(Li1_ind), str(Li0_ind)):
+                self.reaction_rates[i] = 0.0
+        return
+    
+    def add_reactions_to_graph(self,reactants,products,rxn_type,steps,add_to_graph=False, add_to_kmc=True):
+        '''
+        Only add reaction nodes, but do not connect them to reactants and products
+        :param reactants: list of strings of mol id (sorted from small to large numbers)
+        :param products: list of strings of mol id (sorted from small to large numbers)
+        :param rxn_type: 
+        :param steps: number of steps. For n step concerted, it's n; 1 for everything else.
+        :param add_to_graph: Whether to connect the reaction node with reactants and products in self.reaction_network.graph. 
+                      If False, only the reaction node will be added to the graph.
+        :param add_to_kmc: Whether to add to self.unique_reaction_nodes for kmc simulation.
+        :return: 
+        '''
+        reactant_total_charge = np.sum([self.reaction_network.entries_list[int(item)].charge for item in reactants])
+        product_total_charge = np.sum([self.reaction_network.entries_list[int(item)].charge for item in products])
+        reactant_name = "+".join(reactants)
+        product_name = "+".join(products)
+        reaction_forward_name = reactant_name + "," + product_name
+        reaction_reverse_name = product_name + "," + reactant_name
+        total_energy_reactant = np.sum(
+            [self.reaction_network.entries_list[int(item)].energy for item in reactants])
+        total_energy_product = np.sum([self.reaction_network.entries_list[int(item)].energy for item in products])
+        total_free_energy_reactant = np.sum(
+            [self.reaction_network.entries_list[int(item)].free_energy for item in reactants])
+        total_free_energy_product = np.sum(
+            [self.reaction_network.entries_list[int(item)].free_energy for item in products])
+        energy_forward = total_energy_product - total_energy_reactant
+        energy_reverse = - energy_forward
+        total_charge_change = product_total_charge - reactant_total_charge
+        free_energy_forward = total_free_energy_product - total_free_energy_reactant + \
+                              total_charge_change * self.reaction_network.electron_free_energy
+        free_energy_reverse = - free_energy_forward
 
-    def add_concerted_reactions_2_step(self, num_of_mols, num_thresh):
+        self.reaction_network.graph.add_node(reaction_forward_name, rxn_type=rxn_type,
+                                             bipartite=1, energy=energy_forward, free_energy=free_energy_forward,
+                                             charge_change=total_charge_change, steps=steps)
+        self.reaction_network.graph.add_node(reaction_reverse_name, rxn_type=rxn_type, bipartite=1,
+                                             energy=energy_reverse,free_energy=free_energy_reverse, 
+                                             charge_change=-total_charge_change, steps=steps)
+        self.reactions.append([reactants, products])
+        self.reactions.append([products, reactants])
+
+        if add_to_kmc:
+            self.unique_reaction_nodes.append(reaction_forward_name)
+            self.unique_reaction_nodes.append(reaction_reverse_name)
+        
+        if add_to_graph:
+            if len(reactants) == 1:
+                if len(products) == 1:
+                    self.reaction_network.graph.add_edge(int(reactant_name),
+                                                         reaction_forward_name,
+                                                         softplus=self.reaction_network.softplus(free_energy_forward),
+                                                         exponent=self.reaction_network.exponent(free_energy_forward),
+                                                         weight=1.0
+                                                         )
+                    self.reaction_network.graph.add_edge(reaction_forward_name,
+                                                         int(product_name),
+                                                         softplus=0.0,
+                                                         exponent=0.0,
+                                                         weight=1.0
+                                                         )
+                    self.reaction_network.graph.add_edge(int(product_name),
+                                                         reaction_reverse_name,
+                                                         softplus=self.reaction_network.softplus(free_energy_reverse),
+                                                         exponent=self.reaction_network.exponent(free_energy_reverse),
+                                                         weight=1.0
+                                                         )
+                    self.reaction_network.graph.add_edge(reaction_reverse_name,
+                                                         int(reactant_name),
+                                                         softplus=0.0,
+                                                         exponent=0.0,
+                                                         weight=1.0
+                                                         )
+                elif len(products) == 2:
+                    C_PR_D_name = products[0] + "+PR_" + products[1]
+                    D_PR_C_name = products[1] + "+PR_" + products[0]
+                    node_name_reverse_1 = C_PR_D_name + "," + reactant_name
+                    node_name_reverse_2 = D_PR_C_name + "," + reactant_name
+
+                    self.reaction_network.graph.add_edge(int(reactant_name),
+                                                         reaction_forward_name,
+                                                         softplus=self.reaction_network.softplus(
+                                                             free_energy_forward),
+                                                         exponent=self.reaction_network.exponent(
+                                                             free_energy_forward),
+                                                         weight=1.0
+                                                         )
+                    self.reaction_network.graph.add_edge(reaction_forward_name,
+                                                         int(products[0]),
+                                                         softplus=0.0,
+                                                         exponent=0.0,
+                                                         weight=1.0
+                                                         )
+                    self.reaction_network.graph.add_edge(reaction_forward_name,
+                                                         int(products[1]),
+                                                         softplus=0.0,
+                                                         exponent=0.0,
+                                                         weight=1.0
+                                                         )
+
+                    self.reaction_network.graph.add_node(node_name_reverse_1,
+                                                         rxn_type=rxn_type,
+                                                         bipartite=1,
+                                                         energy=energy_reverse,
+                                                         free_energy=free_energy_reverse,
+                                                         charge_change=-total_charge_change,
+                                                         steps=steps)
+                    self.reaction_network.graph.add_edge(int(products[0]),
+                                                         node_name_reverse_1,
+                                                         softplus=self.reaction_network.softplus(
+                                                             free_energy_reverse),
+                                                         exponent=self.reaction_network.exponent(
+                                                             free_energy_reverse),
+                                                         weight=1.0
+                                                         )
+                    self.reaction_network.graph.add_edge(node_name_reverse_1,
+                                                         reactant_name,
+                                                         softplus=0.0,
+                                                         exponent=0.0,
+                                                         weight=1.0
+                                                         )
+
+                    self.reaction_network.graph.add_node(node_name_reverse_2,
+                                                         rxn_type=rxn_type,
+                                                         bipartite=1,
+                                                         energy=energy_reverse,
+                                                         free_energy=free_energy_reverse,
+                                                         charge_change=-total_charge_change,
+                                                         steps=steps)
+                    self.reaction_network.graph.add_edge(int(products[1]),
+                                                         node_name_reverse_2,
+                                                         softplus=self.reaction_network.softplus(
+                                                             free_energy_reverse),
+                                                         exponent=self.reaction_network.exponent(
+                                                             free_energy_reverse),
+                                                         weight=1.0
+                                                         )
+                    self.reaction_network.graph.add_edge(node_name_reverse_2,
+                                                         reactant_name,
+                                                         softplus=0.0,
+                                                         exponent=0.0,
+                                                         weight=1.0
+                                                         )
+
+            elif len(reactants) == 2:
+                if len(products) == 1:
+                    A_PR_B_name = reactants[0] + "+PR_" + reactants[1]
+                    B_PR_A_name = reactants[1] + "+PR_" + reactants[0]
+                    node_name_forward_1 = A_PR_B_name + "," + product_name
+                    node_name_forward_2 = B_PR_A_name + "," + product_name
+
+                    self.reaction_network.graph.add_node(node_name_forward_1,
+                                                         rxn_type=rxn_type,
+                                                         bipartite=1,
+                                                         energy=energy_forward,
+                                                         free_energy=free_energy_forward,
+                                                         charge_change=total_charge_change,
+                                                         steps=steps)
+                    self.reaction_network.graph.add_edge(int(reactants[0]),
+                                                         node_name_forward_1,
+                                                         softplus=self.reaction_network.softplus(
+                                                             free_energy_forward),
+                                                         exponent=self.reaction_network.exponent(
+                                                             free_energy_forward),
+                                                         weight=1.0
+                                                         )
+                    self.reaction_network.graph.add_edge(node_name_forward_1,
+                                                         int(product_name),
+                                                         softplus=0.0,
+                                                         exponent=0.0,
+                                                         weight=1.0
+                                                         )
+
+                    self.reaction_network.graph.add_node(node_name_forward_2,
+                                                         rxn_type=rxn_type,
+                                                         bipartite=1,
+                                                         energy=energy_forward,
+                                                         free_energy=free_energy_forward,
+                                                         charge_change=total_charge_change,
+                                                         steps=steps)
+                    self.reaction_network.graph.add_edge(int(reactants[1]),
+                                                         node_name_forward_2,
+                                                         softplus=self.reaction_network.softplus(
+                                                             free_energy_forward),
+                                                         exponent=self.reaction_network.exponent(
+                                                             free_energy_forward),
+                                                         weight=1.0
+                                                         )
+                    self.reaction_network.graph.add_edge(node_name_forward_2,
+                                                         int(product_name),
+                                                         softplus=0.0,
+                                                         exponent=0.0,
+                                                         weight=1.0
+                                                         )
+
+                    self.reaction_network.graph.add_edge(int(product_name),
+                                                         reaction_reverse_name,
+                                                         softplus=self.reaction_network.softplus(
+                                                             free_energy_reverse),
+                                                         exponent=self.reaction_network.exponent(
+                                                             free_energy_reverse),
+                                                         weight=1.0
+                                                         )
+                    self.reaction_network.graph.add_edge(reaction_reverse_name,
+                                                         int(reactants[0]),
+                                                         softplus=0.0,
+                                                         exponent=0.0,
+                                                         weight=1.0
+                                                         )
+                    self.reaction_network.graph.add_edge(reaction_forward_name,
+                                                         int(reactants[1]),
+                                                         softplus=0.0,
+                                                         exponent=0.0,
+                                                         weight=1.0
+                                                         )
+
+                elif len(products) == 2:
+                    A_PR_B_name = reactants[0] + "+PR_" + reactants[1]
+                    B_PR_A_name = reactants[1] + "+PR_" + reactants[0]
+                    C_PR_D_name = products[0] + "+PR_" + products[1]
+                    D_PR_C_name = products[1] + "+PR_" + products[0]
+
+                    node_name_forward_1 = A_PR_B_name + "," + product_name
+                    node_name_forward_2 = B_PR_A_name + "," + product_name
+                    node_name_reverse_1 = C_PR_D_name + "," + reactant_name
+                    node_name_reverse_2 = D_PR_C_name + "," + reactant_name
+
+                    self.reaction_network.graph.add_node(node_name_forward_1,
+                                                         rxn_type=rxn_type,
+                                                         bipartite=1,
+                                                         energy=energy_forward,
+                                                         free_energy=free_energy_forward,
+                                                         charge_change=total_charge_change,
+                                                         steps=steps)
+                    self.reaction_network.graph.add_edge(int(reactants[0]),
+                                                         node_name_forward_1,
+                                                         softplus=self.reaction_network.softplus(
+                                                             free_energy_forward),
+                                                         exponent=self.reaction_network.exponent(
+                                                             free_energy_forward),
+                                                         weight=1.0
+                                                         )
+                    self.reaction_network.graph.add_edge(node_name_forward_1,
+                                                         int(products[0]),
+                                                         softplus=0.0,
+                                                         exponent=0.0,
+                                                         weight=1.0
+                                                         )
+                    self.reaction_network.graph.add_edge(node_name_forward_1,
+                                                         int(products[1]),
+                                                         softplus=0.0,
+                                                         exponent=0.0,
+                                                         weight=1.0
+                                                         )
+
+                    self.reaction_network.graph.add_node(node_name_forward_2,
+                                                         rxn_type=rxn_type,
+                                                         bipartite=1,
+                                                         energy=energy_forward,
+                                                         free_energy=free_energy_forward,
+                                                         charge_change=total_charge_change,
+                                                         steps=steps)
+                    self.reaction_network.graph.add_edge(int(reactants[1]),
+                                                         node_name_forward_2,
+                                                         softplus=self.reaction_network.softplus(
+                                                             free_energy_forward),
+                                                         exponent=self.reaction_network.exponent(
+                                                             free_energy_forward),
+                                                         weight=1.0
+                                                         )
+                    self.reaction_network.graph.add_edge(node_name_forward_2,
+                                                         int(products[0]),
+                                                         softplus=0.0,
+                                                         exponent=0.0,
+                                                         weight=1.0
+                                                         )
+                    self.reaction_network.graph.add_edge(node_name_forward_2,
+                                                         int(products[1]),
+                                                         softplus=0.0,
+                                                         exponent=0.0,
+                                                         weight=1.0
+                                                         )
+
+                    self.reaction_network.graph.add_node(node_name_reverse_1,
+                                                         rxn_type=rxn_type,
+                                                         bipartite=1,
+                                                         energy=energy_reverse,
+                                                         free_energy=free_energy_reverse,
+                                                         charge_change=-total_charge_change,
+                                                         steps=steps)
+                    self.reaction_network.graph.add_edge(int(products[0]),
+                                                         node_name_reverse_1,
+                                                         softplus=self.reaction_network.softplus(
+                                                             free_energy_reverse),
+                                                         exponent=self.reaction_network.exponent(
+                                                             free_energy_reverse),
+                                                         weight=1.0
+                                                         )
+                    self.reaction_network.graph.add_edge(node_name_reverse_1,
+                                                         int(reactants[0]),
+                                                         softplus=0.0,
+                                                         exponent=0.0,
+                                                         weight=1.0
+                                                         )
+                    self.reaction_network.graph.add_edge(node_name_reverse_1,
+                                                         int(reactants[1]),
+                                                         softplus=0.0,
+                                                         exponent=0.0,
+                                                         weight=1.0
+                                                         )
+
+                    self.reaction_network.graph.add_node(node_name_reverse_2,
+                                                         rxn_type=rxn_type,
+                                                         bipartite=1,
+                                                         energy=energy_reverse,
+                                                         free_energy=free_energy_reverse,
+                                                         charge_change=-total_charge_change,
+                                                         steps=steps)
+                    self.reaction_network.graph.add_edge(int(products[1]),
+                                                         node_name_reverse_2,
+                                                         softplus=self.reaction_network.softplus(
+                                                             free_energy_reverse),
+                                                         exponent=self.reaction_network.exponent(
+                                                             free_energy_reverse),
+                                                         weight=1.0
+                                                         )
+                    self.reaction_network.graph.add_edge(node_name_reverse_2,
+                                                         int(reactants[0]),
+                                                         softplus=0.0,
+                                                         exponent=0.0,
+                                                         weight=1.0
+                                                         )
+                    self.reaction_network.graph.add_edge(node_name_reverse_2,
+                                                         int(reactants[1]),
+                                                         softplus=0.0,
+                                                         exponent=0.0,
+                                                         weight=1.0
+                                                         )
+            
+        return
+
+    def add_concerted_reactions_2_step(self, num_of_mols, num_thresh, terminate=False):
         '''
         Add concerted reactions on the fly, only for species that have non-zero concentration.
         This function only adds two-step concerted reactions.
         :param num_of_mols:
+        :param add_to_graph: Whether to connect the reaction node with reactants and products in self.reaction_network.graph.
+                      If False, only the reaction node will be added to the graph.
+        :param terminate: Whether to terminate at 2-step concerted.
+               If true, do not need to consider uphill 2-step concerted reactions.
         :return:
         '''
 
         non_zero_indices = [i for i in range(len(num_of_mols)) if num_of_mols[i] > num_thresh]
         for mol_id in non_zero_indices:
-            neighbor_rxns = list(self.graph.neighbors(mol_id))
+            # exclude electron from the species that need to search neighbors from
+            if mol_id == self.num_species-1:
+                continue
+            if mol_id in self.searched_species_2_step:
+                continue
+            else:
+                self.searched_species_2_step.append(mol_id)
+            neighbor_rxns = list(self.reaction_network.graph.neighbors(mol_id))
             for rxn0 in neighbor_rxns:
-                if self.graph.node[rxn0]["free_energy"] > 0:
+                if (terminate and (self.reaction_network.graph.node[rxn0]["free_energy"] > 0)) or (not terminate):
                     rxn0_reactants = rxn0.split(",")[0].split("+")
                     rxn0_reactants = [reac.replace("PR_","") for reac in rxn0_reactants]
-                    rxn0_products = list(self.graph.neighbors(rxn0))
+                    rxn0_products = list(self.reaction_network.graph.neighbors(rxn0))
                     rxn0_products = [str(prod) for prod in rxn0_products]
                     for node1 in rxn0_products:
                         rxn0_products_copy = copy.deepcopy(rxn0_products)
                         rxn0_products_copy.remove(str(node1))
                         middle_products = rxn0_products_copy
-                        node1_rxns = list(self.graph.neighbors(int(node1)))
+                        node1_rxns = list(self.reaction_network.graph.neighbors(int(node1)))
                         for rxn1 in node1_rxns:
-                            if self.graph.node[rxn0]["free_energy"] + self.graph.node[rxn1]["free_energy"] < 0:
+                            if (terminate and (self.reaction_network.graph.node[rxn0]["free_energy"] +
+                                               self.reaction_network.graph.node[rxn1]["free_energy"] < 0)) \
+                                    or (not terminate):
                                 rxn1_reactants = rxn1.split(",")[0].split("+")
                                 rxn1_reactants = [reac.replace("PR_", "") for reac in rxn1_reactants]
                                 #rxn1_reactants_copy = copy.deepcopy(rxn1_reactants)
                                 rxn1_reactants.remove(str(node1))
                                 middle_reactants = rxn1_reactants
-                                rxn1_products = list(self.graph.neighbors(rxn1))
+                                rxn1_products = list(self.reaction_network.graph.neighbors(rxn1))
                                 rxn1_products = [str(prod) for prod in rxn1_products]
                                 total_reactants = rxn0_reactants + middle_reactants
                                 total_products = middle_products + rxn1_products
@@ -252,43 +626,212 @@ class StochaticSimulation:
                                         (1 <= len(total_reactants) <= 2) and (1 <= len(total_products) <= 2):
                                     unique_elements = []
                                     for species in total_species_set:
-                                        unique_elements += list(self.entries_list[int(species)].molecule.atomic_numbers)
+                                        unique_elements += list(self.reaction_network.entries_list[int(species)].molecule.atomic_numbers)
                                     unique_elements = list(set(unique_elements))
                                     reactant_elements, product_elements = [], []
                                     for species in total_reactants:
-                                        reactant_elements += list(self.entries_list[int(species)].molecule.atomic_numbers)
+                                        reactant_elements += list(self.reaction_network.entries_list[int(species)].molecule.atomic_numbers)
                                     for species in total_products:
-                                        product_elements += list(self.entries_list[int(species)].molecule.atomic_numbers)
+                                        product_elements += list(self.reaction_network.entries_list[int(species)].molecule.atomic_numbers)
                                     # check stoichiometry
                                     if all(reactant_elements.count(ele) == product_elements.count(ele) for ele in unique_elements):
-                                        # check total charge
-                                        reactant_total_charge = np.sum([self.entries_list[int(item)].charge for item in total_reactants])
-                                        product_total_charge = np.sum([self.entries_list[int(item)].charge for item in total_products])
-                                        if abs(reactant_total_charge - product_total_charge) >= 3:
-                                            print("WARNING: total charges differ by more than 3! Ignoring...")
+                                        if terminate:
+                                            self.add_reactions_to_graph(total_reactants, total_products,
+                                                                        "two step concerted", 2, add_to_graph=False, add_to_kmc=True)
                                         else:
-                                            reactant_name = "+".join(total_reactants)
-                                            product_name = "+".join(total_products)
-                                            reaction_forward_name = reactant_name + "," + product_name
-                                            reaction_reverse_name = product_name + "," + reactant_name
-                                            total_energy_reactant = np.sum([self.entries_list[int(item)].energy for item in total_reactants])
-                                            total_energy_product = np.sum([self.entries_list[int(item)].energy for item in total_products])
-                                            total_free_energy_reactant = np.sum([self.entries_list[int(item)].free_energy for item in total_reactants])
-                                            total_free_energy_product = np.sum([self.entries_list[int(item)].free_energy for item in total_products])
-                                            energy_forward = total_energy_product - total_energy_reactant
-                                            energy_reverse = - energy_forward
-                                            total_charge_change = product_total_charge - reactant_total_charge
-                                            free_energy_forward = total_free_energy_product - total_free_energy_reactant + \
-                                                                  total_charge_change * self.reaction_network.electron_free_energy
-                                            free_energy_reverse = - free_energy_forward
-                                            self.graph.add_node(reaction_forward_name, rxn_type="concerted_two_step",
-                                                      bipartite=1, energy=energy_forward, free_energy=free_energy_forward, charge_change=total_charge_change)
-                                            self.graph.add_node(reaction_reverse_name, rxn_type="concerted_two_step",bipartite=1, energy=energy_reverse,
-                                                                free_energy=free_energy_reverse,charge_change=-total_charge_change)
-                                            self.unique_reaction_nodes.append(reaction_forward_name)
-                                            self.unique_reaction_nodes.append(reaction_reverse_name)
-                                            self.reactions.append([total_reactants, total_products])
+                                            if (self.reaction_network.graph.node[rxn0]["free_energy"] > 0) and \
+                                                    (self.reaction_network.graph.node[rxn0]["free_energy"] +
+                                                     self.reaction_network.graph.node[rxn1]["free_energy"] < 0):
+                                                self.add_reactions_to_graph(total_reactants, total_products,
+                                                                            "two step concerted", 2, add_to_graph=True, add_to_kmc=True)
+                                            # Not considering downhill-downhill reactions
+                                            elif self.reaction_network.graph.node[rxn0]["free_energy"] + \
+                                                     self.reaction_network.graph.node[rxn1]["free_energy"] > 0:
+                                                self.add_reactions_to_graph(total_reactants, total_products,
+                                                                            "two step concerted", 2, add_to_graph=True, add_to_kmc=False)
 
+    def add_concerted_reactions_3_step(self, num_of_mols, num_thresh, terminate=False):
+        '''
+        Add concerted reactions on the fly, only for species that have non-zero concentration.
+        This function adds 3 or 4-step concerted reactions.
+        :param num_of_mols:
+        :param add_to_graph: Whether to connect the reaction node with reactants and products in self.reaction_network.graph.
+                      If False, only the reaction node will be added to the graph.
+        :param terminate: Whether to terminate at 3-step concerted.
+               If true, do not need to consider uphill 3-step concerted reactions.
+        :return:
+        '''
+
+        non_zero_indices = [i for i in range(len(num_of_mols)) if num_of_mols[i] > num_thresh]
+        for mol_id in non_zero_indices:
+            # exclude electron from the species that need to search neighbors from
+            if mol_id == self.num_species-1:
+                continue
+            if mol_id in self.searched_species_3_step:
+                continue
+            else:
+                self.searched_species_3_step.append(mol_id)
+            neighbor_rxns = list(self.reaction_network.graph.neighbors(mol_id))
+            for rxn0 in neighbor_rxns:
+                if self.reaction_network.graph.node[rxn0]['steps'] == 2:
+                    if (terminate and (self.reaction_network.graph.node[rxn0]["free_energy"] > 0)) or (not terminate):
+                        rxn0_reactants = rxn0.split(",")[0].split("+")
+                        rxn0_reactants = [reac.replace("PR_","") for reac in rxn0_reactants]
+                        rxn0_products = list(self.reaction_network.graph.neighbors(rxn0))
+                        rxn0_products = [str(prod) for prod in rxn0_products]
+                        for node1 in rxn0_products:
+                            rxn0_products_copy = copy.deepcopy(rxn0_products)
+                            rxn0_products_copy.remove(str(node1))
+                            middle_products = rxn0_products_copy
+                            node1_rxns = list(self.reaction_network.graph.neighbors(int(node1)))
+                            for rxn1 in node1_rxns:
+                                if self.reaction_network.graph.node[rxn0]['steps'] + self.reaction_network.graph.node[rxn1]['steps'] == 3:
+                                    if (terminate and (self.reaction_network.graph.node[rxn0]["free_energy"] +
+                                                       self.reaction_network.graph.node[rxn1]["free_energy"] < 0)) \
+                                            or (not terminate):
+                                        rxn1_reactants = rxn1.split(",")[0].split("+")
+                                        rxn1_reactants = [reac.replace("PR_", "") for reac in rxn1_reactants]
+                                        #rxn1_reactants_copy = copy.deepcopy(rxn1_reactants)
+                                        rxn1_reactants.remove(str(node1))
+                                        middle_reactants = rxn1_reactants
+                                        rxn1_products = list(self.reaction_network.graph.neighbors(rxn1))
+                                        rxn1_products = [str(prod) for prod in rxn1_products]
+                                        total_reactants = rxn0_reactants + middle_reactants
+                                        total_products = middle_products + rxn1_products
+                                        total_reactants.sort()
+                                        total_products.sort()
+
+                                        total_species = total_reactants + total_products
+                                        total_species_set = list(set(total_species))
+                                        # remove species that appear both in reactants and products
+                                        for species in total_species_set:
+                                            while (species in total_reactants and species in total_products):
+                                                total_reactants.remove(species)
+                                                total_products.remove(species)
+                                        # check the reaction is not in the existing reactions, and both the number of reactants and products less than 2
+                                        if ([total_reactants, total_products] not in self.reactions) and \
+                                                (1 <= len(total_reactants) <= 2) and (1 <= len(total_products) <= 2):
+                                            unique_elements = []
+                                            for species in total_species_set:
+                                                unique_elements += list(self.reaction_network.entries_list[int(species)].molecule.atomic_numbers)
+                                            unique_elements = list(set(unique_elements))
+                                            reactant_elements, product_elements = [], []
+                                            for species in total_reactants:
+                                                reactant_elements += list(self.reaction_network.entries_list[int(species)].molecule.atomic_numbers)
+                                            for species in total_products:
+                                                product_elements += list(self.reaction_network.entries_list[int(species)].molecule.atomic_numbers)
+                                            # check stoichiometry
+                                            if all(reactant_elements.count(ele) == product_elements.count(ele) for ele in unique_elements):
+                                                if terminate:
+                                                    self.add_reactions_to_graph(total_reactants, total_products,
+                                                                                "three step concerted", 3,
+                                                                                add_to_graph=False, add_to_kmc=True)
+                                                else:
+                                                    if (self.reaction_network.graph.node[rxn0]["free_energy"] > 0) and \
+                                                            (self.reaction_network.graph.node[rxn0]["free_energy"] +
+                                                             self.reaction_network.graph.node[rxn1]["free_energy"] < 0):
+                                                        self.add_reactions_to_graph(total_reactants, total_products,
+                                                                                    "three step concerted", 3,
+                                                                                    add_to_graph=True, add_to_kmc=True)
+                                                    # Not considering downhill-downhill reactions
+                                                    elif self.reaction_network.graph.node[rxn0]["free_energy"] + \
+                                                            self.reaction_network.graph.node[rxn1]["free_energy"] > 0:
+                                                        self.add_reactions_to_graph(total_reactants, total_products,
+                                                                                    "three step concerted", 3,
+                                                                                    add_to_graph=True, add_to_kmc=False)
+
+        return
+
+    def add_concerted_reactions_4_step(self, num_of_mols, num_thresh, terminate=False):
+        '''
+        Add concerted reactions on the fly, only for species that have non-zero concentration.
+        This function adds 3 or 4-step concerted reactions.
+        :param num_of_mols:
+        :param add_to_graph: Whether to connect the reaction node with reactants and products in self.reaction_network.graph.
+                      If False, only the reaction node will be added to the graph.
+        :param terminate: Whether to terminate at 4-step concerted.
+               If true, do not need to consider uphill 4-step concerted reactions.
+        :return:
+        '''
+
+        non_zero_indices = [i for i in range(len(num_of_mols)) if num_of_mols[i] > num_thresh]
+        for mol_id in non_zero_indices:
+            # exclude electron from the species that need to search neighbors from
+            if mol_id == self.num_species-1:
+                continue
+            if mol_id in self.searched_species_4_step:
+                continue
+            else:
+                self.searched_species_4_step.append(mol_id)
+            neighbor_rxns = list(self.reaction_network.graph.neighbors(mol_id))
+            for rxn0 in neighbor_rxns:
+                if self.reaction_network.graph.node[rxn0]['steps'] == 3:
+                    if (terminate and (self.reaction_network.graph.node[rxn0]["free_energy"] > 0)) or (not terminate):
+                        rxn0_reactants = rxn0.split(",")[0].split("+")
+                        rxn0_reactants = [reac.replace("PR_","") for reac in rxn0_reactants]
+                        rxn0_products = list(self.reaction_network.graph.neighbors(rxn0))
+                        rxn0_products = [str(prod) for prod in rxn0_products]
+                        for node1 in rxn0_products:
+                            rxn0_products_copy = copy.deepcopy(rxn0_products)
+                            rxn0_products_copy.remove(str(node1))
+                            middle_products = rxn0_products_copy
+                            node1_rxns = list(self.reaction_network.graph.neighbors(int(node1)))
+                            for rxn1 in node1_rxns:
+                                if self.reaction_network.graph.node[rxn0]['steps'] + self.reaction_network.graph.node[rxn1]['steps'] == 4:
+                                    if (terminate and (self.reaction_network.graph.node[rxn0]["free_energy"] +
+                                                       self.reaction_network.graph.node[rxn1]["free_energy"] < 0)) \
+                                            or (not terminate):
+                                        rxn1_reactants = rxn1.split(",")[0].split("+")
+                                        rxn1_reactants = [reac.replace("PR_", "") for reac in rxn1_reactants]
+                                        #rxn1_reactants_copy = copy.deepcopy(rxn1_reactants)
+                                        rxn1_reactants.remove(str(node1))
+                                        middle_reactants = rxn1_reactants
+                                        rxn1_products = list(self.reaction_network.graph.neighbors(rxn1))
+                                        rxn1_products = [str(prod) for prod in rxn1_products]
+                                        total_reactants = rxn0_reactants + middle_reactants
+                                        total_products = middle_products + rxn1_products
+                                        total_reactants.sort()
+                                        total_products.sort()
+
+                                        total_species = total_reactants + total_products
+                                        total_species_set = list(set(total_species))
+                                        # remove species that appear both in reactants and products
+                                        for species in total_species_set:
+                                            while (species in total_reactants and species in total_products):
+                                                total_reactants.remove(species)
+                                                total_products.remove(species)
+                                        # check the reaction is not in the existing reactions, and both the number of reactants and products less than 2
+                                        if ([total_reactants, total_products] not in self.reactions) and \
+                                                (1 <= len(total_reactants) <= 2) and (1 <= len(total_products) <= 2):
+                                            unique_elements = []
+                                            for species in total_species_set:
+                                                unique_elements += list(self.reaction_network.entries_list[int(species)].molecule.atomic_numbers)
+                                            unique_elements = list(set(unique_elements))
+                                            reactant_elements, product_elements = [], []
+                                            for species in total_reactants:
+                                                reactant_elements += list(self.reaction_network.entries_list[int(species)].molecule.atomic_numbers)
+                                            for species in total_products:
+                                                product_elements += list(self.reaction_network.entries_list[int(species)].molecule.atomic_numbers)
+                                            # check stoichiometry
+                                            if all(reactant_elements.count(ele) == product_elements.count(ele) for ele in unique_elements):
+                                                if terminate:
+                                                    self.add_reactions_to_graph(total_reactants, total_products,
+                                                                                "four step concerted", 4,
+                                                                                add_to_graph=False, add_to_kmc=True)
+                                                else:
+                                                    if (self.reaction_network.graph.node[rxn0]["free_energy"] > 0) and \
+                                                            (self.reaction_network.graph.node[rxn0]["free_energy"] +
+                                                             self.reaction_network.graph.node[rxn1]["free_energy"] < 0):
+                                                        self.add_reactions_to_graph(total_reactants, total_products,
+                                                                                    "four step concerted", 4,
+                                                                                    add_to_graph=True, add_to_kmc=True)
+                                                    # Not considering downhill-downhill reactions
+                                                    elif self.reaction_network.graph.node[rxn0]["free_energy"] + \
+                                                            self.reaction_network.graph.node[rxn1]["free_energy"] > 0:
+                                                        self.add_reactions_to_graph(total_reactants, total_products,
+                                                                                    "four step concerted", 4,
+                                                                                    add_to_graph=True, add_to_kmc=False)
+        return
 
     def direct_method(self, initial_conc, time_span):
         '''
@@ -342,8 +885,8 @@ class StochaticSimulation:
                 x[rxn_count+1, int(reac)] -= 1
             for prod in products:
                 x[rxn_count+1, int(prod)] += 1
-            if self.graph.node[current_reaction]["charge_change"] != 0:
-                x[rxn_count + 1, -1] += self.graph.node[current_reaction]["charge_change"]
+            if self.reaction_network.graph.node[current_reaction]["charge_change"] != 0:
+                x[rxn_count + 1, -1] += self.reaction_network.graph.node[current_reaction]["charge_change"]
             rxns.append(mu)
             rxn_count += 1
 
@@ -399,8 +942,8 @@ class StochaticSimulation:
                 x[rxn_count+1, int(reac)] -= 1
             for prod in products:
                 x[rxn_count+1, int(prod)] += 1
-            if self.graph.node[current_reaction]["charge_change"] != 0:
-                x[rxn_count + 1, -1] += self.graph.node[current_reaction]["charge_change"]
+            if self.reaction_network.graph.node[current_reaction]["charge_change"] != 0:
+                x[rxn_count + 1, -1] += self.reaction_network.graph.node[current_reaction]["charge_change"]
             rxns.append(mu)
             rxn_count += 1
 
@@ -413,23 +956,67 @@ class StochaticSimulation:
             rxns[-1] = rxns[rxn_count-1]
         return t, x, rxns
 
-    def add_concerted_reactions_on_the_fly(self, initial_conc, time_span, barrier_uni, barrier_bi, xyz_dir,iterations=5):
+    def add_two_step_concerted_reactions_on_the_fly(self, initial_conc, time_span, barrier_uni, barrier_bi, xyz_dir,iterations=5,remove_Li_red=False):
+        self.searched_species_2_step = []
         iter = 0
-        t, x, rxns, records = 0,0,0,0
+        t, x, rxns = 0,0,0
         print("current nums of reactions:", len(self.unique_reaction_nodes))
         while iter < iterations:
-            t, x, rxns, records = self.direct_method(initial_conc, time_span)
+            t, x, rxns = self.direct_method_no_record(initial_conc, time_span)
             if not iterations - iter == 1:
                 self.add_concerted_reactions_2_step(x[-1,:], 10)
                 print("current nums of reactions:", len(self.unique_reaction_nodes))
                 self.get_rates(barrier_uni, barrier_bi)
                 self.remove_gas_reactions(xyz_dir)
+                if remove_Li_red:
+                    self.remove_Li_reduction_reaction(xyz_dir)
             iter += 1
-        return t,x,rxns,records
+        return t,x,rxns
 
-    def add_concerted_reactions_on_the_fly_save_intermediates(self, initial_conc, time_span, barrier_uni, barrier_bi, xyz_dir,iterations=5):
+    def add_three_step_concerted_reactions_on_the_fly(self, initial_conc, time_span, barrier_uni, barrier_bi, xyz_dir,iterations=5,remove_Li_red=False):
+        self.searched_species_2_step = []
+        self.searched_species_3_step = []
         iter = 0
-        t, x, rxns, records = 0,0,0,0
+        t, x, rxns = 0,0,0
+        print("current nums of reactions:", len(self.unique_reaction_nodes))
+        while iter < iterations:
+            t, x, rxns = self.direct_method_no_record(initial_conc, time_span)
+            if not iterations - iter == 1:
+                self.add_concerted_reactions_2_step(x[-1,:], 10, terminate=False)
+                self.add_concerted_reactions_3_step(x[-1,:], 10, terminate=True)
+                print("current nums of reactions:", len(self.unique_reaction_nodes))
+                self.get_rates(barrier_uni, barrier_bi)
+                self.remove_gas_reactions(xyz_dir)
+                if remove_Li_red:
+                    self.remove_Li_reduction_reaction(xyz_dir)
+            iter += 1
+        return t,x,rxns
+
+    def add_four_step_concerted_reactions_on_the_fly(self, initial_conc, time_span, barrier_uni, barrier_bi, xyz_dir,iterations=5,remove_Li_red=False):
+        self.searched_species_2_step = []
+        self.searched_species_3_step = []
+        self.searched_species_4_step = []
+        iter = 0
+        t, x, rxns = 0,0,0
+        print("current nums of reactions:", len(self.unique_reaction_nodes))
+        while iter < iterations:
+            t, x, rxns = self.direct_method_no_record(initial_conc, time_span)
+            if not iterations - iter == 1:
+                self.add_concerted_reactions_2_step(x[-1,:], 10, terminate=False)
+                self.add_concerted_reactions_3_step(x[-1,:], 10, terminate=False)
+                self.add_concerted_reactions_4_step(x[-1,:], 10, terminate=True)
+                print("current nums of reactions:", len(self.unique_reaction_nodes))
+                self.get_rates(barrier_uni, barrier_bi)
+                self.remove_gas_reactions(xyz_dir)
+                if remove_Li_red:
+                    self.remove_Li_reduction_reaction(xyz_dir)
+            iter += 1
+        return t,x,rxns
+
+    def add_two_step_concerted_reactions_on_the_fly_save_intermediates(self, initial_conc, time_span, barrier_uni, barrier_bi, xyz_dir,iterations=5,remove_Li_red=False):
+        self.searched_species_2_step = []
+        iter = 0
+        t, x, rxns = 0,0,0
         print("current nums of reactions at iter {}:".format(iter), len(self.unique_reaction_nodes))
         while iter < iterations:
             t, x, rxns = self.direct_method_no_record(initial_conc, time_span)
@@ -459,7 +1046,7 @@ class StochaticSimulation:
                 species_index = sorted_species_index[i]
                 if x[-1, int(species_index)] > 0 and int(species_index) != EC_ind and int(
                         species_index) != Li1_ind and int(
-                        species_index) != SS.num_species - 1:
+                        species_index) != self.num_species - 1:
                     ax.step(t, x[:, int(species_index)], where='mid', label=str(species_index))
             plt.title('KMC concerted iter {}'.format(iter))
             plt.legend(loc='upper left')
@@ -477,27 +1064,176 @@ class StochaticSimulation:
             plt.savefig('reaction_decomp_concerted_iter_{}.png'.format(iter))
             for rxn in sorted_rxns:
                 rxn = int(rxn)
-                print(SS.unique_reaction_nodes[rxn], SS.reaction_rates[rxn])
+                print(self.unique_reaction_nodes[rxn], self.reaction_rates[rxn])
 
             with open("unique_reaction_nodes_iter_{}.txt".format(iter), "wb") as fp:
-                pickle.dump(SS.unique_reaction_nodes, fp)
+                pickle.dump(self.unique_reaction_nodes, fp)
             with open("reaction_rates_iter_{}.txt".format(iter), "wb") as fp:
-                pickle.dump(SS.reaction_rates, fp)
+                pickle.dump(self.reaction_rates, fp)
 
-            print('num of species:', SS.num_species)
+            print('num of species:', self.num_species)
 
             if not iterations - iter == 1:
-                self.add_concerted_reactions_2_step(x[-1,:], 10)
+                self.add_concerted_reactions_2_step(x[-1,:], 10, terminate=True)
                 print("current nums of reactions at iter {}:".format(iter+1), len(self.unique_reaction_nodes))
                 self.get_rates(barrier_uni, barrier_bi)
                 self.remove_gas_reactions(xyz_dir)
+                if remove_Li_red:
+                    self.remove_Li_reduction_reaction(xyz_dir)
+            iter += 1
+        return t,x,rxns
+
+    def add_three_step_concerted_reactions_on_the_fly_save_intermediates(self, initial_conc, time_span, barrier_uni, barrier_bi, xyz_dir,iterations=5,remove_Li_red=False):
+        self.searched_species_2_step = []
+        self.searched_species_3_step = []
+        iter = 0
+        t, x, rxns = 0,0,0
+        print("current nums of reactions at iter {}:".format(iter), len(self.unique_reaction_nodes))
+        while iter < iterations:
+            t, x, rxns = self.direct_method_no_record(initial_conc, time_span)
+
+            EC_mg = MoleculeGraph.with_local_env_strategy(
+                Molecule.from_file(os.path.join(xyz_dir, "EC.xyz")),
+                OpenBabelNN(),
+                reorder=False,
+                extend_structure=False)
+            EC_mg = metal_edge_extender(EC_mg)
+
+            EC_ind = None
+            for entry in self.reaction_network.entries["C3 H4 O3"][10][0]:
+                if EC_mg.isomorphic_to(entry.mol_graph):
+                    EC_ind = entry.parameters["ind"]
+                    break
+
+            Li1_ind = self.reaction_network.entries["Li1"][0][1][0].parameters["ind"]
+
+            np.save('x_iter_{}'.format(iter), x)
+            np.save('t_iter_{}'.format(iter), t)
+            np.save('rxns_iter_{}'.format(iter), rxns)
+
+            sorted_species_index = np.argsort(x[-1, :])[::-1]
+            fig, ax = plt.subplots()
+            for i in range(100):
+                species_index = sorted_species_index[i]
+                if x[-1, int(species_index)] > 0 and int(species_index) != EC_ind and int(
+                        species_index) != Li1_ind and int(
+                        species_index) != self.num_species - 1:
+                    ax.step(t, x[:, int(species_index)], where='mid', label=str(species_index))
+            plt.title('KMC concerted iter {}'.format(iter))
+            plt.legend(loc='upper left')
+            plt.savefig('concerted_iter_{}.png'.format(iter))
+
+            rxns_set = list(set(rxns))
+            rxns_count = [list(rxns).count(rxn) for rxn in rxns_set]
+            index = np.argsort(rxns_count)[::-1]
+            sorted_rxns = np.array(rxns_set)[index]
+            x0 = np.arange(len(rxns_set))
+
+            fig, ax = plt.subplots()
+            plt.bar(x0, rxns_count)
+            plt.title('reaction decomposition concerted iter {}'.format(iter))
+            plt.savefig('reaction_decomp_concerted_iter_{}.png'.format(iter))
+            for rxn in sorted_rxns:
+                rxn = int(rxn)
+                print(self.unique_reaction_nodes[rxn], self.reaction_rates[rxn])
+
+            with open("unique_reaction_nodes_iter_{}.txt".format(iter), "wb") as fp:
+                pickle.dump(self.unique_reaction_nodes, fp)
+            with open("reaction_rates_iter_{}.txt".format(iter), "wb") as fp:
+                pickle.dump(self.reaction_rates, fp)
+
+            print('num of species:', self.num_species)
+
+            if not iterations - iter == 1:
+                self.add_concerted_reactions_2_step(x[-1,:], 10, terminate=False)
+                self.add_concerted_reactions_3_step(x[-1, :], 10, terminate=True)
+                print("current nums of reactions at iter {}:".format(iter+1), len(self.unique_reaction_nodes))
+                self.get_rates(barrier_uni, barrier_bi)
+                self.remove_gas_reactions(xyz_dir)
+                if remove_Li_red:
+                    self.remove_Li_reduction_reaction(xyz_dir)
+            iter += 1
+        return t,x,rxns
+
+    def add_four_step_concerted_reactions_on_the_fly_save_intermediates(self, initial_conc, time_span, barrier_uni, barrier_bi, xyz_dir,iterations=5,remove_Li_red=False):
+        self.searched_species_2_step = []
+        self.searched_species_3_step = []
+        self.searched_species_4_step = []
+        iter = 0
+        t, x, rxns = 0,0,0
+        print("current nums of reactions at iter {}:".format(iter), len(self.unique_reaction_nodes))
+        while iter < iterations:
+            t, x, rxns = self.direct_method_no_record(initial_conc, time_span)
+
+            EC_mg = MoleculeGraph.with_local_env_strategy(
+                Molecule.from_file(os.path.join(xyz_dir, "EC.xyz")),
+                OpenBabelNN(),
+                reorder=False,
+                extend_structure=False)
+            EC_mg = metal_edge_extender(EC_mg)
+
+            EC_ind = None
+            for entry in self.reaction_network.entries["C3 H4 O3"][10][0]:
+                if EC_mg.isomorphic_to(entry.mol_graph):
+                    EC_ind = entry.parameters["ind"]
+                    break
+
+            Li1_ind = self.reaction_network.entries["Li1"][0][1][0].parameters["ind"]
+
+            np.save('x_iter_{}'.format(iter), x)
+            np.save('t_iter_{}'.format(iter), t)
+            np.save('rxns_iter_{}'.format(iter), rxns)
+
+            sorted_species_index = np.argsort(x[-1, :])[::-1]
+            fig, ax = plt.subplots()
+            for i in range(100):
+                species_index = sorted_species_index[i]
+                if x[-1, int(species_index)] > 0 and int(species_index) != EC_ind and int(
+                        species_index) != Li1_ind and int(
+                        species_index) != self.num_species - 1:
+                    ax.step(t, x[:, int(species_index)], where='mid', label=str(species_index))
+            plt.title('KMC concerted iter {}'.format(iter))
+            plt.legend(loc='upper left')
+            plt.savefig('concerted_iter_{}.png'.format(iter))
+
+            rxns_set = list(set(rxns))
+            rxns_count = [list(rxns).count(rxn) for rxn in rxns_set]
+            index = np.argsort(rxns_count)[::-1]
+            sorted_rxns = np.array(rxns_set)[index]
+            x0 = np.arange(len(rxns_set))
+
+            fig, ax = plt.subplots()
+            plt.bar(x0, rxns_count)
+            plt.title('reaction decomposition concerted iter {}'.format(iter))
+            plt.savefig('reaction_decomp_concerted_iter_{}.png'.format(iter))
+            for rxn in sorted_rxns:
+                rxn = int(rxn)
+                print(self.unique_reaction_nodes[rxn], self.reaction_rates[rxn])
+
+            with open("unique_reaction_nodes_iter_{}.txt".format(iter), "wb") as fp:
+                pickle.dump(self.unique_reaction_nodes, fp)
+            with open("reaction_rates_iter_{}.txt".format(iter), "wb") as fp:
+                pickle.dump(self.reaction_rates, fp)
+
+            print('num of species:', self.num_species)
+
+            if not iterations - iter == 1:
+                self.add_concerted_reactions_2_step(x[-1,:], 10, terminate=False)
+                self.add_concerted_reactions_3_step(x[-1, :], 10, terminate=False)
+                self.add_concerted_reactions_4_step(x[-1, :], 10, terminate=True)
+
+                print("current nums of reactions at iter {}:".format(iter+1), len(self.unique_reaction_nodes))
+                self.get_rates(barrier_uni, barrier_bi)
+                self.remove_gas_reactions(xyz_dir)
+                if remove_Li_red:
+                    self.remove_Li_reduction_reaction(xyz_dir)
             iter += 1
         return t,x,rxns
 
 
 if __name__ == '__main__':
     prod_entries = []
-    entries = loadfn("/Users/xiaowei_xie/pymatgen/pymatgen/analysis/reaction_network/LiEC_reextended_entries.json")
+    entries = loadfn("/Users/xiaowei_xie/pymatgen/pymatgen/analysis/reaction_network/smd_production_entries.json")
     for entry in entries:
         if "optimized_molecule" in entry["output"]:
             molecule = entry["output"]["optimized_molecule"]
@@ -552,10 +1288,30 @@ if __name__ == '__main__':
     SS.remove_gas_reactions('/Users/xiaowei_xie/Desktop/Sam_production/xyzs/')
     xyz_dir = '/Users/xiaowei_xie/Desktop/Sam_production/xyzs/'
 
-
-    t, x, rxns, records = SS.add_concerted_reactions_on_the_fly(initial_conc, 1000000,
+    Li_mg = MoleculeGraph.with_local_env_strategy(
+        Molecule.from_file(os.path.join(xyz_dir, "Li.xyz")),
+        OpenBabelNN(),
+        reorder=False,
+        extend_structure=False)
+    for entry in SS.reaction_network.entries['Li1'][0][1]:
+        if Li_mg.isomorphic_to(entry.mol_graph):
+            Li1_ind = entry.parameters["ind"]
+            break
+    for entry in SS.reaction_network.entries['Li1'][0][0]:
+        if Li_mg.isomorphic_to(entry.mol_graph):
+            Li0_ind = entry.parameters["ind"]
+            break
+    for i, rxn_node in enumerate(SS.unique_reaction_nodes):
+        if rxn_node == '{},{}'.format(str(Li1_ind), str(Li0_ind)):
+            print('found')
+            SS.reaction_rates[i] = 0.0
+    '''
+    
+    t, x, rxns = SS.add_concerted_reactions_on_the_fly_save_intermediates(initial_conc, 1000,
                                                                 1.0841025975148306, 1.3009231170177968, xyz_dir,
-                                                                iterations=1)
+                                                                iterations=3)
+
+    
     sorted_species_index = np.argsort(x[-1, :])[::-1]
     fig, ax = plt.subplots()
     for i in range(100):
@@ -581,7 +1337,7 @@ if __name__ == '__main__':
     for rxn in sorted_rxns:
         rxn = int(rxn)
         print(SS.unique_reaction_nodes[rxn], SS.reaction_rates[rxn])
-
+    '''
 
     '''
     t, x, rxns, records = SS.direct_method(initial_conc,1000000,10000000)
