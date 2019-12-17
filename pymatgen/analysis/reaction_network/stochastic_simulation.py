@@ -212,11 +212,11 @@ class StochaticSimulation:
             OpenBabelNN(),
             reorder=False,
             extend_structure=False)
-        for entry in self.reaction_network.entries['Li'][0][1]:
+        for entry in self.reaction_network.entries['Li1'][0][1]:
             if Li_mg.isomorphic_to(entry.mol_graph):
                 Li1_ind = entry.parameters["ind"]
                 break
-        for entry in self.reaction_network.entries['Li'][0][0]:
+        for entry in self.reaction_network.entries['Li1'][0][0]:
             if Li_mg.isomorphic_to(entry.mol_graph):
                 Li0_ind = entry.parameters["ind"]
                 break
@@ -591,6 +591,8 @@ class StochaticSimulation:
                 if (terminate and (self.reaction_network.graph.node[rxn0]["free_energy"] > 0)) or (not terminate):
                     rxn0_reactants = rxn0.split(",")[0].split("+")
                     rxn0_reactants = [reac.replace("PR_","") for reac in rxn0_reactants]
+                    if rxn0_reactants == ['2715']:
+                        print('LiEC+ monodentate found!')
                     rxn0_products = list(self.reaction_network.graph.neighbors(rxn0))
                     rxn0_products = [str(prod) for prod in rxn0_products]
                     for node1 in rxn0_products:
@@ -613,6 +615,8 @@ class StochaticSimulation:
                                 total_products = middle_products + rxn1_products
                                 total_reactants.sort()
                                 total_products.sort()
+                                if total_products == ['2720'] and total_reactants == ['2715']:
+                                    print('2720, 2715 found!')
 
                                 total_species = total_reactants + total_products
                                 total_species_set = list(set(total_species))
@@ -636,6 +640,8 @@ class StochaticSimulation:
                                     # check stoichiometry
                                     if all(reactant_elements.count(ele) == product_elements.count(ele) for ele in unique_elements):
                                         if terminate:
+                                            if total_products == ['2720'] and total_reactants == ['2715']:
+                                                print('2720, 2715 persists!')
                                             self.add_reactions_to_graph(total_reactants, total_products,
                                                                         "two step concerted", 2, add_to_graph=False, add_to_kmc=True)
                                         else:
@@ -1019,6 +1025,10 @@ class StochaticSimulation:
         t, x, rxns = 0,0,0
         print("current nums of reactions at iter {}:".format(iter), len(self.unique_reaction_nodes))
         while iter < iterations:
+            self.get_rates(barrier_uni, barrier_bi)
+            self.remove_gas_reactions(xyz_dir)
+            if remove_Li_red:
+                self.remove_Li_reduction_reaction(xyz_dir)
             t, x, rxns = self.direct_method_no_record(initial_conc, time_span)
 
             EC_mg = MoleculeGraph.with_local_env_strategy(
