@@ -839,6 +839,186 @@ class StochaticSimulation:
                                                                                     add_to_graph=True, add_to_kmc=False)
         return
 
+    def search_2_step(self,mol_id, add_to_graph=True, add_to_kmc=True):
+        # Only search for downhill-uphill 2-step concerted reactions and add to graph, add to kmc
+        if mol_id == self.num_species - 1:
+            pass
+        if mol_id in self.searched_species_2_step:
+            pass
+        else:
+            self.searched_species_2_step.append(mol_id)
+        neighbor_rxns = list(self.reaction_network.graph.neighbors(mol_id))
+        for rxn0 in neighbor_rxns:
+            if self.reaction_network.graph.node[rxn0]["free_energy"] > 0:
+                rxn0_reactants = rxn0.split(",")[0].split("+")
+                rxn0_reactants = [reac.replace("PR_", "") for reac in rxn0_reactants]
+                rxn0_products = list(self.reaction_network.graph.neighbors(rxn0))
+                rxn0_products = [str(prod) for prod in rxn0_products]
+                for node1 in rxn0_products:
+                    rxn0_products_copy = copy.deepcopy(rxn0_products)
+                    rxn0_products_copy.remove(str(node1))
+                    middle_products = rxn0_products_copy
+                    node1_rxns = list(self.reaction_network.graph.neighbors(int(node1)))
+                    for rxn1 in node1_rxns:
+                        if self.reaction_network.graph.node[rxn0]["free_energy"] + \
+                                self.reaction_network.graph.node[rxn1]["free_energy"] < 0:
+                            rxn1_reactants = rxn1.split(",")[0].split("+")
+                            rxn1_reactants = [reac.replace("PR_", "") for reac in rxn1_reactants]
+                            # rxn1_reactants_copy = copy.deepcopy(rxn1_reactants)
+                            rxn1_reactants.remove(str(node1))
+                            middle_reactants = rxn1_reactants
+                            rxn1_products = list(self.reaction_network.graph.neighbors(rxn1))
+                            rxn1_products = [str(prod) for prod in rxn1_products]
+                            total_reactants = rxn0_reactants + middle_reactants
+                            total_products = middle_products + rxn1_products
+                            total_reactants.sort()
+                            total_products.sort()
+
+                            total_species = total_reactants + total_products
+                            total_species_set = list(set(total_species))
+                            # remove species that appear both in reactants and products
+                            for species in total_species_set:
+                                while (species in total_reactants and species in total_products):
+                                    total_reactants.remove(species)
+                                    total_products.remove(species)
+                            # check the reaction is not in the existing reactions, and both the number of reactants and products less than 2
+                            if ([total_reactants, total_products] not in self.reactions) and \
+                                    (1 <= len(total_reactants) <= 2) and (1 <= len(total_products) <= 2):
+                                unique_elements = []
+                                for species in total_species_set:
+                                    unique_elements += list(
+                                        self.reaction_network.entries_list[int(species)].molecule.atomic_numbers)
+                                unique_elements = list(set(unique_elements))
+                                reactant_elements, product_elements = [], []
+                                for species in total_reactants:
+                                    reactant_elements += list(
+                                        self.reaction_network.entries_list[int(species)].molecule.atomic_numbers)
+                                for species in total_products:
+                                    product_elements += list(
+                                        self.reaction_network.entries_list[int(species)].molecule.atomic_numbers)
+                                # check stoichiometry
+                                if all(reactant_elements.count(ele) == product_elements.count(ele) for ele in
+                                       unique_elements):
+
+                                    self.add_reactions_to_graph(total_reactants, total_products,
+                                                                "two step concerted", 2, add_to_graph=add_to_graph,
+                                                                add_to_kmc=add_to_kmc)
+
+    def search_3_step_from_2_step(self,mol_id, add_to_graph=True, add_to_kmc=True):
+        '''
+        Only add uphill-uphill-downhill 3-step concerted reactions. The last 2 step taken from self.search_2_step.
+        :param mol_id:
+        :param add_to_graph:
+        :param add_to_kmc:
+        :return:
+        '''
+        if mol_id == self.num_species - 1:
+            pass
+        if mol_id in self.searched_species_3_step:
+            pass
+        else:
+            self.searched_species_3_step.append(mol_id)
+        neighbor_rxns = list(self.reaction_network.graph.neighbors(mol_id))
+        for rxn0 in neighbor_rxns:
+            if self.reaction_network.graph.node[rxn0]['steps'] == 1:
+                if self.reaction_network.graph.node[rxn0]["free_energy"] > 0:
+                    rxn0_reactants = rxn0.split(",")[0].split("+")
+                    rxn0_reactants = [reac.replace("PR_", "") for reac in rxn0_reactants]
+                    rxn0_products = list(self.reaction_network.graph.neighbors(rxn0))
+                    rxn0_products = [str(prod) for prod in rxn0_products]
+                    for node1 in rxn0_products:
+                        rxn0_products_copy = copy.deepcopy(rxn0_products)
+                        rxn0_products_copy.remove(str(node1))
+                        middle_products = rxn0_products_copy
+                        if node1 not in self.searched_species_2_step:
+                            self.search_2_step(int(node1),add_to_graph=True, add_to_kmc=True)
+                        node1_rxns = list(self.reaction_network.graph.neighbors(int(node1)))
+                        for rxn1 in node1_rxns:
+                            if self.reaction_network.graph.node[rxn1]['steps'] == 2:
+                                if self.reaction_network.graph.node[rxn0]["free_energy"] + self.reaction_network.graph.node[rxn1]["free_energy"] < 0:
+                                    rxn1_reactants = rxn1.split(",")[0].split("+")
+                                    rxn1_reactants = [reac.replace("PR_", "") for reac in rxn1_reactants]
+                                    # rxn1_reactants_copy = copy.deepcopy(rxn1_reactants)
+                                    rxn1_reactants.remove(str(node1))
+                                    middle_reactants = rxn1_reactants
+                                    rxn1_products = list(self.reaction_network.graph.neighbors(rxn1))
+                                    rxn1_products = [str(prod) for prod in rxn1_products]
+                                    total_reactants = rxn0_reactants + middle_reactants
+                                    total_products = middle_products + rxn1_products
+                                    total_reactants.sort()
+                                    total_products.sort()
+
+                                    total_species = total_reactants + total_products
+                                    total_species_set = list(set(total_species))
+                                    # remove species that appear both in reactants and products
+                                    for species in total_species_set:
+                                        while (species in total_reactants and species in total_products):
+                                            total_reactants.remove(species)
+                                            total_products.remove(species)
+                                    # check the reaction is not in the existing reactions, and both the number of reactants and products less than 2
+                                    if ([total_reactants, total_products] not in self.reactions) and \
+                                            (1 <= len(total_reactants) <= 2) and (1 <= len(total_products) <= 2):
+                                        unique_elements = []
+                                        for species in total_species_set:
+                                            unique_elements += list(self.reaction_network.entries_list[
+                                                                        int(species)].molecule.atomic_numbers)
+                                        unique_elements = list(set(unique_elements))
+                                        reactant_elements, product_elements = [], []
+                                        for species in total_reactants:
+                                            reactant_elements += list(self.reaction_network.entries_list[
+                                                                          int(species)].molecule.atomic_numbers)
+                                        for species in total_products:
+                                            product_elements += list(self.reaction_network.entries_list[
+                                                                         int(species)].molecule.atomic_numbers)
+                                        # check stoichiometry
+                                        if all(reactant_elements.count(ele) == product_elements.count(ele) for ele in
+                                               unique_elements):
+
+                                            self.add_reactions_to_graph(total_reactants, total_products,
+                                                                        "three step concerted", 3,
+                                                                        add_to_graph=add_to_graph, add_to_kmc=add_to_kmc)
+
+
+    def add_concerted_reactions_2_step_new(self, num_of_mols, num_thresh, terminate=False):
+        '''
+        Add concerted reactions on the fly, only for species that have non-zero concentration.
+        This function only adds two-step concerted reactions.
+        :param num_of_mols:
+        :param add_to_graph: Whether to connect the reaction node with reactants and products in self.reaction_network.graph.
+                      If False, only the reaction node will be added to the graph.
+        :param terminate: Whether to terminate at 2-step concerted.
+               If true, do not need to consider uphill 2-step concerted reactions.
+        :return:
+        '''
+
+        non_zero_indices = [i for i in range(len(num_of_mols)) if num_of_mols[i] > num_thresh]
+        for mol_id in non_zero_indices:
+            if terminate:
+                self.search_2_step(mol_id, add_to_graph=False, add_to_kmc=True)
+            else:
+                self.search_2_step(mol_id, add_to_graph=True, add_to_kmc=True)
+        return
+
+    def add_concerted_reactions_3_step_new(self, num_of_mols, num_thresh, terminate=False):
+        '''
+        Add concerted reactions on the fly, only for species that have non-zero concentration.
+        This function adds 3 or 4-step concerted reactions.
+        :param num_of_mols:
+        :param add_to_graph: Whether to connect the reaction node with reactants and products in self.reaction_network.graph.
+                      If False, only the reaction node will be added to the graph.
+        :param terminate: Whether to terminate at 3-step concerted.
+               If true, do not need to consider uphill 3-step concerted reactions.
+        :return:
+        '''
+
+        non_zero_indices = [i for i in range(len(num_of_mols)) if num_of_mols[i] > num_thresh]
+        for mol_id in non_zero_indices:
+            if terminate:
+                self.search_3_step_from_2_step(mol_id, add_to_graph=False, add_to_kmc=True)
+            else:
+                self.search_3_step_from_2_step(mol_id, add_to_graph=True, add_to_kmc=True)
+        return
+
     def direct_method(self, initial_conc, time_span):
         '''
         :param initial_conc
@@ -1315,6 +1495,12 @@ if __name__ == '__main__':
         if rxn_node == '{},{}'.format(str(Li1_ind), str(Li0_ind)):
             print('found')
             SS.reaction_rates[i] = 0.0
+
+    t, x, rxns = SS.direct_method_no_record(initial_conc, 10000)
+
+    t, x, rxns = SS.add_four_step_concerted_reactions_on_the_fly_save_intermediates(initial_conc, 10000,
+                                                                1.0841025975148306, 1.3009231170177968, xyz_dir,
+                                                                iterations=2)
     '''
     
     t, x, rxns = SS.add_concerted_reactions_on_the_fly_save_intermediates(initial_conc, 1000,
