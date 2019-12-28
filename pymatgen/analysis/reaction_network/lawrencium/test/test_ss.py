@@ -1,24 +1,23 @@
-import json
+import logging
 import numpy as np
-import matplotlib.pyplot as plt
 from pymatgen.analysis.graphs import MoleculeGraph, MolGraphSplitError
 from pymatgen.analysis.local_env import OpenBabelNN
+from pymatgen.io.babel import BabelMolAdaptor
 from pymatgen import Molecule
 from pymatgen.analysis.fragmenter import metal_edge_extender
 from pymatgen.entries.mol_entry import MoleculeEntry
 from pymatgen.analysis.reaction_network.reaction_network import ReactionNetwork
 from monty.serialization import dumpfn, loadfn
+import random
 import os
+import matplotlib.pyplot as plt
+from ase.units import eV, J, mol
+import copy
+import pickle
 from pymatgen.analysis.reaction_network.stochastic_simulation import StochaticSimulation
 
-x = np.load('/Users/xiaowei_xie/pymatgen/pymatgen/analysis/reaction_network/lawrencium/x_iter_0.npy')
-t = np.load('/Users/xiaowei_xie/pymatgen/pymatgen/analysis/reaction_network/lawrencium/t_iter_0.npy')
-rxns = np.load('/Users/xiaowei_xie/pymatgen/pymatgen/analysis/reaction_network/lawrencium/rxns_iter_0.npy')
-#with open('/Users/xiaowei_xie/pymatgen/pymatgen/analysis/reaction_network/lawrencium/records_iter_0.json') as data_file:
-#    record = json.load(data_file)
-
 prod_entries = []
-entries = loadfn("/Users/xiaowei_xie/pymatgen/pymatgen/analysis/reaction_network/smd_production_entries.json")
+entries = loadfn("/global/scratch/xiaowei_xie/kmc/smd_production_entries_new.json")
 for entry in entries:
     if "optimized_molecule" in entry["output"]:
         molecule = entry["output"]["optimized_molecule"]
@@ -36,7 +35,7 @@ RN = ReactionNetwork(
 
 SS = StochaticSimulation(RN)
 
-test_dir = '/Users/xiaowei_xie/Sam_production/xyzs/'
+test_dir = '/global/scratch/xiaowei_xie/Sam_production/xyzs/'
 EC_mg = MoleculeGraph.with_local_env_strategy(
     Molecule.from_file(os.path.join(test_dir, "EC.xyz")),
     OpenBabelNN(),
@@ -69,27 +68,36 @@ initial_conc[EC_ind] = 15000
 initial_conc[Li1_ind] = 1000
 initial_conc[H2O_ind] = 30
 initial_conc[-1] = 1000
+SS.get_rates(1.0841025975148306, 1.3009231170177968)
+SS.remove_gas_reactions('/global/scratch/xiaowei_xie/Sam_production/xyzs/')
+xyz_dir = '/global/scratch/xiaowei_xie/Sam_production/xyzs/'
 
-sorted_species_index = np.argsort(x[-1, :])[::-1]
-fig, ax = plt.subplots()
-for i in range(100):
-    species_index = sorted_species_index[i]
-    if x[-1, int(species_index)] > 0 and int(species_index) != EC_ind and int(species_index) != Li1_ind and int(
-            species_index) != SS.num_species - 1:
-        ax.step(t, x[:, int(species_index)], where='mid', label=str(species_index))
-        # ax.plot(T,X[:,int(species_index)], 'C0o', alpha=0.5)
-plt.title('KMC concerted iter 0')
-plt.legend(loc='upper left')
-#plt.savefig('concerted_iter_1.png')
+Li_mg = MoleculeGraph.with_local_env_strategy(
+    Molecule.from_file(os.path.join(xyz_dir, "Li.xyz")),
+    OpenBabelNN(),
+    reorder=False,
+    extend_structure=False)
+for entry in SS.reaction_network.entries['Li1'][0][1]:
+    if Li_mg.isomorphic_to(entry.mol_graph):
+        Li1_ind = entry.parameters["ind"]
+        break
+for entry in SS.reaction_network.entries['Li1'][0][0]:
+    if Li_mg.isomorphic_to(entry.mol_graph):
+        Li0_ind = entry.parameters["ind"]
+        break
+for i, rxn_node in enumerate(SS.unique_reaction_nodes):
+    if rxn_node == '{},{}'.format(str(Li1_ind), str(Li0_ind)):
+        print('found')
+        SS.reaction_rates[i] = 0.0
 
-rxns_set = list(set(rxns))
-rxns_count = [list(rxns).count(rxn) for rxn in rxns_set]
-index = np.argsort(rxns_count)[::-1]
-sorted_rxns = np.array(rxns_set)[index]
-x0 = np.arange(len(rxns_set))
-fig, ax = plt.subplots()
-plt.bar(x0, rxns_count)
-# plt.xticks(x, ([str(int(rxn)) for rxn in rxns_set]))
-plt.title('reaction decomposition concerted iter 0')
-#plt.savefig('reaction_decomp_concerted_iter_1.png')
+t, x, rxns = SS.direct_method_no_record(initial_conc, 10000)
 
+# t, x, rxns = SS.add_four_step_concerted_reactions_on_the_fly_save_intermediates(initial_conc, 10000,
+#                                                                                 1.0841025975148306, 1.3009231170177968,
+#                                                                                 xyz_dir,
+#                                                                                 iterations=2)
+for i in range(len(RN.entries_list)):
+    mol = RN.entries_list[i].molecule
+    charge = mol.charge
+    mol.to('xyz', '/global/scratch/xiaowei_xie/kmc/mols_20191227/' + str(
+        i) + '_' + str(charge) + '.xyz')
