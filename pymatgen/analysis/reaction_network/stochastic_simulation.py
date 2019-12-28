@@ -1345,6 +1345,78 @@ class StochaticSimulation:
             iter += 1
         return t,x,rxns
 
+    def add_three_step_concerted_reactions_on_the_fly_save_intermediates_new(self, initial_conc, time_span, barrier_uni, barrier_bi, xyz_dir,iterations=5,remove_Li_red=False):
+        self.searched_species_2_step = []
+        self.searched_species_3_step = []
+        iter = 0
+        t, x, rxns = 0,0,0
+        print("current nums of reactions at iter {}:".format(iter), len(self.unique_reaction_nodes))
+        while iter < iterations:
+            t, x, rxns = self.direct_method_no_record(initial_conc, time_span)
+
+            EC_mg = MoleculeGraph.with_local_env_strategy(
+                Molecule.from_file(os.path.join(xyz_dir, "EC.xyz")),
+                OpenBabelNN(),
+                reorder=False,
+                extend_structure=False)
+            EC_mg = metal_edge_extender(EC_mg)
+
+            EC_ind = None
+            for entry in self.reaction_network.entries["C3 H4 O3"][10][0]:
+                if EC_mg.isomorphic_to(entry.mol_graph):
+                    EC_ind = entry.parameters["ind"]
+                    break
+
+            Li1_ind = self.reaction_network.entries["Li1"][0][1][0].parameters["ind"]
+
+            np.save('x_iter_{}'.format(iter), x)
+            np.save('t_iter_{}'.format(iter), t)
+            np.save('rxns_iter_{}'.format(iter), rxns)
+
+            sorted_species_index = np.argsort(x[-1, :])[::-1]
+            fig, ax = plt.subplots()
+            for i in range(100):
+                species_index = sorted_species_index[i]
+                if x[-1, int(species_index)] > 0 and int(species_index) != EC_ind and int(
+                        species_index) != Li1_ind and int(
+                        species_index) != self.num_species - 1:
+                    ax.step(t, x[:, int(species_index)], where='mid', label=str(species_index))
+            plt.title('KMC concerted iter {}'.format(iter))
+            plt.legend(loc='upper left')
+            plt.savefig('concerted_iter_{}.png'.format(iter))
+
+            rxns_set = list(set(rxns))
+            rxns_count = [list(rxns).count(rxn) for rxn in rxns_set]
+            index = np.argsort(rxns_count)[::-1]
+            sorted_rxns = np.array(rxns_set)[index]
+            x0 = np.arange(len(rxns_set))
+
+            fig, ax = plt.subplots()
+            plt.bar(x0, rxns_count)
+            plt.title('reaction decomposition concerted iter {}'.format(iter))
+            plt.savefig('reaction_decomp_concerted_iter_{}.png'.format(iter))
+            for rxn in sorted_rxns:
+                rxn = int(rxn)
+                print(self.unique_reaction_nodes[rxn], self.reaction_rates[rxn])
+
+            with open("unique_reaction_nodes_iter_{}.txt".format(iter), "wb") as fp:
+                pickle.dump(self.unique_reaction_nodes, fp)
+            with open("reaction_rates_iter_{}.txt".format(iter), "wb") as fp:
+                pickle.dump(self.reaction_rates, fp)
+
+            print('num of species:', self.num_species)
+
+            if not iterations - iter == 1:
+                self.add_concerted_reactions_2_step_new(x[-1,:], 10, terminate=False)
+                self.add_concerted_reactions_3_step_new(x[-1, :], 10, terminate=True)
+                print("current nums of reactions at iter {}:".format(iter+1), len(self.unique_reaction_nodes))
+                self.get_rates(barrier_uni, barrier_bi)
+                self.remove_gas_reactions(xyz_dir)
+                if remove_Li_red:
+                    self.remove_Li_reduction_reaction(xyz_dir)
+            iter += 1
+        return t,x,rxns
+
     def add_four_step_concerted_reactions_on_the_fly_save_intermediates(self, initial_conc, time_span, barrier_uni, barrier_bi, xyz_dir,iterations=5,remove_Li_red=False):
         self.searched_species_2_step = []
         self.searched_species_3_step = []
