@@ -18,6 +18,7 @@ import networkx as nx
 from networkx.algorithms import bipartite
 from pymatgen.entries.mol_entry import MoleculeEntry
 from pymatgen.core.composition import CompositionError
+from pymatgen.analysis.reaction_network.extract_reactions import *
 
 
 __author__ = "Samuel Blau"
@@ -308,6 +309,130 @@ class ReactionNetwork(MSONable):
     #         print(len(to_add[0]),len(to_add[1]))
     #         self.add_reaction(to_add[0],to_add[1],"concerted")
 
+    def add_concerted_general(self):
+        # Add general concerted reactions (max break 2 form 2 bonds)
+        self.unique_mol_graphs = []
+        for entry in self.entries_list:
+            mol_graph = entry.mol_graph
+            self.unique_mol_graphs.append(mol_graph)
+        # find all molecule pairs that satisfy the stoichiometry constraint
+        self.stoi_list, self.species_same_stoi_dict = identify_same_stoi_mol_pairs(self.unique_mol_graphs)
+        self.reac_prod_dict = {}
+        for i, key in enumerate(self.species_same_stoi_dict.keys()):
+            species_list = self.species_same_stoi_dict[key]
+            new_species_list_reactant = []
+            new_species_list_product = []
+            for species in species_list:
+                new_species_list_reactant.append(species)
+                new_species_list_product.append(species)
+            if new_species_list_reactant != [] and new_species_list_product != []:
+                self.reac_prod_dict[key] = {'reactants': new_species_list_reactant, 'products': new_species_list_product}
+
+        self.valid_reactions_dict = {}
+        for i, key in enumerate(list(self.reac_prod_dict.keys())):
+            print(key)
+            self.valid_reactions_dict[key] = []
+            reactants = self.reac_prod_dict[key]['reactants']
+            products = self.reac_prod_dict[key]['products']
+            for reac in reactants:
+                for prod in products:
+                    if reac == prod:
+                        continue
+                    else:
+                        print('reactant:', reac)
+                        print('product:', prod)
+                        split_reac = reac.split('_')
+                        split_prod = prod.split('_')
+                        if (len(split_reac) == 1 and len(split_prod) == 1):
+                            mol_graph1 = self.unique_mol_graphs[int(split_reac[0])]
+                            mol_graph2 = self.unique_mol_graphs[int(split_prod[0])]
+                            if identify_self_reactions(mol_graph1, mol_graph2):
+                                self.valid_reactions_dict[key].append([reac, prod])
+                        elif (len(split_reac) == 2 and len(split_prod) == 1):
+                            assert split_prod[0] not in split_reac
+                            mol_graphs1 = [self.unique_mol_graphs[int(split_reac[0])],
+                                           self.unique_mol_graphs[int(split_reac[1])]]
+                            mol_graphs2 = [self.unique_mol_graphs[int(split_prod[0])]]
+                            if identify_reactions_AB_C(mol_graphs1, mol_graphs2):
+                                self.valid_reactions_dict[key].append([reac, prod])
+                        elif (len(split_reac) == 1 and len(split_prod) == 2):
+                            mol_graphs1 = [self.unique_mol_graphs[int(split_prod[0])],
+                                           self.unique_mol_graphs[int(split_prod[1])]]
+                            mol_graphs2 = [self.unique_mol_graphs[int(split_reac[0])]]
+                            if identify_reactions_AB_C(mol_graphs1, mol_graphs2):
+                                self.valid_reactions_dict[key].append([reac, prod])
+                        elif (len(split_reac) == 2 and len(split_prod) == 2):
+                            # self reaction
+                            if (split_reac[0] in split_prod) or (split_reac[1] in split_prod):
+                                new_split_reac = None
+                                new_split_prod = None
+                                if (split_reac[0] in split_prod):
+                                    prod_index = split_prod.index(split_reac[0])
+                                    new_split_reac = split_reac[1]
+                                    if prod_index == 0:
+                                        new_split_prod = split_prod[1]
+                                    elif prod_index == 1:
+                                        new_split_prod = split_prod[0]
+                                elif (split_reac[1] in split_prod):
+                                    prod_index = split_prod.index(split_reac[1])
+                                    new_split_reac = split_reac[0]
+                                    if prod_index == 0:
+                                        new_split_prod = split_prod[1]
+                                    elif prod_index == 1:
+                                        new_split_prod = split_prod[0]
+                                mol_graph1 = self.unique_mol_graphs[int(new_split_reac)]
+                                mol_graph2 = self.unique_mol_graphs[int(new_split_prod)]
+                                if identify_self_reactions(mol_graph1, mol_graph2):
+                                    self.valid_reactions_dict[key].append([reac, prod])
+                            # A + B -> C + D
+                            else:
+                                mol_graphs1 = [self.unique_mol_graphs[int(split_reac[0])],
+                                               self.unique_mol_graphs[int(split_reac[1])]]
+                                mol_graphs2 = [self.unique_mol_graphs[int(split_prod[0])],
+                                               self.unique_mol_graphs[int(split_prod[1])]]
+                                if identify_reactions_AB_CD(mol_graphs1, mol_graphs2):
+                                    self.valid_reactions_dict[key].append([reac, prod])
+        reactions_to_add = []
+        for key in self.valid_reactions_dict.keys():
+            for i in range(len(self.valid_reactions_dict[key])):
+                rxn = self.valid_reactions_dict[key][i]
+                reactant_nodes = rxn[0].split('_')
+                product_nodes = rxn[1].split('_')
+                entries0 = []
+                entries1 = []
+                for ind in reactant_nodes:
+                    entries0.append(self.entries_list[int(ind)])
+                for ind in product_nodes:
+                    entries1.append(self.entries_list[int(ind)])
+                if len(entries0) == 1 and len(entries1) == 1:
+                    if rxn[0]+','+rxn[1] not in self.graph.nodes:
+                        reactions_to_add.append([entries0, entries1])
+                elif len(entries0) == 2 and len(entries1) == 1:
+                    if int(reactant_nodes[0]) <= int(reactant_nodes[1]):
+                        reactant_name = rxn[0].replace('_','+')
+                    else:
+                        reactant_name = rxn[0].split('_')[1] + '+' + rxn[0].split('_')[0]
+                    if rxn[1]+','+reactant_name not in self.graph.nodes:
+                        reactions_to_add.append([entries0, entries1])
+                elif len(entries0) == 1 and len(entries1) == 2:
+                    if int(product_nodes[0]) <= int(product_nodes[1]):
+                        product_name = rxn[1].replace('_','+')
+                    else:
+                        product_name = rxn[1].split('_')[1] + '+' + rxn[1].split('_')[0]
+                    if rxn[0]+','+product_name not in self.graph.nodes:
+                        reactions_to_add.append([entries0, entries1])
+                elif len(entries0) == 2 and len(entries1) == 2:
+                    if int(product_nodes[0]) <= int(product_nodes[1]):
+                        product_name = rxn[1].replace('_','+')
+                    else:
+                        product_name = rxn[1].split('_')[1] + '+' + rxn[1].split('_')[0]
+                    reactant_name = reactant_nodes[0] + '+PR_' + reactant_nodes[1]
+                    if reactant_name+','+product_name not in self.graph.nodes:
+                        reactions_to_add.append([entries0, entries1])
+        for to_add in reactions_to_add:
+            print(len(to_add[0]),len(to_add[1]))
+            self.add_reaction(to_add[0],to_add[1],"concerted")
+
     def add_water_reactions(self):
         # Since concerted reactions remain intractable, this function adds two specific concerted
         # reactions involving water so that realisic paths to OH- are possible:
@@ -563,6 +688,7 @@ class ReactionNetwork(MSONable):
             print("Missing LiEC+, will not add LiCO3 -1 + LiEC 1 -> LEDC reaction")
 
 
+
         if LiEC_RO_found and C2H4_found and LEDC_found:
             print("Adding concerted reaction 2LiEC-RO -> LEDC + C2H4")
             LiEC_RO_PR_LiEC_RO_name = str(LiEC_RO_entry.parameters["ind"]) + "+PR_" + str(LiEC_RO_entry.parameters["ind"])
@@ -732,19 +858,20 @@ class ReactionNetwork(MSONable):
                                 exponent=0.0,
                                 weight=1.0)
 
-        elif rxn_type == "intermol_single_bond_change" or rxn_type == "coordination_bond_change":# or (rxn_type == "concerted" and len(entries0) == 1 and len(entries1) == 2):
+        elif rxn_type == "intermol_single_bond_change" or rxn_type == "coordination_bond_change":  # or (rxn_type == "concerted" and len(entries0) == 1 and len(entries1) == 2):
             entry = entries0[0]
             entry0 = entries1[0]
             entry1 = entries1[1]
             if entry0.parameters["ind"] <= entry1.parameters["ind"]:
-                two_mol_name = str(entry0.parameters["ind"])+"+"+str(entry1.parameters["ind"])
+                two_mol_name = str(entry0.parameters["ind"]) + "+" + str(entry1.parameters["ind"])
             else:
-                two_mol_name = str(entry1.parameters["ind"])+"+"+str(entry0.parameters["ind"])
-            two_mol_name0 = str(entry0.parameters["ind"])+"+PR_"+str(entry1.parameters["ind"])
-            two_mol_name1 = str(entry1.parameters["ind"])+"+PR_"+str(entry0.parameters["ind"])
-            node_name_A = str(entry.parameters["ind"])+","+two_mol_name
-            node_name_B0 = two_mol_name0+","+str(entry.parameters["ind"])
-            node_name_B1 = two_mol_name1+","+str(entry.parameters["ind"])
+                two_mol_name = str(entry1.parameters["ind"]) + "+" + str(entry0.parameters["ind"])
+            two_mol_name0 = str(entry0.parameters["ind"]) + "+PR_" + str(entry1.parameters["ind"])
+            two_mol_name1 = str(entry1.parameters["ind"]) + "+PR_" + str(entry0.parameters["ind"])
+            node_name_A = str(entry.parameters["ind"]) + "," + two_mol_name
+            node_name_B0 = two_mol_name0 + "," + str(entry.parameters["ind"])
+            node_name_B1 = two_mol_name1 + "," + str(entry.parameters["ind"])
+
             if rxn_type == "intermol_single_bond_change":
                 rxn_type_A = "Molecular decomposition breaking one bond A -> B+C"
                 rxn_type_B = "Molecular formation from one new bond A+B -> C"
@@ -754,11 +881,13 @@ class ReactionNetwork(MSONable):
             # elif rxn_type == "concerted":
             #     rxn_type_A = "Concerted"
             #     rxn_type_B = "Concerted"
+
             energy_A = entry0.energy + entry1.energy - entry.energy
             energy_B = entry.energy - entry0.energy - entry1.energy
             if entry1.free_energy != None and entry0.free_energy != None and entry.free_energy != None:
                 free_energy_A = entry0.free_energy + entry1.free_energy - entry.free_energy
                 free_energy_B = entry.free_energy - entry0.free_energy - entry1.free_energy
+
                 # if rxn_type == "concerted":
                 #     if entry.charge - (entry0.charge + entry1.charge) == 1:
                 #         free_energy_A += -self.electron_free_energy
@@ -769,15 +898,13 @@ class ReactionNetwork(MSONable):
                 #     elif entry.charge != (entry0.charge + entry1.charge):
                 #         raise RuntimeError("Concerted charge difference of "+str(abs(entry.charge - (entry0.charge + entry1.charge)))+" detected!")
 
-            self.graph.add_node(node_name_A,rxn_type=rxn_type_A,bipartite=1,energy=energy_A,free_energy=free_energy_A)
-            
+            self.graph.add_node(node_name_A, rxn_type=rxn_type_A, bipartite=1, energy=energy_A, free_energy=free_energy_A)
             self.graph.add_edge(entry.parameters["ind"],
                                 node_name_A,
                                 softplus=self.softplus(free_energy_A),
                                 exponent=self.exponent(free_energy_A),
                                 weight=1.0
                                 )
-
             self.graph.add_edge(node_name_A,
                                 entry0.parameters["ind"],
                                 softplus=0.0,
@@ -790,10 +917,8 @@ class ReactionNetwork(MSONable):
                                 exponent=0.0,
                                 weight=1.0
                                 )
-
-            self.graph.add_node(node_name_B0,rxn_type=rxn_type_B,bipartite=1,energy=energy_B,free_energy=free_energy_B)
-            self.graph.add_node(node_name_B1,rxn_type=rxn_type_B,bipartite=1,energy=energy_B,free_energy=free_energy_B)
-
+            self.graph.add_node(node_name_B0, rxn_type=rxn_type_B, bipartite=1, energy=energy_B, free_energy=free_energy_B)
+            self.graph.add_node(node_name_B1, rxn_type=rxn_type_B, bipartite=1, energy=energy_B, free_energy=free_energy_B)
             self.graph.add_edge(node_name_B0,
                                 entry.parameters["ind"],
                                 softplus=0.0,
@@ -806,7 +931,6 @@ class ReactionNetwork(MSONable):
                                 exponent=0.0,
                                 weight=1.0
                                 )
-
             self.graph.add_edge(entry0.parameters["ind"],
                                 node_name_B0,
                                 softplus=self.softplus(free_energy_B),
@@ -819,119 +943,316 @@ class ReactionNetwork(MSONable):
                                 exponent=self.exponent(free_energy_B),
                                 weight=1.0)
 
-            # elif rxn_type == "concerted":
-            #     if len(entries0) == 2 and len(entries1) == 1:
-            #         print("Concerted 2,1 found! Ignoring for now...")
-            #     elif len(entries0) == 2 and len(entries1) == 2:
-            #         entryA = entries0[0]
-            #         entryB = entries0[1]
-            #         if entryA.parameters["ind"] <= entryB.parameters["ind"]:
-            #             AB_name = str(entryA.parameters["ind"])+"+"+str(entryB.parameters["ind"])
-            #         else:
-            #             AB_name = str(entryB.parameters["ind"])+"+"+str(entryA.parameters["ind"])
-            #         A_PR_B_name = str(entryA.parameters["ind"])+"+PR_"+str(entryB.parameters["ind"])
-            #         B_PR_A_name = str(entryB.parameters["ind"])+"+PR_"+str(entryA.parameters["ind"])
-            #
-            #         entryC = entries1[0]
-            #         entryD = entries1[1]
-            #         if entryC.parameters["ind"] <= entryD.parameters["ind"]:
-            #             CD_name = str(entryC.parameters["ind"])+"+"+str(entryD.parameters["ind"])
-            #         else:
-            #             CD_name = str(entryD.parameters["ind"])+"+"+str(entryC.parameters["ind"])
-            #
-            #         C_PR_D_name = str(entryC.parameters["ind"])+"+PR_"+str(entryD.parameters["ind"])
-            #         D_PR_C_name = str(entryD.parameters["ind"])+"+PR_"+str(entryC.parameters["ind"])
-            #         node_name_1 = A_PR_B_name+","+CD_name
-            #         node_name_2 = B_PR_A_name+","+CD_name
-            #         node_name_3 = C_PR_D_name+","+AB_name
-            #         node_name_4 = D_PR_C_name+","+AB_name
-            #         AB_CD_energy = entryC.energy + entryD.energy - entryA.energy - entryB.energy
-            #         CD_AB_energy = entryA.energy + entryB.energy - entryC.energy - entryD.energy
-            #         if entryA.free_energy != None and entryB.free_energy != None and entryC.free_energy != None and entryD.free_energy != None:
-            #             AB_CD_free_energy = entryC.free_energy + entryD.free_energy - entryA.free_energy - entryB.free_energy
-            #             CD_AB_free_energy = entryA.free_energy + entryB.free_energy - entryC.free_energy - entryD.free_energy
-            #
-            #         self.graph.add_node(node_name_1,rxn_type=rxn_type,bipartite=1,energy=AB_CD_energy,free_energy=AB_CD_free_energy)
-            #         self.graph.add_edge(entryA.parameters["ind"],
-            #                             node_name_1,
-            #                             softplus=self.softplus(AB_CD_free_energy),
-            #                             exponent=self.exponent(AB_CD_free_energy),
-            #                             weight=1.0
-            #                             )
-            #         self.graph.add_edge(node_name_1,
-            #                             entryC.parameters["ind"],
-            #                             softplus=0.0,
-            #                             exponent=0.0,
-            #                             weight=1.0
-            #                             )
-            #         self.graph.add_edge(node_name_1,
-            #                             entryD.parameters["ind"],
-            #                             softplus=0.0,
-            #                             exponent=0.0,
-            #                             weight=1.0
-            #                             )
-            #
-            #         self.graph.add_node(node_name_2,rxn_type=rxn_type,bipartite=1,energy=AB_CD_energy,free_energy=AB_CD_free_energy)
-            #         self.graph.add_edge(entryB.parameters["ind"],
-            #                             node_name_2,
-            #                             softplus=self.softplus(AB_CD_free_energy),
-            #                             exponent=self.exponent(AB_CD_free_energy),
-            #                             weight=1.0
-            #                             )
-            #         self.graph.add_edge(node_name_2,
-            #                             entryC.parameters["ind"],
-            #                             softplus=0.0,
-            #                             exponent=0.0,
-            #                             weight=1.0
-            #                             )
-            #         self.graph.add_edge(node_name_2,
-            #                             entryD.parameters["ind"],
-            #                             softplus=0.0,
-            #                             exponent=0.0,
-            #                             weight=1.0
-            #                             )
-            #
-            #         self.graph.add_node(node_name_3,rxn_type=rxn_type,bipartite=1,energy=CD_AB_energy,free_energy=CD_AB_free_energy)
-            #         self.graph.add_edge(entryC.parameters["ind"],
-            #                             node_name_3,
-            #                             softplus=self.softplus(CD_AB_free_energy),
-            #                             exponent=self.exponent(CD_AB_free_energy),
-            #                             weight=1.0
-            #                             )
-            #         self.graph.add_edge(node_name_3,
-            #                             entryA.parameters["ind"],
-            #                             softplus=0.0,
-            #                             exponent=0.0,
-            #                             weight=1.0
-            #                             )
-            #         self.graph.add_edge(node_name_3,
-            #                             entryB.parameters["ind"],
-            #                             softplus=0.0,
-            #                             exponent=0.0,
-            #                             weight=1.0
-            #                             )
-            #
-            #         self.graph.add_node(node_name_4,rxn_type=rxn_type,bipartite=1,energy=CD_AB_energy,free_energy=CD_AB_free_energy)
-            #         self.graph.add_edge(entryD.parameters["ind"],
-            #                             node_name_4,
-            #                             softplus=self.softplus(CD_AB_free_energy),
-            #                             exponent=self.exponent(CD_AB_free_energy),
-            #                             weight=1.0
-            #                             )
-            #         self.graph.add_edge(node_name_4,
-            #                             entryA.parameters["ind"],
-            #                             softplus=0.0,
-            #                             exponent=0.0,
-            #                             weight=1.0
-            #                             )
-            #         self.graph.add_edge(node_name_4,
-            #                             entryB.parameters["ind"],
-            #                             softplus=0.0,
-            #                             exponent=0.0,
-            #                             weight=1.0
-            #                             )
-            #     else:
-            #         print("Concerted "+str(len(entries0))+","+str(len(entries1))+" found! Ignoring for now...")
+        elif rxn_type == "concerted":
+            reactant_total_charge = np.sum([self.entries_list[int(item)].charge for item in entries0])
+            product_total_charge = np.sum([self.entries_list[int(item)].charge for item in entries1])
+            total_charge_change = product_total_charge - reactant_total_charge
+            if abs(total_charge_change) > 2:
+                raise RuntimeError("Concerted charge difference of " + str(abs(total_charge_change)) + " detected!")
+
+            if len(entries0) == 1 and len(entries1) == 1:
+                # modified by XX
+                entryA = entries0[0]
+                A_name = str(entryA.parameters["ind"])
+
+                entryC = entries1[0]
+                C_name = str(entryC.parameters["ind"])
+
+                node_name_1 = A_name + "," + C_name
+                node_name_2 = C_name + "," + A_name
+                A_C_energy = entryC.energy - entryA.energy
+                C_A_energy = entryA.energy - entryC.energy
+                if entryA.free_energy != None and entryC.free_energy != None:
+                    A_C_free_energy = entryC.free_energy - entryA.free_energy + total_charge_change * self.electron_free_energy
+                    C_A_free_energy = entryA.free_energy - entryC.free_energy - total_charge_change * self.electron_free_energy
+
+                self.graph.add_node(node_name_1, rxn_type=rxn_type, bipartite=1, energy=A_C_energy,
+                                    free_energy=A_C_free_energy)
+                self.graph.add_edge(entryA.parameters["ind"],
+                                    node_name_1,
+                                    softplus=self.softplus(A_C_free_energy),
+                                    exponent=self.exponent(A_C_free_energy),
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_1,
+                                    entryC.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+
+                self.graph.add_node(node_name_2, rxn_type=rxn_type, bipartite=1, energy=C_A_energy,
+                                    free_energy=C_A_free_energy)
+                self.graph.add_edge(entryC.parameters["ind"],
+                                    node_name_2,
+                                    softplus=self.softplus(C_A_free_energy),
+                                    exponent=self.exponent(C_A_free_energy),
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_2,
+                                    entryA.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+
+            elif len(entries0) == 2 and len(entries1) == 1:
+                #modified by XX
+                entryA = entries0[0]
+                entryB = entries0[1]
+                if entryA.parameters["ind"] <= entryB.parameters["ind"]:
+                    AB_name = str(entryA.parameters["ind"]) + "+" + str(entryB.parameters["ind"])
+                else:
+                    AB_name = str(entryB.parameters["ind"]) + "+" + str(entryA.parameters["ind"])
+                A_PR_B_name = str(entryA.parameters["ind"]) + "+PR_" + str(entryB.parameters["ind"])
+                B_PR_A_name = str(entryB.parameters["ind"]) + "+PR_" + str(entryA.parameters["ind"])
+
+                entryC = entries1[0]
+                C_name = str(entryC.parameters["ind"])
+
+                node_name_1 = A_PR_B_name + "," + C_name
+                node_name_2 = B_PR_A_name + "," + C_name
+                node_name_3 = C_name + "," + AB_name
+                AB_C_energy = entryC.energy - entryA.energy - entryB.energy
+                C_AB_energy = entryA.energy + entryB.energy - entryC.energy
+                if entryA.free_energy != None and entryB.free_energy != None and entryC.free_energy != None:
+                    AB_C_free_energy = entryC.free_energy  - entryA.free_energy - entryB.free_energy + total_charge_change * self.electron_free_energy
+                    C_AB_free_energy = entryA.free_energy + entryB.free_energy - entryC.free_energy - total_charge_change * self.electron_free_energy
+
+                self.graph.add_node(node_name_1, rxn_type=rxn_type, bipartite=1, energy=AB_C_energy,
+                                    free_energy=AB_C_free_energy)
+                self.graph.add_edge(entryA.parameters["ind"],
+                                    node_name_1,
+                                    softplus=self.softplus(AB_C_free_energy),
+                                    exponent=self.exponent(AB_C_free_energy),
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_1,
+                                    entryC.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+
+                self.graph.add_node(node_name_2, rxn_type=rxn_type, bipartite=1, energy=AB_C_energy,
+                                    free_energy=AB_C_free_energy)
+                self.graph.add_edge(entryB.parameters["ind"],
+                                    node_name_2,
+                                    softplus=self.softplus(AB_C_free_energy),
+                                    exponent=self.exponent(AB_C_free_energy),
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_2,
+                                    entryC.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+
+                self.graph.add_node(node_name_3, rxn_type=rxn_type, bipartite=1, energy=C_AB_energy,
+                                    free_energy=C_AB_free_energy)
+                self.graph.add_edge(entryC.parameters["ind"],
+                                    node_name_3,
+                                    softplus=self.softplus(C_AB_free_energy),
+                                    exponent=self.exponent(C_AB_free_energy),
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_3,
+                                    entryA.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_3,
+                                    entryB.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+
+            elif len(entries0) == 1 and len(entries1) == 2:
+                entryA = entries0[0]
+                A_name = str(entryA.parameters["ind"])
+
+                entryC = entries1[0]
+                entryD = entries1[1]
+                if entryC.parameters["ind"] <= entryD.parameters["ind"]:
+                    CD_name = str(entryC.parameters["ind"]) + "+" + str(entryD.parameters["ind"])
+                else:
+                    CD_name = str(entryD.parameters["ind"]) + "+" + str(entryC.parameters["ind"])
+
+                C_PR_D_name = str(entryC.parameters["ind"]) + "+PR_" + str(entryD.parameters["ind"])
+                D_PR_C_name = str(entryD.parameters["ind"]) + "+PR_" + str(entryC.parameters["ind"])
+                node_name_1 = A_name + "," + CD_name
+                node_name_3 = C_PR_D_name + "," + A_name
+                node_name_4 = D_PR_C_name + "," + A_name
+                A_CD_energy = entryC.energy + entryD.energy - entryA.energy
+                CD_A_energy = entryA.energy  - entryC.energy - entryD.energy
+                if entryA.free_energy != None and entryC.free_energy != None and entryD.free_energy != None:
+                    A_CD_free_energy = entryC.free_energy + entryD.free_energy - entryA.free_energy + total_charge_change * self.electron_free_energy
+                    CD_A_free_energy = entryA.free_energy - entryC.free_energy - entryD.free_energy - total_charge_change * self.electron_free_energy
+
+                self.graph.add_node(node_name_1, rxn_type=rxn_type, bipartite=1, energy=A_CD_energy,
+                                    free_energy=A_CD_free_energy)
+                self.graph.add_edge(entryA.parameters["ind"],
+                                    node_name_1,
+                                    softplus=self.softplus(A_CD_free_energy),
+                                    exponent=self.exponent(A_CD_free_energy),
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_1,
+                                    entryC.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_1,
+                                    entryD.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+
+                self.graph.add_node(node_name_3, rxn_type=rxn_type, bipartite=1, energy=CD_A_energy,
+                                    free_energy=CD_A_free_energy)
+                self.graph.add_edge(entryC.parameters["ind"],
+                                    node_name_3,
+                                    softplus=self.softplus(CD_A_free_energy),
+                                    exponent=self.exponent(CD_A_free_energy),
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_3,
+                                    entryA.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+
+                self.graph.add_node(node_name_4, rxn_type=rxn_type, bipartite=1, energy=CD_A_energy,
+                                    free_energy=CD_A_free_energy)
+                self.graph.add_edge(entryD.parameters["ind"],
+                                    node_name_4,
+                                    softplus=self.softplus(CD_A_free_energy),
+                                    exponent=self.exponent(CD_A_free_energy),
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_4,
+                                    entryA.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+
+            elif len(entries0) == 2 and len(entries1) == 2:
+                entryA = entries0[0]
+                entryB = entries0[1]
+                if entryA.parameters["ind"] <= entryB.parameters["ind"]:
+                    AB_name = str(entryA.parameters["ind"])+"+"+str(entryB.parameters["ind"])
+                else:
+                    AB_name = str(entryB.parameters["ind"])+"+"+str(entryA.parameters["ind"])
+                A_PR_B_name = str(entryA.parameters["ind"])+"+PR_"+str(entryB.parameters["ind"])
+                B_PR_A_name = str(entryB.parameters["ind"])+"+PR_"+str(entryA.parameters["ind"])
+
+                entryC = entries1[0]
+                entryD = entries1[1]
+                if entryC.parameters["ind"] <= entryD.parameters["ind"]:
+                    CD_name = str(entryC.parameters["ind"])+"+"+str(entryD.parameters["ind"])
+                else:
+                    CD_name = str(entryD.parameters["ind"])+"+"+str(entryC.parameters["ind"])
+
+                C_PR_D_name = str(entryC.parameters["ind"])+"+PR_"+str(entryD.parameters["ind"])
+                D_PR_C_name = str(entryD.parameters["ind"])+"+PR_"+str(entryC.parameters["ind"])
+                node_name_1 = A_PR_B_name+","+CD_name
+                node_name_2 = B_PR_A_name+","+CD_name
+                node_name_3 = C_PR_D_name+","+AB_name
+                node_name_4 = D_PR_C_name+","+AB_name
+                AB_CD_energy = entryC.energy + entryD.energy - entryA.energy - entryB.energy
+                CD_AB_energy = entryA.energy + entryB.energy - entryC.energy - entryD.energy
+                if entryA.free_energy != None and entryB.free_energy != None and entryC.free_energy != None and entryD.free_energy != None:
+                    AB_CD_free_energy = entryC.free_energy + entryD.free_energy - entryA.free_energy - entryB.free_energy + total_charge_change * self.electron_free_energy
+                    CD_AB_free_energy = entryA.free_energy + entryB.free_energy - entryC.free_energy - entryD.free_energy - total_charge_change * self.electron_free_energy
+
+                self.graph.add_node(node_name_1,rxn_type=rxn_type,bipartite=1,energy=AB_CD_energy,free_energy=AB_CD_free_energy)
+                self.graph.add_edge(entryA.parameters["ind"],
+                                    node_name_1,
+                                    softplus=self.softplus(AB_CD_free_energy),
+                                    exponent=self.exponent(AB_CD_free_energy),
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_1,
+                                    entryC.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_1,
+                                    entryD.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+
+                self.graph.add_node(node_name_2,rxn_type=rxn_type,bipartite=1,energy=AB_CD_energy,free_energy=AB_CD_free_energy)
+                self.graph.add_edge(entryB.parameters["ind"],
+                                    node_name_2,
+                                    softplus=self.softplus(AB_CD_free_energy),
+                                    exponent=self.exponent(AB_CD_free_energy),
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_2,
+                                    entryC.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_2,
+                                    entryD.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+
+                self.graph.add_node(node_name_3,rxn_type=rxn_type,bipartite=1,energy=CD_AB_energy,free_energy=CD_AB_free_energy)
+                self.graph.add_edge(entryC.parameters["ind"],
+                                    node_name_3,
+                                    softplus=self.softplus(CD_AB_free_energy),
+                                    exponent=self.exponent(CD_AB_free_energy),
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_3,
+                                    entryA.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_3,
+                                    entryB.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+
+                self.graph.add_node(node_name_4,rxn_type=rxn_type,bipartite=1,energy=CD_AB_energy,free_energy=CD_AB_free_energy)
+                self.graph.add_edge(entryD.parameters["ind"],
+                                    node_name_4,
+                                    softplus=self.softplus(CD_AB_free_energy),
+                                    exponent=self.exponent(CD_AB_free_energy),
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_4,
+                                    entryA.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+                self.graph.add_edge(node_name_4,
+                                    entryB.parameters["ind"],
+                                    softplus=0.0,
+                                    exponent=0.0,
+                                    weight=1.0
+                                    )
+            else:
+                print("Concerted "+str(len(entries0))+","+str(len(entries1))+" found! Ignoring for now...")
 
     def softplus(self,free_energy):
         return np.log(1 + (273.0 / 500.0) * np.exp(free_energy))

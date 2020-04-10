@@ -1495,7 +1495,7 @@ class StochaticSimulation:
 
 if __name__ == '__main__':
     prod_entries = []
-    entries = loadfn("/Users/xiaowei_xie/pymatgen/pymatgen/analysis/reaction_network/smd_production_entries.json")
+    entries = loadfn("/Users/xiaowei_xie/pymatgen/pymatgen/analysis/reaction_network/smd_production_entries_new.json")
     for entry in entries:
         if "optimized_molecule" in entry["output"]:
             molecule = entry["output"]["optimized_molecule"]
@@ -1550,23 +1550,7 @@ if __name__ == '__main__':
     SS.remove_gas_reactions('/Users/xiaowei_xie/Desktop/Sam_production/xyzs/')
     xyz_dir = '/Users/xiaowei_xie/Desktop/Sam_production/xyzs/'
 
-    Li_mg = MoleculeGraph.with_local_env_strategy(
-        Molecule.from_file(os.path.join(xyz_dir, "Li.xyz")),
-        OpenBabelNN(),
-        reorder=False,
-        extend_structure=False)
-    for entry in SS.reaction_network.entries['Li1'][0][1]:
-        if Li_mg.isomorphic_to(entry.mol_graph):
-            Li1_ind = entry.parameters["ind"]
-            break
-    for entry in SS.reaction_network.entries['Li1'][0][0]:
-        if Li_mg.isomorphic_to(entry.mol_graph):
-            Li0_ind = entry.parameters["ind"]
-            break
-    for i, rxn_node in enumerate(SS.unique_reaction_nodes):
-        if rxn_node == '{},{}'.format(str(Li1_ind), str(Li0_ind)):
-            print('found')
-            SS.reaction_rates[i] = 0.0
+    '''
 
     t, x, rxns = SS.direct_method_no_record(initial_conc, 10000)
 
@@ -1575,7 +1559,7 @@ if __name__ == '__main__':
     t, x, rxns = SS.add_four_step_concerted_reactions_on_the_fly_save_intermediates(initial_conc, 10000,
                                                                 1.0841025975148306, 1.3009231170177968, xyz_dir,
                                                                 iterations=2)
-    '''
+    
     
     t, x, rxns = SS.add_concerted_reactions_on_the_fly_save_intermediates(initial_conc, 1000,
                                                                 1.0841025975148306, 1.3009231170177968, xyz_dir,
