@@ -107,4 +107,110 @@ print("Li1_ind", Li1_ind)
 print("LiEC_ind", LiEC_ind)
 print("LiCO3_minus_ind", LiCO3_minus_ind)
 
-RN.find_concerted_general_2('LEMC_test_2')
+RN.unique_mol_graphs = []
+for entry in RN.entries_list:
+    mol_graph = entry.mol_graph
+    RN.unique_mol_graphs.append(mol_graph)
+
+RN.unique_mol_graphs_new = []
+# For duplicate mol graphs, create a map between later species with former ones
+RN.unique_mol_graph_dict = {}
+
+for i in range(len(RN.unique_mol_graphs)):
+    mol_graph = RN.unique_mol_graphs[i]
+    found = False
+    for j in range(len(RN.unique_mol_graphs_new)):
+        new_mol_graph = RN.unique_mol_graphs_new[j]
+        if mol_graph.isomorphic_to(new_mol_graph):
+            found = True
+            RN.unique_mol_graph_dict[i] = j
+            continue
+    if not found:
+        RN.unique_mol_graph_dict[i] = len(RN.unique_mol_graphs_new)
+        RN.unique_mol_graphs_new.append(mol_graph)
+dumpfn(RN.unique_mol_graph_dict, "LEMC_test_2" + "_unique_mol_graph_map.json")
+# find all molecule pairs that satisfy the stoichiometry constraint
+RN.stoi_list, RN.species_same_stoi_dict = identify_same_stoi_mol_pairs(RN.unique_mol_graphs_new)
+RN.reac_prod_dict = {}
+for i, key in enumerate(RN.species_same_stoi_dict.keys()):
+    species_list = RN.species_same_stoi_dict[key]
+    new_species_list_reactant = []
+    new_species_list_product = []
+    for species in species_list:
+        new_species_list_reactant.append(species)
+        new_species_list_product.append(species)
+    if new_species_list_reactant != [] and new_species_list_product != []:
+        RN.reac_prod_dict[key] = {'reactants': new_species_list_reactant, 'products': new_species_list_product}
+
+RN.valid_reactions_dict = {}
+for i, key in enumerate(list(RN.reac_prod_dict.keys())):
+    print(key)
+    RN.valid_reactions_dict[key] = []
+    reactants = RN.reac_prod_dict[key]['reactants']
+    products = RN.reac_prod_dict[key]['products']
+    for j in range(len(reactants)):
+        reac = reactants[j]
+        for k in range(len(products)):
+            prod = products[k]
+            if k <= j:
+                continue
+            else:
+                print('reactant:', reac)
+                print('product:', prod)
+                split_reac = reac.split('_')
+                split_prod = prod.split('_')
+                if (len(split_reac) == 1 and len(split_prod) == 1):
+                    mol_graph1 = RN.unique_mol_graphs[int(split_reac[0])]
+                    mol_graph2 = RN.unique_mol_graphs[int(split_prod[0])]
+                    if identify_self_reactions(mol_graph1, mol_graph2):
+                        if [reac, prod] not in RN.valid_reactions_dict[key]:
+                            RN.valid_reactions_dict[key].append([reac, prod])
+                elif (len(split_reac) == 2 and len(split_prod) == 1):
+                    assert split_prod[0] not in split_reac
+                    mol_graphs1 = [RN.unique_mol_graphs[int(split_reac[0])],
+                                   RN.unique_mol_graphs[int(split_reac[1])]]
+                    mol_graphs2 = [RN.unique_mol_graphs[int(split_prod[0])]]
+                    if identify_reactions_AB_C(mol_graphs1, mol_graphs2):
+                        if [reac, prod] not in RN.valid_reactions_dict[key]:
+                            RN.valid_reactions_dict[key].append([reac, prod])
+                elif (len(split_reac) == 1 and len(split_prod) == 2):
+                    mol_graphs1 = [RN.unique_mol_graphs[int(split_prod[0])],
+                                   RN.unique_mol_graphs[int(split_prod[1])]]
+                    mol_graphs2 = [RN.unique_mol_graphs[int(split_reac[0])]]
+                    if identify_reactions_AB_C(mol_graphs1, mol_graphs2):
+                        if [reac, prod] not in RN.valid_reactions_dict[key]:
+                            RN.valid_reactions_dict[key].append([reac, prod])
+                elif (len(split_reac) == 2 and len(split_prod) == 2):
+                    # RN reaction
+                    if (split_reac[0] in split_prod) or (split_reac[1] in split_prod):
+                        new_split_reac = None
+                        new_split_prod = None
+                        if (split_reac[0] in split_prod):
+                            prod_index = split_prod.index(split_reac[0])
+                            new_split_reac = split_reac[1]
+                            if prod_index == 0:
+                                new_split_prod = split_prod[1]
+                            elif prod_index == 1:
+                                new_split_prod = split_prod[0]
+                        elif (split_reac[1] in split_prod):
+                            prod_index = split_prod.index(split_reac[1])
+                            new_split_reac = split_reac[0]
+                            if prod_index == 0:
+                                new_split_prod = split_prod[1]
+                            elif prod_index == 1:
+                                new_split_prod = split_prod[0]
+                        mol_graph1 = RN.unique_mol_graphs[int(new_split_reac)]
+                        mol_graph2 = RN.unique_mol_graphs[int(new_split_prod)]
+                        if identify_self_reactions(mol_graph1, mol_graph2):
+                            if [new_split_reac, new_split_prod] not in RN.valid_reactions_dict[key]:
+                                RN.valid_reactions_dict[key].append([new_split_reac, new_split_prod])
+                    # A + B -> C + D
+                    else:
+                        mol_graphs1 = [RN.unique_mol_graphs[int(split_reac[0])],
+                                       RN.unique_mol_graphs[int(split_reac[1])]]
+                        mol_graphs2 = [RN.unique_mol_graphs[int(split_prod[0])],
+                                       RN.unique_mol_graphs[int(split_prod[1])]]
+                        if identify_reactions_AB_CD(mol_graphs1, mol_graphs2):
+                            if [reac, prod] not in RN.valid_reactions_dict[key]:
+                                RN.valid_reactions_dict[key].append([reac, prod])
+    dumpfn(RN.valid_reactions_dict, "LEMC_test_2" + "_valid_concerted_rxns_" + str(key) + ".json")

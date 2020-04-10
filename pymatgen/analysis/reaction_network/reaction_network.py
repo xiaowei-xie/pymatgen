@@ -349,20 +349,23 @@ class ReactionNetwork(MSONable):
                             mol_graph1 = self.unique_mol_graphs[int(split_reac[0])]
                             mol_graph2 = self.unique_mol_graphs[int(split_prod[0])]
                             if identify_self_reactions(mol_graph1, mol_graph2):
-                                self.valid_reactions_dict[key].append([reac, prod])
+                                if [reac, prod] not in self.valid_reactions_dict[key]:
+                                    self.valid_reactions_dict[key].append([reac, prod])
                         elif (len(split_reac) == 2 and len(split_prod) == 1):
                             assert split_prod[0] not in split_reac
                             mol_graphs1 = [self.unique_mol_graphs[int(split_reac[0])],
                                            self.unique_mol_graphs[int(split_reac[1])]]
                             mol_graphs2 = [self.unique_mol_graphs[int(split_prod[0])]]
                             if identify_reactions_AB_C(mol_graphs1, mol_graphs2):
-                                self.valid_reactions_dict[key].append([reac, prod])
+                                if [reac, prod] not in self.valid_reactions_dict[key]:
+                                    self.valid_reactions_dict[key].append([reac, prod])
                         elif (len(split_reac) == 1 and len(split_prod) == 2):
                             mol_graphs1 = [self.unique_mol_graphs[int(split_prod[0])],
                                            self.unique_mol_graphs[int(split_prod[1])]]
                             mol_graphs2 = [self.unique_mol_graphs[int(split_reac[0])]]
                             if identify_reactions_AB_C(mol_graphs1, mol_graphs2):
-                                self.valid_reactions_dict[key].append([reac, prod])
+                                if [reac, prod] not in self.valid_reactions_dict[key]:
+                                    self.valid_reactions_dict[key].append([reac, prod])
                         elif (len(split_reac) == 2 and len(split_prod) == 2):
                             # self reaction
                             if (split_reac[0] in split_prod) or (split_reac[1] in split_prod):
@@ -385,7 +388,8 @@ class ReactionNetwork(MSONable):
                                 mol_graph1 = self.unique_mol_graphs[int(new_split_reac)]
                                 mol_graph2 = self.unique_mol_graphs[int(new_split_prod)]
                                 if identify_self_reactions(mol_graph1, mol_graph2):
-                                    self.valid_reactions_dict[key].append([reac, prod])
+                                    if [new_split_reac, new_split_prod] not in self.valid_reactions_dict[key]:
+                                        self.valid_reactions_dict[key].append([new_split_reac, new_split_prod])
                             # A + B -> C + D
                             else:
                                 mol_graphs1 = [self.unique_mol_graphs[int(split_reac[0])],
@@ -393,7 +397,8 @@ class ReactionNetwork(MSONable):
                                 mol_graphs2 = [self.unique_mol_graphs[int(split_prod[0])],
                                                self.unique_mol_graphs[int(split_prod[1])]]
                                 if identify_reactions_AB_CD(mol_graphs1, mol_graphs2):
-                                    self.valid_reactions_dict[key].append([reac, prod])
+                                    if [reac, prod] not in self.valid_reactions_dict[key]:
+                                        self.valid_reactions_dict[key].append([reac, prod])
             dumpfn(self.valid_reactions_dict,name+"_valid_concerted_rxns_"+str(key)+".json")
 
     def find_concerted_general_2(self,name):
@@ -455,20 +460,23 @@ class ReactionNetwork(MSONable):
                             mol_graph1 = self.unique_mol_graphs[int(split_reac[0])]
                             mol_graph2 = self.unique_mol_graphs[int(split_prod[0])]
                             if identify_self_reactions(mol_graph1, mol_graph2):
-                                self.valid_reactions_dict[key].append([reac, prod])
+                                if [reac, prod] not in self.valid_reactions_dict[key]:
+                                    self.valid_reactions_dict[key].append([reac, prod])
                         elif (len(split_reac) == 2 and len(split_prod) == 1):
                             assert split_prod[0] not in split_reac
                             mol_graphs1 = [self.unique_mol_graphs[int(split_reac[0])],
                                            self.unique_mol_graphs[int(split_reac[1])]]
                             mol_graphs2 = [self.unique_mol_graphs[int(split_prod[0])]]
                             if identify_reactions_AB_C(mol_graphs1, mol_graphs2):
-                                self.valid_reactions_dict[key].append([reac, prod])
+                                if [reac, prod] not in self.valid_reactions_dict[key]:
+                                    self.valid_reactions_dict[key].append([reac, prod])
                         elif (len(split_reac) == 1 and len(split_prod) == 2):
                             mol_graphs1 = [self.unique_mol_graphs[int(split_prod[0])],
                                            self.unique_mol_graphs[int(split_prod[1])]]
                             mol_graphs2 = [self.unique_mol_graphs[int(split_reac[0])]]
                             if identify_reactions_AB_C(mol_graphs1, mol_graphs2):
-                                self.valid_reactions_dict[key].append([reac, prod])
+                                if [reac, prod] not in self.valid_reactions_dict[key]:
+                                    self.valid_reactions_dict[key].append([reac, prod])
                         elif (len(split_reac) == 2 and len(split_prod) == 2):
                             # self reaction
                             if (split_reac[0] in split_prod) or (split_reac[1] in split_prod):
@@ -491,7 +499,8 @@ class ReactionNetwork(MSONable):
                                 mol_graph1 = self.unique_mol_graphs[int(new_split_reac)]
                                 mol_graph2 = self.unique_mol_graphs[int(new_split_prod)]
                                 if identify_self_reactions(mol_graph1, mol_graph2):
-                                    self.valid_reactions_dict[key].append([reac, prod])
+                                    if [new_split_reac, new_split_prod] not in self.valid_reactions_dict[key]:
+                                        self.valid_reactions_dict[key].append([new_split_reac, new_split_prod])
                             # A + B -> C + D
                             else:
                                 mol_graphs1 = [self.unique_mol_graphs[int(split_reac[0])],
@@ -499,7 +508,8 @@ class ReactionNetwork(MSONable):
                                 mol_graphs2 = [self.unique_mol_graphs[int(split_prod[0])],
                                                self.unique_mol_graphs[int(split_prod[1])]]
                                 if identify_reactions_AB_CD(mol_graphs1, mol_graphs2):
-                                    self.valid_reactions_dict[key].append([reac, prod])
+                                    if [reac, prod] not in self.valid_reactions_dict[key]:
+                                        self.valid_reactions_dict[key].append([reac, prod])
             dumpfn(self.valid_reactions_dict, name+ "_valid_concerted_rxns_" + str(key) + ".json")
 
     def add_concerted_reactions(self):
@@ -552,6 +562,8 @@ class ReactionNetwork(MSONable):
                 rxn = self.valid_reactions_dict[key][i]
                 reactant_nodes = rxn[0].split('_')
                 product_nodes = rxn[1].split('_')
+
+
                 entries0 = []
                 entries1 = []
                 for ind in reactant_nodes:
