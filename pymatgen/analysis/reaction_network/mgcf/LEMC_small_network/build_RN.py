@@ -107,5 +107,4 @@ print("Li1_ind", Li1_ind)
 print("LiEC_ind", LiEC_ind)
 print("LiCO3_minus_ind", LiCO3_minus_ind)
 
-RN.add_concerted_general()
-
+RN.find_concerted_general_2('LEMC_test_2')
