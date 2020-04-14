@@ -348,6 +348,55 @@ class ReactionNetwork(MSONable):
                 self.reac_prod_dict[key] = {'reactants': new_species_list_reactant, 'products': new_species_list_product}
         return
 
+    def find_concerted_candidates_equal(self,name):
+        self.unique_mol_graphs = []
+        for entry in self.entries_list:
+            mol_graph = entry.mol_graph
+            self.unique_mol_graphs.append(mol_graph)
+
+        self.unique_mol_graphs_new = []
+        # For duplicate mol graphs, create a map between later species with former ones
+        self.unique_mol_graph_dict = {}
+
+        for i in range(len(self.unique_mol_graphs)):
+            mol_graph = self.unique_mol_graphs[i]
+            found = False
+            for j in range(len(self.unique_mol_graphs_new)):
+                new_mol_graph = self.unique_mol_graphs_new[j]
+                if mol_graph.isomorphic_to(new_mol_graph):
+                    found = True
+                    self.unique_mol_graph_dict[i] = j
+                    continue
+            if not found:
+                self.unique_mol_graph_dict[i] = len(self.unique_mol_graphs_new)
+                self.unique_mol_graphs_new.append(mol_graph)
+        dumpfn(self.unique_mol_graph_dict, name + "_unique_mol_graph_map.json")
+        # find all molecule pairs that satisfy the stoichiometry constraint
+        self.stoi_list, self.species_same_stoi_dict = identify_same_stoi_mol_pairs(self.unique_mol_graphs_new)
+        self.reac_prod_dict = {}
+        for i, key in enumerate(self.species_same_stoi_dict.keys()):
+            species_list = self.species_same_stoi_dict[key]
+            new_species_list_reactant = []
+            new_species_list_product = []
+            for species in species_list:
+                new_species_list_reactant.append(species)
+                new_species_list_product.append(species)
+            if new_species_list_reactant != [] and new_species_list_product != []:
+                self.reac_prod_dict[key] = {'reactants': new_species_list_reactant, 'products': new_species_list_product}
+        self.concerted_rxns_to_determine = []
+        for key in self.reac_prod_dict.keys():
+            reactants = self.reac_prod_dict[key]['reactants']
+            products = self.reac_prod_dict[key]['products']
+            for j in range(len(reactants)):
+                reac = reactants[j]
+                for k in range(len(products)):
+                    prod = products[k]
+                    if k <= j:
+                        continue
+                    else:
+                        self.concerted_rxns_to_determine.append([reac,prod])
+        return
+
     def find_concerted_general_multiprocess(self, args):
         key, name = args[0], args[1]
         valid_reactions_dict = {}
@@ -423,6 +472,73 @@ class ReactionNetwork(MSONable):
         dumpfn(valid_reactions_dict, name+ "_valid_concerted_rxns_" + str(key) + ".json")
         return valid_reactions_dict
 
+    def find_concerted_general_multiprocess_equal(self, args):
+        i, name = args[0], args[1]
+        valid_reactions = []
+
+        reac = self.concerted_rxns_to_determine[i][0]
+        prod = self.concerted_rxns_to_determine[i][1]
+
+        print('reactant:', reac)
+        print('product:', prod)
+        split_reac = reac.split('_')
+        split_prod = prod.split('_')
+        if (len(split_reac) == 1 and len(split_prod) == 1):
+            mol_graph1 = self.unique_mol_graphs_new[int(split_reac[0])]
+            mol_graph2 = self.unique_mol_graphs_new[int(split_prod[0])]
+            if identify_self_reactions(mol_graph1, mol_graph2):
+                if [reac, prod] not in valid_reactions:
+                    valid_reactions.append([reac, prod])
+        elif (len(split_reac) == 2 and len(split_prod) == 1):
+            assert split_prod[0] not in split_reac
+            mol_graphs1 = [self.unique_mol_graphs_new[int(split_reac[0])],
+                           self.unique_mol_graphs_new[int(split_reac[1])]]
+            mol_graphs2 = [self.unique_mol_graphs_new[int(split_prod[0])]]
+            if identify_reactions_AB_C(mol_graphs1, mol_graphs2):
+                if [reac, prod] not in valid_reactions:
+                    valid_reactions.append([reac, prod])
+        elif (len(split_reac) == 1 and len(split_prod) == 2):
+            mol_graphs1 = [self.unique_mol_graphs_new[int(split_prod[0])],
+                           self.unique_mol_graphs_new[int(split_prod[1])]]
+            mol_graphs2 = [self.unique_mol_graphs_new[int(split_reac[0])]]
+            if identify_reactions_AB_C(mol_graphs1, mol_graphs2):
+                if [reac, prod] not in valid_reactions:
+                    valid_reactions.append([reac, prod])
+        elif (len(split_reac) == 2 and len(split_prod) == 2):
+            # self reaction
+            if (split_reac[0] in split_prod) or (split_reac[1] in split_prod):
+                new_split_reac = None
+                new_split_prod = None
+                if (split_reac[0] in split_prod):
+                    prod_index = split_prod.index(split_reac[0])
+                    new_split_reac = split_reac[1]
+                    if prod_index == 0:
+                        new_split_prod = split_prod[1]
+                    elif prod_index == 1:
+                        new_split_prod = split_prod[0]
+                elif (split_reac[1] in split_prod):
+                    prod_index = split_prod.index(split_reac[1])
+                    new_split_reac = split_reac[0]
+                    if prod_index == 0:
+                        new_split_prod = split_prod[1]
+                    elif prod_index == 1:
+                        new_split_prod = split_prod[0]
+                mol_graph1 = self.unique_mol_graphs_new[int(new_split_reac)]
+                mol_graph2 = self.unique_mol_graphs_new[int(new_split_prod)]
+                if identify_self_reactions(mol_graph1, mol_graph2):
+                    if [new_split_reac, new_split_prod] not in valid_reactions:
+                        valid_reactions.append([new_split_reac, new_split_prod])
+            # A + B -> C + D
+            else:
+                mol_graphs1 = [self.unique_mol_graphs_new[int(split_reac[0])],
+                               self.unique_mol_graphs_new[int(split_reac[1])]]
+                mol_graphs2 = [self.unique_mol_graphs_new[int(split_prod[0])],
+                               self.unique_mol_graphs_new[int(split_prod[1])]]
+                if identify_reactions_AB_CD(mol_graphs1, mol_graphs2):
+                    if [reac, prod] not in valid_reactions:
+                        valid_reactions.append([reac, prod])
+        return valid_reactions
+
     def multiprocess(self,name, num_processors):
         keys = self.reac_prod_dict.keys()
         #keys = [83, 79, 77]
@@ -436,6 +552,22 @@ class ReactionNetwork(MSONable):
             self.valid_reactions_dict[key] = valid_reactions_dict[key]
         dumpfn(self.valid_reactions_dict, name + "_valid_concerted_rxns_all.json")
         return
+
+    def multiprocess_equal(self,name, num_processors):
+        #nums = list(np.arange(len(self.concerted_rxns_to_determine)))
+        nums = [0,1,2,3,4,5,6]
+        #keys = [83, 79, 77]
+        args = [(i, name) for i in nums]
+        pool = Pool(num_processors)
+        results = pool.map(self.find_concerted_general_multiprocess_equal,args)
+        self.valid_reactions = []
+        for i in range(len(results)):
+            valid_reactions = results[i]
+            self.valid_reactions += valid_reactions
+        dumpfn(self.valid_reactions, name + "_valid_concerted_rxns_all.json")
+        return
+
+
 
     def find_concerted_general(self,name):
         # Add general concerted reactions (max break 2 form 2 bonds)
