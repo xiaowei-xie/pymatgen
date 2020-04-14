@@ -554,8 +554,8 @@ class ReactionNetwork(MSONable):
         return
 
     def multiprocess_equal(self,name, num_processors):
-        #nums = list(np.arange(len(self.concerted_rxns_to_determine)))
-        nums = [0,1,2,3,4,5,6]
+        nums = list(np.arange(len(self.concerted_rxns_to_determine)))
+        #nums = [0,1,2,3,4,5,6]
         #keys = [83, 79, 77]
         args = [(i, name) for i in nums]
         pool = Pool(num_processors)
