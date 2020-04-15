@@ -567,8 +567,6 @@ class ReactionNetwork(MSONable):
         dumpfn(self.valid_reactions, name + "_valid_concerted_rxns_all.json")
         return
 
-
-
     def find_concerted_general(self,name):
         # Add general concerted reactions (max break 2 form 2 bonds)
         self.unique_mol_graphs = []
@@ -902,6 +900,98 @@ class ReactionNetwork(MSONable):
                                     reactant_name = str(j) + '+PR_' + str(k)
                                     if reactant_name + ',' + product_name not in self.graph.nodes:
                                         reactions_to_add.append([entries0, entries1])
+
+        for to_add in reactions_to_add:
+            print(len(to_add[0]),len(to_add[1]))
+            self.add_reaction(to_add[0],to_add[1],"concerted")
+
+    def add_concerted_reactions_from_list(self, read_file=False, file_name=None):
+        # Add concerted reactions from self.multiprocess_equal function
+        reactions_to_add = []
+        if read_file:
+            self.valid_reactions = loadfn(file_name+"_valid_concerted_rxns_all.json")
+            self.unique_mol_graph_dict = loadfn(file_name+"_unique_mol_graph_map.json")
+        for i in range(len(self.valid_reactions)):
+            rxn = self.valid_reactions[i]
+            reactant_nodes = rxn[0].split('_')
+            product_nodes = rxn[1].split('_')
+            reactant_candidates = []
+            product_candidates = []
+            for reac in reactant_nodes:
+                reac_cands = []
+                for map_key in self.unique_mol_graph_dict.keys():
+                    if self.unique_mol_graph_dict[map_key] == int(reac):
+                        reac_cands.append(map_key)
+                reactant_candidates.append(reac_cands)
+            for prod in product_nodes:
+                prod_cands = []
+                for map_key in self.unique_mol_graph_dict.keys():
+                    if self.unique_mol_graph_dict[map_key] == int(prod):
+                        prod_cands.append(map_key)
+                product_candidates.append(prod_cands)
+            print('reactant candidates:',reactant_candidates)
+            print('product candidates:',product_candidates)
+
+            if len(reactant_candidates) == 1 and len(product_candidates) == 1:
+                for j in reactant_candidates[0]:
+                    for k in product_candidates[0]:
+                        entries0 = []
+                        entries1 = []
+                        entries0.append(self.entries_list[int(j)])
+                        entries1.append(self.entries_list[int(k)])
+                        if str(j) + ',' + str(k) not in self.graph.nodes:
+                            reactions_to_add.append([entries0, entries1])
+
+            elif len(reactant_candidates) == 2 and len(product_candidates) == 1:
+                for j in reactant_candidates[0]:
+                    for k in reactant_candidates[1]:
+                        for m in product_candidates[0]:
+                            entries0 = []
+                            entries1 = []
+                            entries0.append(self.entries_list[int(j)])
+                            entries0.append(self.entries_list[int(k)])
+                            entries1.append(self.entries_list[int(m)])
+                            if int(j) <= int(k):
+                                reactant_name = str(j) + '+' + str(k)
+                            else:
+                                reactant_name = str(k) + '+' + str(j)
+                            if str(m) + ',' + reactant_name not in self.graph.nodes:
+                                reactions_to_add.append([entries0, entries1])
+
+            elif len(reactant_candidates) == 1 and len(product_candidates) == 2:
+                for j in reactant_candidates[0]:
+                    for m in product_candidates[0]:
+                        for n in product_candidates[1]:
+                            entries0 = []
+                            entries1 = []
+                            entries0.append(self.entries_list[int(j)])
+                            entries1.append(self.entries_list[int(m)])
+                            entries1.append(self.entries_list[int(n)])
+                            if int(m) <= int(n):
+                                product_name = str(m) + '+' + str(n)
+                            else:
+                                product_name = str(n) + '+' + str(m)
+                            if str(j) + ',' + product_name not in self.graph.nodes:
+                                reactions_to_add.append([entries0, entries1])
+
+            elif len(reactant_candidates) == 2 and len(product_candidates) == 2:
+                for j in reactant_candidates[0]:
+                    for k in reactant_candidates[1]:
+                        for m in product_candidates[0]:
+                            for n in product_candidates[1]:
+                                entries0 = []
+                                entries1 = []
+                                entries0.append(self.entries_list[int(j)])
+                                entries0.append(self.entries_list[int(k)])
+                                entries1.append(self.entries_list[int(m)])
+                                entries1.append(self.entries_list[int(n)])
+                                if int(m) <= int(n):
+                                    product_name = str(m) + '+' + str(n)
+                                else:
+                                    product_name = str(n) + '+' + str(m)
+                                reactant_name = str(j) + '+PR_' + str(k)
+                                if reactant_name + ',' + product_name not in self.graph.nodes:
+                                    reactions_to_add.append([entries0, entries1])
 
         for to_add in reactions_to_add:
             print(len(to_add[0]),len(to_add[1]))
