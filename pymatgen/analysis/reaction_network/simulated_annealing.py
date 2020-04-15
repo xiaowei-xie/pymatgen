@@ -24,6 +24,7 @@ from multiprocessing import cpu_count
 from pathos.multiprocessing import ProcessingPool as Pool
 import math
 import time
+from ase.units import Hartree, eV, kcal, mol
 
 
 __author__ = "Xiaowei Xie"
@@ -101,7 +102,7 @@ class SimulatedAnnealing(Annealer):
                         np.sum([self.reaction_network.entries_list[int(reac)].charge for reac in reactants])
         if charge_change != 0:
             self.state['e'] += charge_change
-        return self.energy() - initial_energy
+        return (self.energy() - initial_energy) * eV / kcal * mol
 
     def energy(self):
         """Calculates the length of the route."""
@@ -111,7 +112,7 @@ class SimulatedAnnealing(Annealer):
                 e += self.state[key] * self.reaction_network.electron_free_energy
             else:
                 e += self.state[key] * self.reaction_network.entries_list[key].free_energy
-        return e
+        return e * eV / kcal * mol
 
     def anneal(self, num):
         """Minimizes the energy of a system by simulated annealing.
@@ -321,11 +322,11 @@ if __name__ == "__main__":
             state[key] = 0
 
     SA = SimulatedAnnealing(state, RN)
-    schedule = {'tmax':2e5,'tmin':0.013, 'steps':1000, 'updates':100}
+    schedule = {'tmax':50,'tmin':0.013, 'steps':1000, 'updates':100}
     #SA.set_schedule(SA.auto(minutes=0.2,steps=1000))
     SA.set_schedule(schedule)
-    SA_multiprocess(SA,'SA_multiprocess_test',2, 2)
-    #itinerary, miles = SA.anneal()
+    #SA_multiprocess(SA,'SA_multiprocess_test',2, 2)
+    itinerary, miles, fired_reactions = SA.anneal(1)
     '''
     SA = SimulatedAnnealing(state, RN)
     SA.set_schedule(SA.auto(minutes=0.2))
