@@ -90,7 +90,7 @@ class SimulatedAnnealing(Annealer):
 
         rxn_idx = random.randint(0, len(self.possible_reactions_to_fire)-1)
         rxn_to_fire = self.possible_reactions_to_fire[rxn_idx]
-        self.fired_reactions.append(rxn_to_fire)
+        #self.fired_reactions.append(rxn_to_fire)
         reactants, products = rxn_to_fire[0], rxn_to_fire[1]
         unique_reactants, unique_products = list(set(reactants)), list(set(products))
         for reac in unique_reactants:
@@ -103,7 +103,7 @@ class SimulatedAnnealing(Annealer):
                         np.sum([self.reaction_network.entries_list[int(reac)].charge for reac in reactants])
         if charge_change != 0:
             self.state['e'] += charge_change
-        return self.energy() - initial_energy
+        return self.energy() - initial_energy, rxn_to_fire
 
     def energy(self):
         """Calculates the length of the route."""
@@ -147,7 +147,7 @@ class SimulatedAnnealing(Annealer):
         while step < self.steps and not self.user_exit:
             step += 1
             T = self.Tmax * math.exp(Tfactor * step / self.steps)
-            dE = self.move()
+            dE, rxn_to_fire = self.move()
             if dE is None:
                 E = self.energy()
                 dE = E - prevEnergy
@@ -161,6 +161,7 @@ class SimulatedAnnealing(Annealer):
             else:
                 # Accept new state and compare to best state
                 accepts += 1
+                self.fired_reactions.append(rxn_to_fire)
                 if dE < 0.0:
                     improves += 1
                 prevState = self.copy_state(self.state)
@@ -314,7 +315,7 @@ if __name__ == "__main__":
             species_nodes.append(node)
     species_nodes.append('e')
 
-    initial_state = {30:10, 47:10, 45:10, 'e':10}
+    initial_state = {30:2, 47:2, 45:2, 'e':2}
     state = {}
     for key in species_nodes:
         if key in initial_state.keys():
@@ -323,7 +324,7 @@ if __name__ == "__main__":
             state[key] = 0
 
     SA = SimulatedAnnealing(state, RN)
-    schedule = {'tmax':2e5,'tmin':0.013, 'steps':1000, 'updates':100}
+    schedule = {'tmax':1e4,'tmin':0.013, 'steps':10000, 'updates':100}
     #SA.set_schedule(SA.auto(minutes=0.2,steps=1000))
     SA.set_schedule(schedule)
     #SA_multiprocess(SA,'SA_multiprocess_test',2, 2)
@@ -335,7 +336,7 @@ if __name__ == "__main__":
 
     itinerary, miles = SA.anneal()'''
 # Start: -116012.02817005367
-# 5 LEMC + 5 LEC + 5 H2O = -126278.82833202537
+# 5 LEMC + 5 LEC + 5 H2O = -116044.126893304
 #Tmax 100.0
 #Tmin 0.013
 # steps 53
