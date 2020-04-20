@@ -539,6 +539,73 @@ class ReactionNetwork(MSONable):
                         valid_reactions.append([reac, prod])
         return valid_reactions
 
+    def find_concerted_break1_form1_multiprocess_equal(self, args):
+        i, name = args[0], args[1]
+        valid_reactions = []
+
+        reac = self.concerted_rxns_to_determine[i][0]
+        prod = self.concerted_rxns_to_determine[i][1]
+
+        print('reactant:', reac)
+        print('product:', prod)
+        split_reac = reac.split('_')
+        split_prod = prod.split('_')
+        if (len(split_reac) == 1 and len(split_prod) == 1):
+            mol_graph1 = self.unique_mol_graphs_new[int(split_reac[0])]
+            mol_graph2 = self.unique_mol_graphs_new[int(split_prod[0])]
+            if identify_self_reactions(mol_graph1, mol_graph2):
+                if [reac, prod] not in valid_reactions:
+                    valid_reactions.append([reac, prod])
+        elif (len(split_reac) == 2 and len(split_prod) == 1):
+            assert split_prod[0] not in split_reac
+            mol_graphs1 = [self.unique_mol_graphs_new[int(split_reac[0])],
+                           self.unique_mol_graphs_new[int(split_reac[1])]]
+            mol_graphs2 = [self.unique_mol_graphs_new[int(split_prod[0])]]
+            if identify_reactions_AB_C(mol_graphs1, mol_graphs2):
+                if [reac, prod] not in valid_reactions:
+                    valid_reactions.append([reac, prod])
+        elif (len(split_reac) == 1 and len(split_prod) == 2):
+            mol_graphs1 = [self.unique_mol_graphs_new[int(split_prod[0])],
+                           self.unique_mol_graphs_new[int(split_prod[1])]]
+            mol_graphs2 = [self.unique_mol_graphs_new[int(split_reac[0])]]
+            if identify_reactions_AB_C(mol_graphs1, mol_graphs2):
+                if [reac, prod] not in valid_reactions:
+                    valid_reactions.append([reac, prod])
+        elif (len(split_reac) == 2 and len(split_prod) == 2):
+            # self reaction
+            if (split_reac[0] in split_prod) or (split_reac[1] in split_prod):
+                new_split_reac = None
+                new_split_prod = None
+                if (split_reac[0] in split_prod):
+                    prod_index = split_prod.index(split_reac[0])
+                    new_split_reac = split_reac[1]
+                    if prod_index == 0:
+                        new_split_prod = split_prod[1]
+                    elif prod_index == 1:
+                        new_split_prod = split_prod[0]
+                elif (split_reac[1] in split_prod):
+                    prod_index = split_prod.index(split_reac[1])
+                    new_split_reac = split_reac[0]
+                    if prod_index == 0:
+                        new_split_prod = split_prod[1]
+                    elif prod_index == 1:
+                        new_split_prod = split_prod[0]
+                mol_graph1 = self.unique_mol_graphs_new[int(new_split_reac)]
+                mol_graph2 = self.unique_mol_graphs_new[int(new_split_prod)]
+                if identify_self_reactions(mol_graph1, mol_graph2):
+                    if [new_split_reac, new_split_prod] not in valid_reactions:
+                        valid_reactions.append([new_split_reac, new_split_prod])
+            # A + B -> C + D
+            else:
+                mol_graphs1 = [self.unique_mol_graphs_new[int(split_reac[0])],
+                               self.unique_mol_graphs_new[int(split_reac[1])]]
+                mol_graphs2 = [self.unique_mol_graphs_new[int(split_prod[0])],
+                               self.unique_mol_graphs_new[int(split_prod[1])]]
+                if identify_reactions_AB_CD(mol_graphs1, mol_graphs2):
+                    if [reac, prod] not in valid_reactions:
+                        valid_reactions.append([reac, prod])
+        return valid_reactions
+
     def multiprocess(self,name, num_processors):
         keys = self.reac_prod_dict.keys()
         #keys = [83, 79, 77]
@@ -2005,6 +2072,8 @@ class ReactionNetwork(MSONable):
                             if path_exists:
                                 if len(dij_path) > 1 and len(dij_path)%2 == 1:
                                     path = self.characterize_path(dij_path,weight,old_solved_PRs)
+                                    #if ii == 2:
+                                        #print(path)
                                     cost_from_start[node][start] = path["cost"]
                                     if len(path["unsolved_prereqs"]) == 0:
                                         PRs[node][start] = path
@@ -2085,7 +2154,10 @@ class ReactionNetwork(MSONable):
         #             print("No path found from any start to PR",PR)
         #     else:
         #         print("Unsolvable path from any start to PR",PR)
-
+        #print(self.min_cost)
+        #print(len(self.min_cost.keys()))
+        # for i in range(48):
+        #     print(self.min_cost[i])
         return PRs
 
     def find_or_remove_bad_nodes(self,nodes,remove_nodes=False):
