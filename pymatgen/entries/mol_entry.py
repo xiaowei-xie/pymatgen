@@ -68,7 +68,7 @@ class MoleculeEntry(MSONable):
                                                           OpenBabelNN(),
                                                           reorder=False,
                                                           extend_structure=False)
-        #self.mol_graph = metal_edge_extender(self.mol_graph)
+        self.mol_graph = metal_edge_extender(self.mol_graph)
 
     @property
     def graph(self):
