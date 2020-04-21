@@ -468,6 +468,42 @@ def identify_reactions_AB_C(mol_graphs1, mol_graphs2):
 
     return is_reactions_AB_C
 
+def identify_reactions_AB_C_break1_form1(mol_graphs1, mol_graphs2):
+    '''
+    A + B -> C type reactions
+    A or B break once, C break once
+    :param mol_graphs1: 2 components A and B
+    :param mol_graphs2: 1 component C
+    :return: True or False
+    '''
+    is_reactions_AB_C = False
+    assert len(mol_graphs1) == 2 and len(mol_graphs2) == 1
+    A = mol_graphs1[0]
+    B = mol_graphs1[1]
+    C = mol_graphs2[0]
+
+    frags_A_one_step = break_one_bond_in_one_mol(A)
+    frags_B_one_step = break_one_bond_in_one_mol(B)
+    frags_C_one_step = break_one_bond_in_one_mol(C)
+
+    # A C break once
+    for item_A in frags_A_one_step:
+        for item_C in frags_C_one_step:
+            if check_same_mol_graphs(item_A + [B], item_C):
+                is_reactions_AB_C = True
+                print('A once, C once!')
+                return is_reactions_AB_C
+
+    # B C break once
+    for item_B in frags_B_one_step:
+        for item_C in frags_C_one_step:
+            if check_same_mol_graphs(item_B + [A], item_C):
+                is_reactions_AB_C = True
+                print('B once, C once!')
+                return is_reactions_AB_C
+
+    return is_reactions_AB_C
+
 def identify_reactions_AB_C_record(mol_graphs1, mol_graphs2, nums1, nums2, one_bond_dict, two_bond_dict):
     '''
     A + B -> C type reactions
@@ -902,6 +938,62 @@ def identify_reactions_AB_CD(mol_graphs1, mol_graphs2):
             if check_same_mol_graphs([A] + item_B, [C] + item_D):
                 is_reactions_AB_CD = True
                 print('break AC twice, BD intact')
+                return is_reactions_AB_CD
+
+    return is_reactions_AB_CD
+
+def identify_reactions_AB_CD_break1_form1(mol_graphs1, mol_graphs2):
+    '''
+    Identify reactions type A + B -> C + D with break1 form1
+    1. break A once, break C once
+    2. break A once, break D once
+    3. break B once, break C once
+    4. break B once, break D once
+    :param mol_graphs1:
+    :param mol_graphs2:
+    :return: True or False
+    '''
+    is_reactions_AB_CD = False
+    A = mol_graphs1[0]
+    B = mol_graphs1[1]
+    C = mol_graphs2[0]
+    D = mol_graphs2[1]
+
+    frags_A_one_step = break_one_bond_in_one_mol(A)
+    frags_B_one_step = break_one_bond_in_one_mol(B)
+    frags_C_one_step = break_one_bond_in_one_mol(C)
+    frags_D_one_step = break_one_bond_in_one_mol(D)
+
+    # A C break once
+    for item_A in frags_A_one_step:
+        for item_C in frags_C_one_step:
+            if check_same_mol_graphs(item_A + [B], item_C + [D]):
+                is_reactions_AB_CD = True
+                print('A once, C once!')
+                return is_reactions_AB_CD
+
+    # A D break once
+    for item_A in frags_A_one_step:
+        for item_D in frags_D_one_step:
+            if check_same_mol_graphs(item_A + [B], [C] + item_D):
+                is_reactions_AB_CD = True
+                print('A once, D once!')
+                return is_reactions_AB_CD
+
+    # B C break once
+    for item_B in frags_B_one_step:
+        for item_C in frags_C_one_step:
+            if check_same_mol_graphs(item_B + [A], item_C + [D]):
+                is_reactions_AB_CD = True
+                print('B once, C once!')
+                return is_reactions_AB_CD
+
+    # B D break once
+    for item_B in frags_B_one_step:
+        for item_D in frags_D_one_step:
+            if check_same_mol_graphs(item_B + [A], [C] + item_D):
+                is_reactions_AB_CD = True
+                print('B once, D once!')
                 return is_reactions_AB_CD
 
     return is_reactions_AB_CD
