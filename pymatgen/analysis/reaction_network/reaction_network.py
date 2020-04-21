@@ -561,14 +561,14 @@ class ReactionNetwork(MSONable):
             mol_graphs1 = [self.unique_mol_graphs_new[int(split_reac[0])],
                            self.unique_mol_graphs_new[int(split_reac[1])]]
             mol_graphs2 = [self.unique_mol_graphs_new[int(split_prod[0])]]
-            if identify_reactions_AB_C(mol_graphs1, mol_graphs2):
+            if identify_reactions_AB_C_break1_form1(mol_graphs1, mol_graphs2):
                 if [reac, prod] not in valid_reactions:
                     valid_reactions.append([reac, prod])
         elif (len(split_reac) == 1 and len(split_prod) == 2):
             mol_graphs1 = [self.unique_mol_graphs_new[int(split_prod[0])],
                            self.unique_mol_graphs_new[int(split_prod[1])]]
             mol_graphs2 = [self.unique_mol_graphs_new[int(split_reac[0])]]
-            if identify_reactions_AB_C(mol_graphs1, mol_graphs2):
+            if identify_reactions_AB_C_break1_form1(mol_graphs1, mol_graphs2):
                 if [reac, prod] not in valid_reactions:
                     valid_reactions.append([reac, prod])
         elif (len(split_reac) == 2 and len(split_prod) == 2):
@@ -601,7 +601,7 @@ class ReactionNetwork(MSONable):
                                self.unique_mol_graphs_new[int(split_reac[1])]]
                 mol_graphs2 = [self.unique_mol_graphs_new[int(split_prod[0])],
                                self.unique_mol_graphs_new[int(split_prod[1])]]
-                if identify_reactions_AB_CD(mol_graphs1, mol_graphs2):
+                if identify_reactions_AB_CD_break1_form1(mol_graphs1, mol_graphs2):
                     if [reac, prod] not in valid_reactions:
                         valid_reactions.append([reac, prod])
         return valid_reactions
@@ -632,6 +632,20 @@ class ReactionNetwork(MSONable):
             valid_reactions = results[i]
             self.valid_reactions += valid_reactions
         dumpfn(self.valid_reactions, name + "_valid_concerted_rxns_all.json")
+        return
+
+    def multiprocess_break1_form1_equal(self,name, num_processors):
+        nums = list(np.arange(len(self.concerted_rxns_to_determine)))
+        #nums = [0,1,2,3,4,5,6]
+        #keys = [83, 79, 77]
+        args = [(i, name) for i in nums]
+        pool = Pool(num_processors)
+        results = pool.map(self.find_concerted_break1_form1_multiprocess_equal,args)
+        self.valid_reactions = []
+        for i in range(len(results)):
+            valid_reactions = results[i]
+            self.valid_reactions += valid_reactions
+        dumpfn(self.valid_reactions, name + "_valid_concerted_rxns_all_break1_form1.json")
         return
 
     def find_concerted_general(self,name):
@@ -972,11 +986,14 @@ class ReactionNetwork(MSONable):
             print(len(to_add[0]),len(to_add[1]))
             self.add_reaction(to_add[0],to_add[1],"concerted")
 
-    def add_concerted_reactions_from_list(self, read_file=False, file_name=None):
+    def add_concerted_reactions_from_list(self, read_file=False, file_name=None, break1_form1=False):
         # Add concerted reactions from self.multiprocess_equal function
         reactions_to_add = []
         if read_file:
-            self.valid_reactions = loadfn(file_name+"_valid_concerted_rxns_all.json")
+            if break1_form1:
+                self.valid_reactions = loadfn(file_name + "_valid_concerted_rxns_all_break1_form1.json")
+            else:
+                self.valid_reactions = loadfn(file_name+"_valid_concerted_rxns_all.json")
             self.unique_mol_graph_dict = loadfn(file_name+"_unique_mol_graph_map.json")
         for i in range(len(self.valid_reactions)):
             rxn = self.valid_reactions[i]
