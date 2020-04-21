@@ -70,7 +70,8 @@ class SimulatedAnnealing(Annealer):
         return
 
     def move(self):
-        """Fire a reaction. Have to ensure the starting materials for a reaction to fire."""
+        """Fire a reaction. Have to ensure the starting materials for a reaction to fire.
+        Do not considering reactions with gas involved in the future? Not possible to find global minimum then"""
 
         initial_energy = self.energy()
         self.possible_reactions_to_fire = []
@@ -182,10 +183,94 @@ class SimulatedAnnealing(Annealer):
         # Return best state and energy
         return self.best_state, self.best_energy, self.fired_reactions
 
+    def anneal_custom_schedule(self, num, temperatures):
+        """Minimizes the energy of a system by simulated annealing.
+        Parameters
+        state : an initial arrangement of the system
+        Returns
+        (state, energy): the best state and energy found.
+        """
+        step = 0
+        self.start = time.time()
+
+        # Precompute factor for exponential cooling from Tmax to Tmin
+        # Note initial state
+        T = temperatures[0]
+        E = self.energy()
+        prevState = self.copy_state(self.state)
+        prevEnergy = E
+        self.best_state = self.copy_state(self.state)
+        self.best_energy = E
+        trials, accepts, improves = 0, 0, 0
+        if self.updates > 0:
+            updateWavelength = self.steps / self.updates
+            self.update(step, T, E, None, None)
+
+        # Attempt moves to new states
+        while step < self.steps and not self.user_exit:
+            step += 1
+            T = temperatures[step]
+            dE, rxn_to_fire = self.move()
+            if dE is None:
+                E = self.energy()
+                dE = E - prevEnergy
+            else:
+                E += dE
+            trials += 1
+            if dE > 0.0 and math.exp(-dE /kb / T) < random.random():
+                # Restore previous state
+                self.state = self.copy_state(prevState)
+                E = prevEnergy
+            else:
+                # Accept new state and compare to best state
+                accepts += 1
+                self.fired_reactions.append(rxn_to_fire)
+                if dE < 0.0:
+                    improves += 1
+                prevState = self.copy_state(self.state)
+                prevEnergy = E
+                if E < self.best_energy:
+                    self.best_state = self.copy_state(self.state)
+                    self.best_energy = E
+            if self.updates > 1:
+                if (step // updateWavelength) > ((step - 1) // updateWavelength):
+                    self.update(
+                        step, T, E, accepts / trials, improves / trials)
+                    trials, accepts, improves = 0, 0, 0
+
+        self.state = self.copy_state(self.best_state)
+        if self.save_state_on_exit:
+            self.save_state()
+
+        # Return best state and energy
+        return self.best_state, self.best_energy, self.fired_reactions
+
 def SA_multiprocess(SA, name, nums, num_processors):
     # name: filename to save as
     # nums: numbers of SA runs
     args = [(i) for i in np.arange(nums)]
+    pool = Pool(num_processors)
+    results = pool.map(SA.anneal, args)
+    fired_reactions_all = []
+    best_state_all = []
+    best_energy_all = []
+    for i in range(len(results)):
+        best_state = results[i][0]
+        best_energy = results[i][1]
+        fired_reactions = results[i][2]
+        fired_reactions_all.append(fired_reactions)
+        best_state_all.append(best_state)
+        best_energy_all.append(best_energy)
+    dumpfn(best_energy_all, name + "_best_energy.json")
+    dumpfn(best_state_all, name + "_best_state.json")
+    dumpfn(fired_reactions_all, name + "_fired_reactions.json")
+
+    return
+
+def SA_multiprocess_custom_schedule(SA, name, nums, temperatures, num_processors):
+    # name: filename to save as
+    # nums: numbers of SA runs
+    args = [(i,temperatures) for i in np.arange(nums)]
     pool = Pool(num_processors)
     results = pool.map(SA.anneal, args)
     fired_reactions_all = []
@@ -271,17 +356,17 @@ if __name__ == "__main__":
             if entry.free_energy == -9317.492754189294:
                 EC_ind = entry.parameters["ind"]
                 break
-    for entry in RN.entries["C4 H4 Li2 O6"][15][0]:
+    for entry in RN.entries["C4 H4 Li2 O6"][17][0]:
         if LEDC_mg.isomorphic_to(entry.mol_graph):
             if entry.free_energy == -16910.7035955349:
                 LEDC_ind = entry.parameters["ind"]
                 break
-    for entry in RN.entries["C3 H5 Li1 O4"][12][0]:
+    for entry in RN.entries["C3 H5 Li1 O4"][13][0]:
         if LEMC_mg.isomorphic_to(entry.mol_graph):
             if entry.free_energy == -11587.839161760392:
                 LEMC_ind = entry.parameters["ind"]
                 break
-    for entry in RN.entries["C3 H4 Li1 O3"][11][0]:
+    for entry in RN.entries["C3 H4 Li1 O3"][12][0]:
         if LiEC_mg.isomorphic_to(entry.mol_graph):
             print('LiEC found')
             if entry.free_energy == -9521.708410009893:
@@ -324,11 +409,12 @@ if __name__ == "__main__":
             state[key] = 0
 
     SA = SimulatedAnnealing(state, RN)
-    schedule = {'tmax':1e4,'tmin':0.013, 'steps':10000, 'updates':100}
+    schedule = {'tmax':1e4,'tmin':0.013, 'steps':99, 'updates':100}
+    temperatures = np.tile(np.logspace(1e3,0.001,10),10)
     #SA.set_schedule(SA.auto(minutes=0.2,steps=1000))
     SA.set_schedule(schedule)
     #SA_multiprocess(SA,'SA_multiprocess_test',2, 2)
-    itinerary, miles, fired_reactions = SA.anneal(1)
+    itinerary, miles, fired_reactions = SA.anneal_custom_schedule(1,temperatures)
     '''
     SA = SimulatedAnnealing(state, RN)
     SA.set_schedule(SA.auto(minutes=0.2))
