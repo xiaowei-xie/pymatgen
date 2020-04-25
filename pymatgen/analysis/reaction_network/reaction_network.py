@@ -117,7 +117,7 @@ class ReactionNetwork(MSONable):
         self.intermol_single_bond_change()
         self.coordination_bond_change()
         #self.add_water_reactions()
-        # self.concerted_2_steps()
+        #self.concerted_2_steps()
         #self.add_LEDC_concerted_reactions()
         #self.add_water_lithium_reaction()
         self.PR_record = self.build_PR_record()
@@ -273,43 +273,44 @@ class ReactionNetwork(MSONable):
                                         except MolGraphSplitError:
                                             pass
 
-    # def concerted_2_steps(self):
-    #     reactions_to_add = []
-    #     for node0 in self.graph.nodes():
-    #         if self.graph.node[node0]["bipartite"] == 0:
-    #             node0_rxns = list(self.graph.neighbors(node0))
-    #             for rxn0 in node0_rxns:
-    #                 if self.graph.node[rxn0]["free_energy"] > 0:
-    #                     rxn0_products = list(self.graph.neighbors(rxn0))
-    #                     if len(rxn0_products) == 2: # This must be an A -> B+C bond breaking reaction
-    #                         for node1 in rxn0_products:
-    #                             node1_rxns = list(self.graph.neighbors(node1))
-    #                             for rxn1 in node1_rxns:
-    #                                 if self.graph.node[rxn0]["free_energy"] + self.graph.node[rxn1]["free_energy"] < 0 and "PR" in rxn1: # This must be an A+B -> C bond forming reaction"
-    #                                     reactant_nodes = [node0]
-    #                                     product_nodes = list(self.graph.neighbors(rxn1))
-    #                                     if "PR" in rxn0:
-    #                                         reactant_nodes.append(int(rxn0.split(",")[0].split("+PR_")[1]))
-    #                                     if "PR" in rxn1:
-    #                                         reactant_nodes.append(int(rxn1.split(",")[0].split("+PR_")[1]))
-    #                                     if len(reactant_nodes) > 2:
-    #                                         print("WARNING: More than two reactants! Ignoring...")
-    #                                     for prod in rxn0_products:
-    #                                         if prod != node1:
-    #                                             product_nodes.append(prod)
-    #                                     if len(product_nodes) > 2:
-    #                                         print("WARNING: More than two products! Ignoring...")
-    #                                     if len(reactant_nodes) <= 2 and len(product_nodes) <= 2:
-    #                                         entries0 = []
-    #                                         for ind in reactant_nodes:
-    #                                             entries0.append(self.entries_list[ind])
-    #                                         entries1 = []
-    #                                         for ind in product_nodes:
-    #                                             entries1.append(self.entries_list[ind])
-    #                                         reactions_to_add.append([entries0,entries1])
-    #     for to_add in reactions_to_add:
-    #         print(len(to_add[0]),len(to_add[1]))
-    #         self.add_reaction(to_add[0],to_add[1],"concerted")
+    def concerted_2_steps(self):
+        reactions_to_add = []
+        for node0 in self.graph.nodes():
+            if self.graph.node[node0]["bipartite"] == 0:
+                node0_rxns = list(self.graph.neighbors(node0))
+                for rxn0 in node0_rxns:
+                    if self.graph.node[rxn0]["free_energy"] > 0:
+                        rxn0_products = list(self.graph.neighbors(rxn0))
+                        if len(rxn0_products) == 2: # This must be an A -> B+C bond breaking reaction
+                            for node1 in rxn0_products:
+                                node1_rxns = list(self.graph.neighbors(node1))
+                                for rxn1 in node1_rxns:
+                                    if self.graph.node[rxn0]["free_energy"] + self.graph.node[rxn1]["free_energy"] < -1e-8 and "PR" in rxn1: # This must be an A+B -> C bond forming reaction"
+                                        reactant_nodes = [node0]
+                                        product_nodes = list(self.graph.neighbors(rxn1))
+                                        if "PR" in rxn0:
+                                            reactant_nodes.append(int(rxn0.split(",")[0].split("+PR_")[1]))
+                                        if "PR" in rxn1:
+                                            reactant_nodes.append(int(rxn1.split(",")[0].split("+PR_")[1]))
+                                        if len(reactant_nodes) > 2:
+                                            print("WARNING: More than two reactants! Ignoring...")
+                                        for prod in rxn0_products:
+                                            if prod != node1:
+                                                product_nodes.append(prod)
+                                        if len(product_nodes) > 2:
+                                            print("WARNING: More than two products! Ignoring...")
+                                        if len(reactant_nodes) <= 2 and len(product_nodes) <= 2:
+                                            entries0 = []
+                                            for ind in reactant_nodes:
+                                                entries0.append(self.entries_list[ind])
+                                            entries1 = []
+                                            for ind in product_nodes:
+                                                entries1.append(self.entries_list[ind])
+                                            reactions_to_add.append([entries0,entries1])
+        for to_add in reactions_to_add:
+            print(len(to_add[0]),len(to_add[1]))
+            self.add_reaction(to_add[0],to_add[1],"concerted")
+
 
     def find_concerted_candidates(self,name):
         self.unique_mol_graphs = []
@@ -1453,9 +1454,9 @@ class ReactionNetwork(MSONable):
                 else:
                     rxn_type_A = "Intramolecular single bond formation"
                     rxn_type_B = "Intramolecular single bond breakage"
-            # elif rxn_type == "concerted":
-            #     rxn_type_A = "Concerted"
-            #     rxn_type_B = "Concerted"
+            elif rxn_type == "concerted":
+                rxn_type_A = "Concerted"
+                rxn_type_B = "Concerted"
             node_name_A = str(entry0.parameters["ind"])+","+str(entry1.parameters["ind"])
             node_name_B = str(entry1.parameters["ind"])+","+str(entry0.parameters["ind"])
             energy_A = entry1.energy-entry0.energy
@@ -1470,15 +1471,15 @@ class ReactionNetwork(MSONable):
                     else:
                         free_energy_A += self.electron_free_energy
                         free_energy_B += -self.electron_free_energy
-                # elif rxn_type == "concerted":
-                #     if entry0.charge - entry1.charge == 1:
-                #         free_energy_A += -self.electron_free_energy
-                #         free_energy_B += self.electron_free_energy
-                #     elif entry0.charge - entry1.charge == -1:
-                #         free_energy_A += self.electron_free_energy
-                #         free_energy_B += -self.electron_free_energy
-                #     elif entry0.charge != entry1.charge:
-                #         raise RuntimeError("Concerted charge difference of "+str(abs(entry0.charge - entry1.charge))+" detected!")
+                elif rxn_type == "concerted":
+                    if entry0.charge - entry1.charge == 1:
+                        free_energy_A += -self.electron_free_energy
+                        free_energy_B += self.electron_free_energy
+                    elif entry0.charge - entry1.charge == -1:
+                        free_energy_A += self.electron_free_energy
+                        free_energy_B += -self.electron_free_energy
+                    elif entry0.charge != entry1.charge:
+                        raise RuntimeError("Concerted charge difference of "+str(abs(entry0.charge - entry1.charge))+" detected!")
             else:
                 free_energy_A = None
                 free_energy_B = None
@@ -1526,9 +1527,9 @@ class ReactionNetwork(MSONable):
             elif rxn_type == "coordination_bond_change":
                 rxn_type_A = "Coordination bond breaking AM -> A+M"
                 rxn_type_B = "Coordination bond forming A+M -> AM"
-            # elif rxn_type == "concerted":
-            #     rxn_type_A = "Concerted"
-            #     rxn_type_B = "Concerted"
+            elif rxn_type == "concerted":
+                rxn_type_A = "Concerted"
+                rxn_type_B = "Concerted"
 
             energy_A = entry0.energy + entry1.energy - entry.energy
             energy_B = entry.energy - entry0.energy - entry1.energy
@@ -1536,15 +1537,15 @@ class ReactionNetwork(MSONable):
                 free_energy_A = entry0.free_energy + entry1.free_energy - entry.free_energy
                 free_energy_B = entry.free_energy - entry0.free_energy - entry1.free_energy
 
-                # if rxn_type == "concerted":
-                #     if entry.charge - (entry0.charge + entry1.charge) == 1:
-                #         free_energy_A += -self.electron_free_energy
-                #         free_energy_B += self.electron_free_energy
-                #     elif entry.charge - (entry0.charge + entry1.charge) == -1:
-                #         free_energy_A += self.electron_free_energy
-                #         free_energy_B += -self.electron_free_energy
-                #     elif entry.charge != (entry0.charge + entry1.charge):
-                #         raise RuntimeError("Concerted charge difference of "+str(abs(entry.charge - (entry0.charge + entry1.charge)))+" detected!")
+                if rxn_type == "concerted":
+                    if entry.charge - (entry0.charge + entry1.charge) == 1:
+                        free_energy_A += -self.electron_free_energy
+                        free_energy_B += self.electron_free_energy
+                    elif entry.charge - (entry0.charge + entry1.charge) == -1:
+                        free_energy_A += self.electron_free_energy
+                        free_energy_B += -self.electron_free_energy
+                    elif entry.charge != (entry0.charge + entry1.charge):
+                        raise RuntimeError("Concerted charge difference of "+str(abs(entry.charge - (entry0.charge + entry1.charge)))+" detected!")
 
             self.graph.add_node(node_name_A, rxn_type=rxn_type_A, bipartite=1, energy=energy_A, free_energy=free_energy_A)
             self.graph.add_edge(entry.parameters["ind"],
@@ -1595,7 +1596,7 @@ class ReactionNetwork(MSONable):
             reactant_total_charge = np.sum([item.charge for item in entries0])
             product_total_charge = np.sum([item.charge for item in entries1])
             total_charge_change = product_total_charge - reactant_total_charge
-            if abs(total_charge_change) <= 2:
+            if abs(total_charge_change) == 0:
                 #raise RuntimeError("Concerted charge difference of " + str(abs(total_charge_change)) + " detected!")
 
                 if len(entries0) == 1 and len(entries1) == 1:
@@ -2032,7 +2033,7 @@ class ReactionNetwork(MSONable):
 
     def solve_prerequisites(self,starts,target,weight,max_iter=100):
         PRs = {}
-        old_solved_PRs = []
+        self.old_solved_PRs = []
         new_solved_PRs = ["placeholder"]
         orig_graph = copy.deepcopy(self.graph)
         old_attrs = {}
@@ -2046,7 +2047,7 @@ class ReactionNetwork(MSONable):
                     PRs[PR][start] = self.characterize_path([start],weight)
                 else:
                     PRs[PR][start] = "no_path"
-            old_solved_PRs.append(PR)
+            self.old_solved_PRs.append(PR)
             self.min_cost[PR] = PRs[PR][PR]["cost"]
         for node in self.graph.nodes():
             if self.graph.nodes[node]["bipartite"] == 0 and node != target:
@@ -2071,7 +2072,7 @@ class ReactionNetwork(MSONable):
                     if start not in cost_from_start[PR]:
                         cost_from_start[PR][start] = "unsolved"
             for node in self.graph.nodes():
-                if self.graph.nodes[node]["bipartite"] == 0 and node not in old_solved_PRs and node != target:
+                if self.graph.nodes[node]["bipartite"] == 0 and node not in self.old_solved_PRs and node != target:
                     for start in starts:
                         if start not in PRs[node]:
                             path_exists = True
@@ -2088,9 +2089,10 @@ class ReactionNetwork(MSONable):
                                 cost_from_start[node][start] = "no_path"
                             if path_exists:
                                 if len(dij_path) > 1 and len(dij_path)%2 == 1:
-                                    path = self.characterize_path(dij_path,weight,old_solved_PRs)
-                                    #if ii == 2:
-                                        #print(path)
+                                    path = self.characterize_path(dij_path,weight,self.old_solved_PRs)
+                                    # if node == 8:
+                                    #     print('node:',node)
+                                    #     print(path)
                                     cost_from_start[node][start] = path["cost"]
                                     if len(path["unsolved_prereqs"]) == 0:
                                         PRs[node][start] = path
@@ -2100,8 +2102,9 @@ class ReactionNetwork(MSONable):
                                 else:
                                     print("Does this ever happen?")
 
-            solved_PRs = copy.deepcopy(old_solved_PRs)
+            solved_PRs = copy.deepcopy(self.old_solved_PRs)
             new_solved_PRs = []
+            self.unsolved_PRs = []
             for PR in PRs:
                 if PR not in solved_PRs:
                     if len(PRs[PR].keys()) == self.num_starts:
@@ -2122,18 +2125,20 @@ class ReactionNetwork(MSONable):
                                 if start != best_start_so_far[0]:
                                     if cost_from_start[PR][start] == "no_path":
                                         num_beaten += 1
-                                    elif cost_from_start[PR][start] > best_start_so_far[1]:
+                                    elif cost_from_start[PR][start] >= best_start_so_far[1]:
                                         num_beaten += 1
                             if num_beaten == self.num_starts - 1:
                                 solved_PRs.append(PR)
                                 new_solved_PRs.append(PR)
+                            else:
+                                self.unsolved_PRs.append(PR)
 
             # new_solved_PRs = []
             # for PR in solved_PRs:
             #     if PR not in old_solved_PRs:
             #         new_solved_PRs.append(PR)
 
-            print(ii,len(old_solved_PRs),len(new_solved_PRs))
+            print(ii,len(self.old_solved_PRs),len(new_solved_PRs))
             attrs = {}
 
             for PR_ind in min_cost:
@@ -2153,7 +2158,7 @@ class ReactionNetwork(MSONable):
                     #     attrs[(node,prod_node)] = {weight:orig_graph[node][prod_node][weight]+min_cost[PR_ind]}
             nx.set_edge_attributes(self.graph,attrs)
             self.min_cost = copy.deepcopy(min_cost)
-            old_solved_PRs = copy.deepcopy(solved_PRs)
+            self.old_solved_PRs = copy.deepcopy(solved_PRs)
             ii += 1
             old_attrs = copy.deepcopy(new_attrs)
             new_attrs = copy.deepcopy(attrs)
@@ -2172,9 +2177,11 @@ class ReactionNetwork(MSONable):
         #     else:
         #         print("Unsolvable path from any start to PR",PR)
         #print(self.min_cost)
-        #print(len(self.min_cost.keys()))
-        # for i in range(48):
-        #     print(self.min_cost[i])
+        print(len(self.min_cost.keys()))
+        # for i in range(75):
+        #     if i not in self.min_cost.keys():
+        #         print('not solved:', i)
+            #print(self.min_cost[i])
         return PRs
 
     def find_or_remove_bad_nodes(self,nodes,remove_nodes=False):
