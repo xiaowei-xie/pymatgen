@@ -2177,12 +2177,167 @@ class ReactionNetwork(MSONable):
         #     else:
         #         print("Unsolvable path from any start to PR",PR)
         #print(self.min_cost)
-        print(len(self.min_cost.keys()))
+        # print(len(self.min_cost.keys()))
         # for i in range(75):
         #     if i not in self.min_cost.keys():
         #         print('not solved:', i)
             #print(self.min_cost[i])
         return PRs
+
+    def solve_prerequisites_wo_target(self,starts,weight,max_iter=100, save=False, name='default'):
+        PRs = {}
+        self.old_solved_PRs = []
+        new_solved_PRs = ["placeholder"]
+        orig_graph = copy.deepcopy(self.graph)
+        old_attrs = {}
+        new_attrs = {}
+
+        for start in starts:
+            PRs[start] = {}
+        for PR in PRs:
+            for start in starts:
+                if start == PR:
+                    PRs[PR][start] = self.characterize_path([start],weight)
+                else:
+                    PRs[PR][start] = "no_path"
+            self.old_solved_PRs.append(PR)
+            self.min_cost[PR] = PRs[PR][PR]["cost"]
+        for node in self.graph.nodes():
+            if self.graph.nodes[node]["bipartite"] == 0:
+                if node not in PRs:
+                    PRs[node] = {}
+
+        ii = 0
+        while (len(new_solved_PRs) > 0 or old_attrs != new_attrs) and ii < max_iter:
+            min_cost = {}
+            cost_from_start = {}
+            for PR in PRs:
+                cost_from_start[PR] = {}
+                min_cost[PR] = 10000000000000000.0
+                for start in PRs[PR]:
+                    if PRs[PR][start] == "no_path":
+                        cost_from_start[PR][start] = "no_path"
+                    else:
+                        cost_from_start[PR][start] = PRs[PR][start]["cost"]
+                        if PRs[PR][start]["cost"] < min_cost[PR]:
+                            min_cost[PR] = PRs[PR][start]["cost"]
+                for start in starts:
+                    if start not in cost_from_start[PR]:
+                        cost_from_start[PR][start] = "unsolved"
+            for node in self.graph.nodes():
+                if self.graph.nodes[node]["bipartite"] == 0 and node not in self.old_solved_PRs:
+                    for start in starts:
+                        if start not in PRs[node]:
+                            path_exists = True
+                            try:
+                                length,dij_path = nx.algorithms.simple_paths._bidirectional_dijkstra(
+                                    self.graph,
+                                    source=hash(start),
+                                    target=hash(node),
+                                    weight=weight)
+                            except nx.exception.NetworkXNoPath:
+                                PRs[node][start] = "no_path"
+                                path_exists = False
+                                cost_from_start[node][start] = "no_path"
+                            if path_exists:
+                                if len(dij_path) > 1 and len(dij_path)%2 == 1:
+                                    path = self.characterize_path(dij_path,weight,self.old_solved_PRs)
+                                    # if node == 8:
+                                    #     print('node:',node)
+                                    #     print(path)
+                                    cost_from_start[node][start] = path["cost"]
+                                    if len(path["unsolved_prereqs"]) == 0:
+                                        PRs[node][start] = path
+                                        # print("Solved PR",node,PRs[node])
+                                    if path["cost"] < min_cost[node]:
+                                        min_cost[node] = path["cost"]
+                                else:
+                                    print("Does this ever happen?")
+
+            solved_PRs = copy.deepcopy(self.old_solved_PRs)
+            new_solved_PRs = []
+            self.unsolved_PRs = []
+            for PR in PRs:
+                if PR not in solved_PRs:
+                    if len(PRs[PR].keys()) == self.num_starts:
+                        solved_PRs.append(PR)
+                        new_solved_PRs.append(PR)
+                    else:
+                        best_start_so_far = [None,10000000000000000.0]
+                        for start in PRs[PR]:
+                            if PRs[PR][start] != "no_path":
+                                if PRs[PR][start] == "unsolved":
+                                    print("ERROR: unsolved should never be encountered here!")
+                                if PRs[PR][start]["cost"] < best_start_so_far[1]:
+                                    best_start_so_far[0] = start
+                                    best_start_so_far[1] = PRs[PR][start]["cost"]
+                        if best_start_so_far[0] != None:
+                            num_beaten = 0
+                            for start in cost_from_start[PR]:
+                                if start != best_start_so_far[0]:
+                                    if cost_from_start[PR][start] == "no_path":
+                                        num_beaten += 1
+                                    elif cost_from_start[PR][start] >= best_start_so_far[1]:
+                                        num_beaten += 1
+                            if num_beaten == self.num_starts - 1:
+                                solved_PRs.append(PR)
+                                new_solved_PRs.append(PR)
+                            else:
+                                self.unsolved_PRs.append(PR)
+
+            # new_solved_PRs = []
+            # for PR in solved_PRs:
+            #     if PR not in old_solved_PRs:
+            #         new_solved_PRs.append(PR)
+
+            print(ii,len(self.old_solved_PRs),len(new_solved_PRs))
+            attrs = {}
+
+            for PR_ind in min_cost:
+                for rxn_node in self.PR_record[PR_ind]:
+                    non_PR_reactant_node = int(rxn_node.split(",")[0].split("+PR_")[0])
+                    PR_node = int(rxn_node.split(",")[0].split("+PR_")[1])
+                    assert(int(PR_node)==PR_ind)
+                    attrs[(non_PR_reactant_node,rxn_node)] = {weight:orig_graph[non_PR_reactant_node][rxn_node][weight]+min_cost[PR_ind]}
+                    # prod_nodes = []
+                    # if "+" in split_node[1]:
+                    #     tmp = split_node[1].split("+")
+                    #     for prod_ind in tmp:
+                    #         prod_nodes.append(int(prod_ind))
+                    # else:
+                    #     prod_nodes.append(int(split_node[1]))
+                    # for prod_node in prod_nodes:
+                    #     attrs[(node,prod_node)] = {weight:orig_graph[node][prod_node][weight]+min_cost[PR_ind]}
+            nx.set_edge_attributes(self.graph,attrs)
+            self.min_cost = copy.deepcopy(min_cost)
+            self.old_solved_PRs = copy.deepcopy(solved_PRs)
+            ii += 1
+            old_attrs = copy.deepcopy(new_attrs)
+            new_attrs = copy.deepcopy(attrs)
+
+        # for PR in PRs:
+        #     path_found = False
+        #     if PRs[PR] != {}:
+        #         for start in PRs[PR]:
+        #             if PRs[PR][start] != "no_path":
+        #                 path_found = True
+        #                 path_dict = self.characterize_path(PRs[PR][start]["path"],weight,PRs,True)
+        #                 if abs(path_dict["cost"]-path_dict["pure_cost"])>0.0001:
+        #                     print("WARNING: cost mismatch for PR",PR,path_dict["cost"],path_dict["pure_cost"],path_dict["full_path"])
+        #         if not path_found:
+        #             print("No path found from any start to PR",PR)
+        #     else:
+        #         print("Unsolvable path from any start to PR",PR)
+        #print(self.min_cost)
+        # print(len(self.min_cost.keys()))
+        # for i in range(75):
+        #     if i not in self.min_cost.keys():
+        #         print('not solved:', i)
+            #print(self.min_cost[i])
+        if save:
+            dumpfn(PRs, name+'_PR_paths.json')
+        return PRs
+
 
     def find_or_remove_bad_nodes(self,nodes,remove_nodes=False):
         bad_nodes = []
