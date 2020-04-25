@@ -2290,7 +2290,7 @@ class ReactionNetwork(MSONable):
             #     if PR not in old_solved_PRs:
             #         new_solved_PRs.append(PR)
 
-            print(ii,len(self.old_solved_PRs),len(new_solved_PRs))
+            print(ii,len(solved_PRs),len(new_solved_PRs))
             attrs = {}
 
             for PR_ind in min_cost:
