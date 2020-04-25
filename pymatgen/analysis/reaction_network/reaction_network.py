@@ -2336,6 +2336,7 @@ class ReactionNetwork(MSONable):
             #print(self.min_cost[i])
         if save:
             dumpfn(PRs, name+'_PR_paths.json')
+            dumpfn(self.min_cost, name+'_min_cost.json')
         return PRs
 
 
