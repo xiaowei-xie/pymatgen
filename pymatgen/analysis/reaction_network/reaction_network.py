@@ -2058,22 +2058,24 @@ class ReactionNetwork(MSONable):
         ii = 0
         while (len(new_solved_PRs) > 0 or old_attrs != new_attrs) and ii < max_iter:
             min_cost = {}
-            cost_from_start = {}
+            self.cost_from_start = {}
+            self.unsolved_PRs = {}
             for PR in PRs:
-                cost_from_start[PR] = {}
+                self.cost_from_start[PR] = {}
                 min_cost[PR] = 10000000000000000.0
                 for start in PRs[PR]:
                     if PRs[PR][start] == "no_path":
-                        cost_from_start[PR][start] = "no_path"
+                        self.cost_from_start[PR][start] = "no_path"
                     else:
-                        cost_from_start[PR][start] = PRs[PR][start]["cost"]
+                        self.cost_from_start[PR][start] = PRs[PR][start]["cost"]
                         if PRs[PR][start]["cost"] < min_cost[PR]:
                             min_cost[PR] = PRs[PR][start]["cost"]
                 for start in starts:
-                    if start not in cost_from_start[PR]:
-                        cost_from_start[PR][start] = "unsolved"
+                    if start not in self.cost_from_start[PR]:
+                        self.cost_from_start[PR][start] = "unsolved"
             for node in self.graph.nodes():
                 if self.graph.nodes[node]["bipartite"] == 0 and node not in self.old_solved_PRs and node != target:
+                    self.unsolved_PRs[node] = {}
                     for start in starts:
                         if start not in PRs[node]:
                             path_exists = True
@@ -2087,25 +2089,29 @@ class ReactionNetwork(MSONable):
                             except nx.exception.NetworkXNoPath:
                                 PRs[node][start] = "no_path"
                                 path_exists = False
-                                cost_from_start[node][start] = "no_path"
+                                self.cost_from_start[node][start] = "no_path"
                             if path_exists:
                                 if len(dij_path) > 1 and len(dij_path)%2 == 1:
                                     path = self.characterize_path(dij_path,weight,self.old_solved_PRs)
                                     # if node == 8:
                                     #     print('node:',node)
                                     #     print(path)
-                                    cost_from_start[node][start] = path["cost"]
+                                    self.cost_from_start[node][start] = path["cost"]
                                     if len(path["unsolved_prereqs"]) == 0:
                                         PRs[node][start] = path
                                         # print("Solved PR",node,PRs[node])
+                                    else:
+                                        self.unsolved_PRs[node][start] = path
                                     if path["cost"] < min_cost[node]:
                                         min_cost[node] = path["cost"]
                                 else:
                                     print("Does this ever happen?")
 
+                    if len(PRs[node]) == self.num_starts:
+                        self.unsolved_PRs.pop(node, None)
+
             solved_PRs = copy.deepcopy(self.old_solved_PRs)
             new_solved_PRs = []
-            self.unsolved_PRs = []
             for PR in PRs:
                 if PR not in solved_PRs:
                     if len(PRs[PR].keys()) == self.num_starts:
@@ -2117,29 +2123,30 @@ class ReactionNetwork(MSONable):
                             if PRs[PR][start] != "no_path":
                                 if PRs[PR][start] == "unsolved":
                                     print("ERROR: unsolved should never be encountered here!")
-                                if PRs[PR][start]["cost"] < best_start_so_far[1]:
+                                if PRs[PR][start]["cost"] <= best_start_so_far[1]:
                                     best_start_so_far[0] = start
                                     best_start_so_far[1] = PRs[PR][start]["cost"]
+
                         if best_start_so_far[0] != None:
                             num_beaten = 0
-                            for start in cost_from_start[PR]:
+                            for start in self.cost_from_start[PR]:
                                 if start != best_start_so_far[0]:
-                                    if cost_from_start[PR][start] == "no_path":
+                                    if self.cost_from_start[PR][start] == "no_path":
                                         num_beaten += 1
-                                    elif cost_from_start[PR][start] >= best_start_so_far[1]:
+                                    elif self.cost_from_start[PR][start] >= best_start_so_far[1]:
                                         num_beaten += 1
                             if num_beaten == self.num_starts - 1:
                                 solved_PRs.append(PR)
                                 new_solved_PRs.append(PR)
-                            else:
-                                self.unsolved_PRs.append(PR)
+                                self.unsolved_PRs.pop(PR, None)
+
 
             # new_solved_PRs = []
             # for PR in solved_PRs:
             #     if PR not in old_solved_PRs:
             #         new_solved_PRs.append(PR)
 
-            print(ii,len(solved_PRs),len(new_solved_PRs))
+            print(ii,len(solved_PRs),len(new_solved_PRs),len(self.unsolved_PRs))
             attrs = {}
 
             for PR_ind in min_cost:
@@ -2211,22 +2218,24 @@ class ReactionNetwork(MSONable):
         ii = 0
         while (len(new_solved_PRs) > 0 or old_attrs != new_attrs) and ii < max_iter:
             min_cost = {}
-            cost_from_start = {}
+            self.cost_from_start = {}
+            self.unsolved_PRs = {}
             for PR in PRs:
-                cost_from_start[PR] = {}
+                self.cost_from_start[PR] = {}
                 min_cost[PR] = 10000000000000000.0
                 for start in PRs[PR]:
                     if PRs[PR][start] == "no_path":
-                        cost_from_start[PR][start] = "no_path"
+                        self.cost_from_start[PR][start] = "no_path"
                     else:
-                        cost_from_start[PR][start] = PRs[PR][start]["cost"]
+                        self.cost_from_start[PR][start] = PRs[PR][start]["cost"]
                         if PRs[PR][start]["cost"] < min_cost[PR]:
                             min_cost[PR] = PRs[PR][start]["cost"]
                 for start in starts:
-                    if start not in cost_from_start[PR]:
-                        cost_from_start[PR][start] = "unsolved"
+                    if start not in self.cost_from_start[PR]:
+                        self.cost_from_start[PR][start] = "unsolved"
             for node in self.graph.nodes():
                 if self.graph.nodes[node]["bipartite"] == 0 and node not in self.old_solved_PRs:
+                    self.unsolved_PRs[node] = {}
                     for start in starts:
                         if start not in PRs[node]:
                             path_exists = True
@@ -2239,25 +2248,28 @@ class ReactionNetwork(MSONable):
                             except nx.exception.NetworkXNoPath:
                                 PRs[node][start] = "no_path"
                                 path_exists = False
-                                cost_from_start[node][start] = "no_path"
+                                self.cost_from_start[node][start] = "no_path"
                             if path_exists:
                                 if len(dij_path) > 1 and len(dij_path)%2 == 1:
                                     path = self.characterize_path(dij_path,weight,self.old_solved_PRs)
                                     # if node == 8:
                                     #     print('node:',node)
                                     #     print(path)
-                                    cost_from_start[node][start] = path["cost"]
+                                    self.cost_from_start[node][start] = path["cost"]
                                     if len(path["unsolved_prereqs"]) == 0:
                                         PRs[node][start] = path
                                         # print("Solved PR",node,PRs[node])
+                                    else:
+                                        self.unsolved_PRs[node][start] = path
                                     if path["cost"] < min_cost[node]:
                                         min_cost[node] = path["cost"]
                                 else:
                                     print("Does this ever happen?")
+                    if len(PRs[node]) == self.num_starts:
+                        self.unsolved_PRs.pop(node, None)
 
             solved_PRs = copy.deepcopy(self.old_solved_PRs)
             new_solved_PRs = []
-            self.unsolved_PRs = []
             for PR in PRs:
                 if PR not in solved_PRs:
                     if len(PRs[PR].keys()) == self.num_starts:
@@ -2269,29 +2281,29 @@ class ReactionNetwork(MSONable):
                             if PRs[PR][start] != "no_path":
                                 if PRs[PR][start] == "unsolved":
                                     print("ERROR: unsolved should never be encountered here!")
-                                if PRs[PR][start]["cost"] < best_start_so_far[1]:
+                                if PRs[PR][start]["cost"] <= best_start_so_far[1]:
                                     best_start_so_far[0] = start
                                     best_start_so_far[1] = PRs[PR][start]["cost"]
+
                         if best_start_so_far[0] != None:
                             num_beaten = 0
-                            for start in cost_from_start[PR]:
+                            for start in self.cost_from_start[PR]:
                                 if start != best_start_so_far[0]:
-                                    if cost_from_start[PR][start] == "no_path":
+                                    if self.cost_from_start[PR][start] == "no_path":
                                         num_beaten += 1
-                                    elif cost_from_start[PR][start] >= best_start_so_far[1]:
+                                    elif self.cost_from_start[PR][start] >= best_start_so_far[1]:
                                         num_beaten += 1
                             if num_beaten == self.num_starts - 1:
                                 solved_PRs.append(PR)
                                 new_solved_PRs.append(PR)
-                            else:
-                                self.unsolved_PRs.append(PR)
+                                self.unsolved_PRs.pop(PR, None)
 
             # new_solved_PRs = []
             # for PR in solved_PRs:
             #     if PR not in old_solved_PRs:
             #         new_solved_PRs.append(PR)
 
-            print(ii,len(solved_PRs),len(new_solved_PRs))
+            print(ii,len(solved_PRs),len(new_solved_PRs),len(self.unsolved_PRs))
             attrs = {}
 
             for PR_ind in min_cost:
@@ -2339,6 +2351,9 @@ class ReactionNetwork(MSONable):
             dumpfn(PRs, name+'_PR_paths.json')
             dumpfn(self.min_cost, name+'_min_cost.json')
             dumpfn(json_graph.adjacency_data(self.graph),name+'_graph.json')
+            dumpfn(self.unsolved_PRs, name+'_unsolved_PRs.json')
+            dumpfn(self.cost_from_start, name+'_cost_from_start.json')
+            dumpfn(self.old_solved_PRs, name+'_old_solved_PRs.json')
         return PRs
 
 
@@ -2433,4 +2448,21 @@ class ReactionNetwork(MSONable):
                                 self.graph.nodes[second_neighbor]["local_sink"] = 2
 
         return sinks
+
+    def remove_node(self,node_ind):
+        '''
+        Remove a species from self.graph. Also remove all the reaction nodes with that species. Used for removing Li0.
+        :return:
+        '''
+        self.graph.remove_node(node_ind)
+        nodes = list(self.graph.nodes)
+        for node in nodes:
+            if self.graph.nodes[node]["bipartite"] == 1:
+                reactants = node.split(',')[0].split('+')
+                reactants = [reac.replace('PR_','') for reac in reactants]
+                products =  node.split(',')[1].split('+')
+                if str(node_ind) in reactants or str(node_ind) in products:
+                    self.graph.remove_node(node)
+
+
 
