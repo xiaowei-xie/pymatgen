@@ -22,6 +22,7 @@ from pymatgen.analysis.reaction_network.extract_reactions import *
 from monty.serialization import loadfn, dumpfn
 from multiprocessing import cpu_count
 from pathos.multiprocessing import ProcessingPool as Pool
+from networkx.readwrite import json_graph
 
 __author__ = "Samuel Blau"
 __copyright__ = "Copyright 2019, The Materials Project"
@@ -2138,7 +2139,7 @@ class ReactionNetwork(MSONable):
             #     if PR not in old_solved_PRs:
             #         new_solved_PRs.append(PR)
 
-            print(ii,len(self.old_solved_PRs),len(new_solved_PRs))
+            print(ii,len(solved_PRs),len(new_solved_PRs))
             attrs = {}
 
             for PR_ind in min_cost:
@@ -2337,6 +2338,7 @@ class ReactionNetwork(MSONable):
         if save:
             dumpfn(PRs, name+'_PR_paths.json')
             dumpfn(self.min_cost, name+'_min_cost.json')
+            dumpfn(json_graph.adjacency_data(self.graph),name+'_graph.json')
         return PRs
 
 
@@ -2358,7 +2360,7 @@ class ReactionNetwork(MSONable):
         valid_graph = self.find_or_remove_bad_nodes(bad_nodes,remove_nodes=True)
         return nx.shortest_simple_paths(valid_graph,hash(start),hash(target),weight=weight)
 
-    def find_paths(self,starts,target,weight,num_paths=10):
+    def find_paths(self,starts,target,weight,num_paths=10,load_path=False,name=''):
         """
         Args:
             starts ([int]): List of starting node IDs (ints). 
@@ -2369,10 +2371,25 @@ class ReactionNetwork(MSONable):
         paths = []
         c = itertools.count()
         my_heapq = []
-
-        print("Solving prerequisites...")
         self.num_starts = len(starts)
-        PR_paths = self.solve_prerequisites(starts,target,weight)
+        if load_path:
+            print("Loading prerequisites...")
+            solved_PRs_path = loadfn(name+'_PR_paths.json')
+            solved_min_cost = loadfn(name + '_min_cost.json')
+            updated_graph = loadfn(name+'_graph.json')
+            self.graph = json_graph.adjacency_graph(updated_graph)
+            self.min_cost = {}
+            for key in solved_min_cost:
+                self.min_cost[int(key)] = float(solved_min_cost[key])
+
+            PR_paths = {}
+            for key in solved_PRs_path:
+                PR_paths[int(key)] = {}
+                for start in solved_PRs_path[key]:
+                    PR_paths[int(key)][int(start)] = copy.deepcopy(solved_PRs_path[key][start])
+        else:
+            print("Solving prerequisites...")
+            PR_paths = self.solve_prerequisites_wo_target(starts,weight)
 
         print("Finding paths...")
         for start in starts:
