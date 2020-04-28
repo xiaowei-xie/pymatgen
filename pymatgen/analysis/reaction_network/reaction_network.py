@@ -2244,6 +2244,7 @@ class ReactionNetwork(MSONable):
                                     self.graph,
                                     source=hash(start),
                                     target=hash(node),
+                                    ignore_nodes=self.find_or_remove_bad_nodes([node]),
                                     weight=weight)
                             except nx.exception.NetworkXNoPath:
                                 PRs[node][start] = "no_path"
