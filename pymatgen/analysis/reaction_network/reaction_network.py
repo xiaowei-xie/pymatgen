@@ -2133,7 +2133,7 @@ class ReactionNetwork(MSONable):
                                 if start != best_start_so_far[0]:
                                     if self.cost_from_start[PR][start] == "no_path":
                                         num_beaten += 1
-                                    elif self.cost_from_start[PR][start] >= best_start_so_far[1]:
+                                    elif self.cost_from_start[PR][start] >= best_start_so_far[1]: # modified by XX. changed '>' to '>='.
                                         num_beaten += 1
                             if num_beaten == self.num_starts - 1:
                                 solved_PRs.append(PR)
@@ -2235,7 +2235,7 @@ class ReactionNetwork(MSONable):
                         self.cost_from_start[PR][start] = "unsolved"
             for node in self.graph.nodes():
                 if self.graph.nodes[node]["bipartite"] == 0 and node not in self.old_solved_PRs:
-                    self.unsolved_PRs[node] = {}
+                    self.unsolved_PRs[node] = {}  # modified by XX. Added a dict to keep track of unsolved cases.
                     for start in starts:
                         if start not in PRs[node]:
                             path_exists = True
@@ -2253,20 +2253,17 @@ class ReactionNetwork(MSONable):
                             if path_exists:
                                 if len(dij_path) > 1 and len(dij_path)%2 == 1:
                                     path = self.characterize_path(dij_path,weight,self.old_solved_PRs)
-                                    # if node == 8:
-                                    #     print('node:',node)
-                                    #     print(path)
                                     self.cost_from_start[node][start] = path["cost"]
                                     if len(path["unsolved_prereqs"]) == 0:
                                         PRs[node][start] = path
                                         # print("Solved PR",node,PRs[node])
                                     else:
-                                        self.unsolved_PRs[node][start] = path
+                                        self.unsolved_PRs[node][start] = path  # modified by XX. If unsolved, still add the path to the unsolved dict to keep a record.
                                     if path["cost"] < min_cost[node]:
                                         min_cost[node] = path["cost"]
                                 else:
                                     print("Does this ever happen?")
-                    if len(PRs[node]) == self.num_starts:
+                    if len(PRs[node]) == self.num_starts: # modified by XX. This is just for removing the key from the unsolved dict if it's solved. An empty dict was created above. If it's all solved, that empty dict will be removed.
                         self.unsolved_PRs.pop(node, None)
 
             solved_PRs = copy.deepcopy(self.old_solved_PRs)
@@ -2275,7 +2272,7 @@ class ReactionNetwork(MSONable):
                 if PR not in solved_PRs:
                     if len(PRs[PR].keys()) == self.num_starts:
                         solved_PRs.append(PR)
-                        new_solved_PRs.append(PR)
+                        new_solved_PRs.append(PR)  # XX: I guess the removing key from unsolved dict can alternatively be done here?
                     else:
                         best_start_so_far = [None,10000000000000000.0]
                         for start in PRs[PR]:
@@ -2292,12 +2289,12 @@ class ReactionNetwork(MSONable):
                                 if start != best_start_so_far[0]:
                                     if self.cost_from_start[PR][start] == "no_path":
                                         num_beaten += 1
-                                    elif self.cost_from_start[PR][start] >= best_start_so_far[1]:
+                                    elif self.cost_from_start[PR][start] >= best_start_so_far[1]: # modified by XX. changed '>' to '>='.
                                         num_beaten += 1
                             if num_beaten == self.num_starts - 1:
                                 solved_PRs.append(PR)
                                 new_solved_PRs.append(PR)
-                                self.unsolved_PRs.pop(PR, None)
+                                self.unsolved_PRs.pop(PR, None) # modified by XX. Removing key from unsolved dict if it's solved.
 
             # new_solved_PRs = []
             # for PR in solved_PRs:
@@ -2305,6 +2302,9 @@ class ReactionNetwork(MSONable):
             #         new_solved_PRs.append(PR)
 
             print(ii,len(solved_PRs),len(new_solved_PRs),len(self.unsolved_PRs))
+            # modified by XX. Printing (1) iteration index,
+            # (2) number of total solved entries till this iteration, (3) number of newly solved entries at this iteration,
+            # (4) number of unsolved entries. (2) and (4) should add up to the number of total unique entries.
             attrs = {}
 
             for PR_ind in min_cost:
