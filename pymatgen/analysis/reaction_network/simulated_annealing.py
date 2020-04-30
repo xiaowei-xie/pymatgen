@@ -362,7 +362,7 @@ def SA_multiprocess_custom_schedule(SA, name, nums, temperatures, num_processors
     # nums: numbers of SA runs
     args = [(i,temperatures,allow_gas_reactions,xyz_dir) for i in np.arange(nums)]
     pool = Pool(num_processors)
-    results = pool.map(SA.anneal, args)
+    results = pool.map(SA.anneal_custom_schedule, args)
     fired_reactions_all = []
     best_state_all = []
     best_energy_all = []
