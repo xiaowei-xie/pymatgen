@@ -69,7 +69,84 @@ class SimulatedAnnealing(Annealer):
         super(SimulatedAnnealing, self).__init__(state)
         return
 
-    def move(self):
+    def get_gas_index(self,xyz_dir='/Users/xiaoweixie/Desktop/Sam_production/xyzs'):
+        '''
+        Get the species index for gases. Currently supported for H2, CO, CO2, C2H4, PF5.
+        :return: a list of indices of the gases
+        '''
+        C2H4_ind, CO_ind, CO2_ind, H2_ind, PF5_ind = None, None, None, None, None
+        C2H4_mg = MoleculeGraph.with_local_env_strategy(
+            Molecule.from_file(os.path.join(xyz_dir, "ethylene.xyz")),
+            OpenBabelNN(),
+            reorder=False,
+            extend_structure=False)
+        try:
+            for entry in self.reaction_network.entries['C2 H4'][5][0]:
+                if C2H4_mg.isomorphic_to(entry.mol_graph):
+                    C2H4_ind = entry.parameters["ind"]
+                    break
+        except:
+            pass
+
+        CO_mg = MoleculeGraph.with_local_env_strategy(
+            Molecule.from_file(os.path.join(xyz_dir, "CO.xyz")),
+            OpenBabelNN(),
+            reorder=False,
+            extend_structure=False)
+        try:
+            for entry in self.reaction_network.entries['C1 O1'][1][0]:
+                if CO_mg.isomorphic_to(entry.mol_graph):
+                    CO_ind = entry.parameters["ind"]
+                    break
+        except:
+            pass
+
+        CO2_mg = MoleculeGraph.with_local_env_strategy(
+            Molecule.from_file(os.path.join(xyz_dir, "CO2.xyz")),
+            OpenBabelNN(),
+            reorder=False,
+            extend_structure=False)
+        try:
+            for entry in self.reaction_network.entries['C1 O2'][2][0]:
+                if CO2_mg.isomorphic_to(entry.mol_graph):
+                    CO2_ind = entry.parameters["ind"]
+                    break
+        except:
+            pass
+
+        H2_mg = MoleculeGraph.with_local_env_strategy(
+            Molecule.from_file(os.path.join(xyz_dir, "H2.xyz")),
+            OpenBabelNN(),
+            reorder=False,
+            extend_structure=False)
+        try:
+            for entry in self.reaction_network.entries['H2'][1][0]:
+                if H2_mg.isomorphic_to(entry.mol_graph):
+                    H2_ind = entry.parameters["ind"]
+                    break
+        except:
+            pass
+
+        PF5_mg = MoleculeGraph.with_local_env_strategy(
+            Molecule.from_file(os.path.join(xyz_dir, "PF5.xyz")),
+            OpenBabelNN(),
+            reorder=False,
+            extend_structure=False)
+        try:
+            for entry in self.reaction_network.entries['F5 P1'][5][0]:
+                if PF5_mg.isomorphic_to(entry.mol_graph):
+                    PF5_ind = entry.parameters["ind"]
+                    break
+        except:
+            pass
+        self.gas_indices = []
+        for index in [C2H4_ind, CO_ind, CO2_ind, H2_ind, PF5_ind]:
+            if index != None:
+                self.gas_indices.append(index)
+
+        return
+
+    def move(self, allow_gas_reactions = False, xyz_dir='/Users/xiaoweixie/Desktop/Sam_production/xyzs'):
         """Fire a reaction. Have to ensure the starting materials for a reaction to fire.
         Do not considering reactions with gas involved in the future? Not possible to find global minimum then"""
 
@@ -88,6 +165,19 @@ class SimulatedAnnealing(Annealer):
                     enough_materials = False
             if enough_materials and self.state['e'] > - charge_change:
                 self.possible_reactions_to_fire.append(reaction)
+
+        if not allow_gas_reactions:
+            self.possible_reactions_to_fire_no_gas = []
+            self.get_gas_index(xyz_dir)
+            for i, reaction in enumerate(self.possible_reactions_to_fire):
+                reactants = reaction[0]
+                is_gas_reaction = False
+                for reac in reactants:
+                    if int(reac) in self.gas_indices:
+                        is_gas_reaction = True
+                if not is_gas_reaction:
+                    self.possible_reactions_to_fire_no_gas.append(reaction)
+            self.possible_reactions_to_fire = self.possible_reactions_to_fire_no_gas.copy()
 
         rxn_idx = random.randint(0, len(self.possible_reactions_to_fire)-1)
         rxn_to_fire = self.possible_reactions_to_fire[rxn_idx]
@@ -116,7 +206,7 @@ class SimulatedAnnealing(Annealer):
                 e += self.state[key] * self.reaction_network.entries_list[key].free_energy
         return e
 
-    def anneal(self, num):
+    def anneal(self, num, allow_gas_reactions = False, xyz_dir='/Users/xiaoweixie/Desktop/Sam_production/xyzs'):
         """Minimizes the energy of a system by simulated annealing.
         Parameters
         state : an initial arrangement of the system
@@ -148,7 +238,7 @@ class SimulatedAnnealing(Annealer):
         while step < self.steps and not self.user_exit:
             step += 1
             T = self.Tmax * math.exp(Tfactor * step / self.steps)
-            dE, rxn_to_fire = self.move()
+            dE, rxn_to_fire = self.move(allow_gas_reactions, xyz_dir)
             if dE is None:
                 E = self.energy()
                 dE = E - prevEnergy
@@ -183,7 +273,7 @@ class SimulatedAnnealing(Annealer):
         # Return best state and energy
         return self.best_state, self.best_energy, self.fired_reactions
 
-    def anneal_custom_schedule(self, num, temperatures):
+    def anneal_custom_schedule(self, num, temperatures, allow_gas_reactions = False, xyz_dir='/Users/xiaoweixie/Desktop/Sam_production/xyzs'):
         """Minimizes the energy of a system by simulated annealing.
         Parameters
         state : an initial arrangement of the system
@@ -210,7 +300,7 @@ class SimulatedAnnealing(Annealer):
         while step < self.steps and not self.user_exit:
             step += 1
             T = temperatures[step]
-            dE, rxn_to_fire = self.move()
+            dE, rxn_to_fire = self.move(allow_gas_reactions, xyz_dir)
             if dE is None:
                 E = self.energy()
                 dE = E - prevEnergy
@@ -245,10 +335,10 @@ class SimulatedAnnealing(Annealer):
         # Return best state and energy
         return self.best_state, self.best_energy, self.fired_reactions
 
-def SA_multiprocess(SA, name, nums, num_processors):
+def SA_multiprocess(SA, name, nums, num_processors, allow_gas_reactions = False, xyz_dir='/Users/xiaoweixie/Desktop/Sam_production/xyzs'):
     # name: filename to save as
     # nums: numbers of SA runs
-    args = [(i) for i in np.arange(nums)]
+    args = [(i, allow_gas_reactions,xyz_dir) for i in np.arange(nums)]
     pool = Pool(num_processors)
     results = pool.map(SA.anneal, args)
     fired_reactions_all = []
@@ -267,10 +357,10 @@ def SA_multiprocess(SA, name, nums, num_processors):
 
     return
 
-def SA_multiprocess_custom_schedule(SA, name, nums, temperatures, num_processors):
+def SA_multiprocess_custom_schedule(SA, name, nums, temperatures, num_processors, allow_gas_reactions = False, xyz_dir='/Users/xiaoweixie/Desktop/Sam_production/xyzs'):
     # name: filename to save as
     # nums: numbers of SA runs
-    args = [(i,temperatures) for i in np.arange(nums)]
+    args = [(i,temperatures,allow_gas_reactions,xyz_dir) for i in np.arange(nums)]
     pool = Pool(num_processors)
     results = pool.map(SA.anneal, args)
     fired_reactions_all = []
