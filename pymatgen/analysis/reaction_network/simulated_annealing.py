@@ -338,7 +338,7 @@ if __name__ == "__main__":
         extend_structure=False)
 
     # LiCO3_minus_mg = MoleculeGraph.with_local_env_strategy(
-    #     Molecule.from_file("/Users/xiaoweixie/Desktop/Sam_production/xyzs/LiCO3.xyz"),
+    #     Molecule.from_file("/Users/xiaoweixie/Desktop/Sam_production/xyz/LiCO3.xyz"),
     #     OpenBabelNN(),
     #     reorder=False,
     #     extend_structure=False)
@@ -392,7 +392,7 @@ if __name__ == "__main__":
     print("LiCO3_minus_ind", LiCO3_minus_ind)
 
     RN.find_concerted_candidates_equal('LEMC_test_2_multiprocess')
-    RN.add_concerted_reactions_from_list(read_file=True, file_name='mgcf/LEMC_small_network/LEMC_test_2_multiprocess_equal')
+    RN.add_concerted_reactions_from_list(read_file=True, file_name='mgcf/LEMC_RN_electronic_4_species/LEMC_test_2_multiprocess_equal')
 
     species_nodes = []
     for node in RN.graph.nodes():
@@ -400,7 +400,7 @@ if __name__ == "__main__":
             species_nodes.append(node)
     species_nodes.append('e')
 
-    initial_state = {30:2, 47:2, 45:2, 'e':2}
+    initial_state = {EC_ind:2, Li1_ind:2, H2O_ind:2, 'e':2}
     state = {}
     for key in species_nodes:
         if key in initial_state.keys():

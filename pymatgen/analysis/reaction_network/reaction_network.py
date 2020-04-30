@@ -310,7 +310,7 @@ class ReactionNetwork(MSONable):
                                             reactions_to_add.append([entries0,entries1])
         for to_add in reactions_to_add:
             print(len(to_add[0]),len(to_add[1]))
-            self.add_reaction(to_add[0],to_add[1],"concerted")
+            self.add_reaction(to_add[0],to_add[1],"concerted",0)
 
 
     def find_concerted_candidates(self,name):
@@ -988,7 +988,7 @@ class ReactionNetwork(MSONable):
             print(len(to_add[0]),len(to_add[1]))
             self.add_reaction(to_add[0],to_add[1],"concerted")
 
-    def add_concerted_reactions_from_list(self, read_file=False, file_name=None, break1_form1=False):
+    def add_concerted_reactions_from_list(self, read_file=False, file_name=None, break1_form1=False, allowed_charge_change=0):
         # Add concerted reactions from self.multiprocess_equal function
         reactions_to_add = []
         if read_file:
@@ -1081,7 +1081,7 @@ class ReactionNetwork(MSONable):
 
         for to_add in reactions_to_add:
             print(len(to_add[0]),len(to_add[1]))
-            self.add_reaction(to_add[0],to_add[1],"concerted")
+            self.add_reaction(to_add[0],to_add[1],"concerted",allowed_charge_change)
 
     def add_water_reactions(self):
         # Since concerted reactions remain intractable, this function adds two specific concerted
@@ -1408,13 +1408,14 @@ class ReactionNetwork(MSONable):
                                 )
 
 
-    def add_reaction(self,entries0,entries1,rxn_type):
+    def add_reaction(self,entries0,entries1,rxn_type, allowed_charge_change=0):
         """
         Args:
             entries0 ([MoleculeEntry]): list of MoleculeEntry objects on one side of the reaction
             entries1 ([MoleculeEntry]): list of MoleculeEntry objects on the other side of the reaction
             rxn_type (string): general reaction category. At present, must be one_electron_redox or 
                               intramol_single_bond_change or intermol_single_bond_change.
+            allowed_charge_change (int): For concerted reactions only
         """
         self.num_reactions += 1
         if rxn_type == "one_electron_redox":
@@ -1597,7 +1598,7 @@ class ReactionNetwork(MSONable):
             reactant_total_charge = np.sum([item.charge for item in entries0])
             product_total_charge = np.sum([item.charge for item in entries1])
             total_charge_change = product_total_charge - reactant_total_charge
-            if abs(total_charge_change) == 0:
+            if abs(total_charge_change) <= allowed_charge_change:
                 #raise RuntimeError("Concerted charge difference of " + str(abs(total_charge_change)) + " detected!")
 
                 if len(entries0) == 1 and len(entries1) == 1:
