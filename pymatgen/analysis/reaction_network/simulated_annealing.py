@@ -25,6 +25,7 @@ from pathos.multiprocessing import ProcessingPool as Pool
 import math
 import time
 from ase.units import Hartree, eV, kcal, mol
+from itertools import repeat
 
 
 __author__ = "Xiaowei Xie"
@@ -206,13 +207,14 @@ class SimulatedAnnealing(Annealer):
                 e += self.state[key] * self.reaction_network.entries_list[key].free_energy
         return e
 
-    def anneal(self, num, allow_gas_reactions = False, xyz_dir='/Users/xiaoweixie/Desktop/Sam_production/xyzs'):
+    def anneal(self, args):
         """Minimizes the energy of a system by simulated annealing.
         Parameters
         state : an initial arrangement of the system
         Returns
         (state, energy): the best state and energy found.
         """
+        num, allow_gas_reactions,xyz_dir = args[0], args[1], args[2]
         step = 0
         self.start = time.time()
 
@@ -273,13 +275,14 @@ class SimulatedAnnealing(Annealer):
         # Return best state and energy
         return self.best_state, self.best_energy, self.fired_reactions
 
-    def anneal_custom_schedule(self, num, temperatures, allow_gas_reactions = False, xyz_dir='/Users/xiaoweixie/Desktop/Sam_production/xyzs'):
+    def anneal_custom_schedule(self, args):
         """Minimizes the energy of a system by simulated annealing.
         Parameters
         state : an initial arrangement of the system
         Returns
         (state, energy): the best state and energy found.
         """
+        num, temp, allow_gas_reactions, xyz_dir = args[0], args[1], args[2], args[3]
         step = 0
         self.start = time.time()
 
@@ -335,10 +338,10 @@ class SimulatedAnnealing(Annealer):
         # Return best state and energy
         return self.best_state, self.best_energy, self.fired_reactions
 
-def SA_multiprocess(SA, name, nums, num_processors, allow_gas_reactions = False, xyz_dir='/Users/xiaoweixie/Desktop/Sam_production/xyzs'):
+def SA_multiprocess(SA, name, num_processors, allow_gas_reactions = False, xyz_dir='/Users/xiaoweixie/Desktop/Sam_production/xyzs'):
     # name: filename to save as
     # nums: numbers of SA runs
-    args = [(i, allow_gas_reactions,xyz_dir) for i in np.arange(nums)]
+    args = [(i, allow_gas_reactions,xyz_dir) for i in np.arange(num_processors)]
     pool = Pool(num_processors)
     results = pool.map(SA.anneal, args)
     fired_reactions_all = []
@@ -357,10 +360,10 @@ def SA_multiprocess(SA, name, nums, num_processors, allow_gas_reactions = False,
 
     return
 
-def SA_multiprocess_custom_schedule(SA, name, nums, temperatures, num_processors, allow_gas_reactions = False, xyz_dir='/Users/xiaoweixie/Desktop/Sam_production/xyzs'):
+def SA_multiprocess_custom_schedule(SA, name, temp, num_processors, allow_gas_reactions = False, xyz_dir='/Users/xiaoweixie/Desktop/Sam_production/xyzs'):
     # name: filename to save as
     # nums: numbers of SA runs
-    args = [(i,temperatures,allow_gas_reactions,xyz_dir) for i in np.arange(nums)]
+    args = [(i,temp,allow_gas_reactions,xyz_dir) for i in np.arange(num_processors)]
     pool = Pool(num_processors)
     results = pool.map(SA.anneal_custom_schedule, args)
     fired_reactions_all = []
@@ -500,11 +503,11 @@ if __name__ == "__main__":
 
     SA = SimulatedAnnealing(state, RN)
     schedule = {'tmax':1e4,'tmin':0.013, 'steps':99, 'updates':100}
-    temperatures = np.tile(np.logspace(1e3,0.001,10),10)
+    temperatures = np.tile(np.logspace(3,-3,10),10)
     #SA.set_schedule(SA.auto(minutes=0.2,steps=1000))
     SA.set_schedule(schedule)
-    #SA_multiprocess(SA,'SA_multiprocess_test',2, 2)
-    itinerary, miles, fired_reactions = SA.anneal_custom_schedule(1,temperatures)
+    SA_multiprocess_custom_schedule(SA,'SA_multiprocess_test',temp=temperatures, num_processors=2,allow_gas_reactions = False, xyz_dir='/Users/xiaoweixie/Desktop/Sam_production/xyzs' )
+    #itinerary, miles, fired_reactions = SA.anneal_custom_schedule(1,temperatures)
     '''
     SA = SimulatedAnnealing(state, RN)
     SA.set_schedule(SA.auto(minutes=0.2))
