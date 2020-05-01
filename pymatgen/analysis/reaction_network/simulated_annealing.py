@@ -282,7 +282,7 @@ class SimulatedAnnealing(Annealer):
         Returns
         (state, energy): the best state and energy found.
         """
-        num, temp, allow_gas_reactions, xyz_dir = args[0], args[1], args[2], args[3]
+        num, temperatures, allow_gas_reactions, xyz_dir = args[0], args[1], args[2], args[3]
         step = 0
         self.start = time.time()
 
@@ -360,10 +360,10 @@ def SA_multiprocess(SA, name, num_processors, allow_gas_reactions = False, xyz_d
 
     return
 
-def SA_multiprocess_custom_schedule(SA, name, temp, num_processors, allow_gas_reactions = False, xyz_dir='/Users/xiaoweixie/Desktop/Sam_production/xyzs'):
+def SA_multiprocess_custom_schedule(SA, name, temperatures, num_processors, allow_gas_reactions = False, xyz_dir='/Users/xiaoweixie/Desktop/Sam_production/xyzs'):
     # name: filename to save as
     # nums: numbers of SA runs
-    args = [(i,temp,allow_gas_reactions,xyz_dir) for i in np.arange(num_processors)]
+    args = [(i,temperatures,allow_gas_reactions,xyz_dir) for i in np.arange(num_processors)]
     pool = Pool(num_processors)
     results = pool.map(SA.anneal_custom_schedule, args)
     fired_reactions_all = []
