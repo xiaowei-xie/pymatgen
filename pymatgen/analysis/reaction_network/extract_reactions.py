@@ -1,11 +1,8 @@
 from pymatgen.analysis.graphs import MoleculeGraph, MolGraphSplitError
 from atomate.qchem.database import QChemCalcDb
 from pymatgen import Molecule
-from pymatgen.analysis.reaction_network.fragment_recombination import *
-from graphviz import Digraph
+from pymatgen.analysis.reaction_network.fragment_recombination_util import *
 import copy
-from numba import jit
-from ase.units import kcal,mol,Hartree
 from itertools import combinations_with_replacement, combinations
 from pymatgen.analysis.fragmenter import open_ring
 
