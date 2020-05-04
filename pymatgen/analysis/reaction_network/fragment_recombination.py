@@ -170,6 +170,18 @@ class Fragment_Recombination:
         return struct
 
     def build_mol_graph_from_two_fragments_through_rdkit(self, frag1, frag2, index1, index2, gen_3d=True):
+        '''
+        Build a recombined mol graph given two fragment mol graphs and the atom indices to recombine.
+        This is through rdkit to create 3d structure.
+        TODO: Generate 3d not working if Li has valence >= 2, O has valence >= 3 etc.
+
+        :param frag1 (MoleculeGraph): fragment1
+        :param frag2 (MoleculeGraph): fragment2
+        :param index1 (int): atom index in fragment1
+        :param index2 (int): atom index in fragment2
+        :param gen_3d (bool): whether to generate 3d structure
+        :return: (MoleculeGraph) recombined mol graph
+        '''
 
         rmol = self.get_combined_rmol(frag1, frag2, index1, index2, gen_3d)
         graph = nx.MultiDiGraph(edge_weight_name="bond_length",
@@ -217,6 +229,16 @@ class Fragment_Recombination:
         return MoleculeGraph(new_mol, graph_data=graph_data)
 
     def build_mol_graph_from_two_fragments_through_schrodinger(self, frag1, frag2, index1, index2, gen_3d=True):
+        '''
+        Build a recombined mol graph given two fragment mol graphs and the atom indices to recombine.
+        This is through schrodinger to create 3d structure.
+        :param frag1 (MoleculeGraph): fragment1
+        :param frag2 (MoleculeGraph): fragment2
+        :param index1 (int): atom index in fragment1
+        :param index2 (int): atom index in fragment2
+        :param gen_3d (bool): whether to generate 3d structure
+        :return: (MoleculeGraph) recombined mol graph
+        '''
 
         structure = self.get_combined_schrodinger_structure(frag1, frag2, index1, index2, gen_3d)
         graph = nx.MultiDiGraph(edge_weight_name="bond_length",
