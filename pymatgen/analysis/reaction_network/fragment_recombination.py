@@ -535,13 +535,15 @@ class Fragment_Recombination:
             mol_ind1, mol_ind2, atom_ind1, atom_ind2 = int(inds[0]), int(inds[1]), int(inds[2]), int(inds[3])
             recomb_mol_graph = self.build_mol_graph_from_two_fragments_through_schrodinger(
                 self.mol_graphs[mol_ind1], self.mol_graphs[mol_ind2], atom_ind1, atom_ind2, True)
+            found = False
             for i, mol_graph in enumerate(self.recomb_mol_graphs):
                 if (mol_graph.molecule.composition.alphabetical_formula == recomb_mol_graph.molecule.composition.alphabetical_formula) and \
                     mol_graph.isomorphic_to(recomb_mol_graph):
                     self.recomb_dict[key] = i
-                else:
-                    self.recomb_dict[key] = len(self.recomb_mol_graphs)
-                    self.recomb_mol_graphs.append(recomb_mol_graph)
+                    found = True
+            if not found:
+                self.recomb_dict[key] = len(self.recomb_mol_graphs)
+                self.recomb_mol_graphs.append(recomb_mol_graph)
         dumpfn(self.recomb_dict,'recomb_dict.json')
 
         return
