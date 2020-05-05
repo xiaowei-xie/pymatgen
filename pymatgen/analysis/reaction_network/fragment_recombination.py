@@ -546,8 +546,7 @@ class Fragment_Recombination:
         '''
         self.structs = [self.get_structure(mol_graph) for mol_graph in self.mol_graphs]
         assert len(self.structs) == len(self.mol_graphs)
-        if not os.path.isdir(sdf_path):
-            os.mkdir(sdf_path)
+
         keys = self.generate_all_combinations_for_pymatgen(self.mol_graphs)
 
         self.recomb_mol_graphs = []
