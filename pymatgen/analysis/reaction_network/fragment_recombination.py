@@ -124,7 +124,7 @@ class Fragment_Recombination:
 
         return rmol
 
-    def get_combined_schrodinger_structure(self, frag1, frag2, index1, index2, gen_3d=True):
+    def get_combined_schrodinger_structure(self, frag1, frag2, index1, index2, gen_3d=True, path='sdf_files'):
         '''
         Make a direct recombination of two mol_graphs and add a bond between atom index1 in frag1 and atom index2 in frag2.
         Output a rdkit Mol.
@@ -223,7 +223,7 @@ class Fragment_Recombination:
         :param index1 (int): atom index in fragment1
         :param index2 (int): atom index in fragment2
         :param gen_3d (bool): whether to generate 3d structure
-        :return: (MoleculeGraph) recombined mol graph
+        :return: (MoleculeGraph) recombined mol graph, structure(schrodinger.Structure)
         '''
 
         structure = self.get_combined_schrodinger_structure(frag1, frag2, index1, index2, gen_3d)
@@ -269,7 +269,7 @@ class Fragment_Recombination:
 
         new_mol = Molecule(species=species, coords=coords)
 
-        return MoleculeGraph(new_mol, graph_data=graph_data)
+        return MoleculeGraph(new_mol, graph_data=graph_data), structure
 
     def identify_connectable_heavy_atoms_for_rdkit(self,mols):
         '''
@@ -517,14 +517,15 @@ class Fragment_Recombination:
 
         return
 
-    def recombine_between_mol_graphs_through_schrodinger(self):
+    def recombine_between_mol_graphs_through_schrodinger(self, sdf_path='recomb_sdf'):
         '''
         Generate all possible recombined mol_graphs from a list of mol_graphs through Schrodinger (to generate 3d structures).
         :param mol_graphs: [MoleculeGraph]
         :return: recomb_mol_graphs: [MoleculeGraph],
         recomb_dict: {'mol1_index'+'_'+'mol2_index'+'_'+'atom1_index'+'_'+'atom2_index': mol_graph index in the previous list}.
         '''
-
+        if not os.path.isdir(sdf_path):
+            os.mkdir(sdf_path)
         keys = self.generate_all_combinations_for_pymatgen(self.mol_graphs)
 
         self.recomb_mol_graphs = []
@@ -533,9 +534,10 @@ class Fragment_Recombination:
             print(key)
             inds = key.split('_')
             mol_ind1, mol_ind2, atom_ind1, atom_ind2 = int(inds[0]), int(inds[1]), int(inds[2]), int(inds[3])
-            recomb_mol_graph = self.build_mol_graph_from_two_fragments_through_schrodinger(
+            recomb_mol_graph, recomb_struct = self.build_mol_graph_from_two_fragments_through_schrodinger(
                 self.mol_graphs[mol_ind1], self.mol_graphs[mol_ind2], atom_ind1, atom_ind2, True)
             found = False
+            recomb_struct.write(os.path.join(sdf_path, key+'.sdf'))
             for i, mol_graph in enumerate(self.recomb_mol_graphs):
                 if (mol_graph.molecule.composition.alphabetical_formula == recomb_mol_graph.molecule.composition.alphabetical_formula) and \
                     mol_graph.isomorphic_to(recomb_mol_graph):
@@ -590,7 +592,7 @@ if __name__== '__main__':
     LiEC_neutral_graph = MoleculeGraph.with_local_env_strategy(LiEC_neutral, OpenBabelNN(),
                                                                reorder=False,
                                                                extend_structure=False)
-    LiEC_neutral_graph = metal_edge_extender(LiEC_neutral_graph)
+    #LiEC_neutral_graph = metal_edge_extender(LiEC_neutral_graph)
 
     Li = Molecule.from_file('/Users/xiaoweixie/PycharmProjects/electrolyte/reaction_mechanism_final_3/Li.xyz')
     Li_graph = MoleculeGraph.with_local_env_strategy(Li, OpenBabelNN(),
@@ -637,7 +639,9 @@ if __name__== '__main__':
                 found = True
         if not found:
             unique_frags.append(frag)
-
+    for i,mol_graph in enumerate(unique_frags):
+        mol_graph.molecule.to('xyz','/Users/xiaoweixie/pymatgen/pymatgen/analysis/reaction_network/recombination/mgcf/orig_frags/'+str(i)+'.xyz')
+    '''
     FR = Fragment_Recombination(unique_frags)
     # FR.remove_Li_bonds()
     # FR.recombine_between_mol_graphs()
@@ -657,6 +661,6 @@ if __name__== '__main__':
     #
     w = Chem.SDWriter('/Users/xiaoweixie/pymatgen/pymatgen/analysis/reaction_network/recombination/test_mols/output_mono_uff.sdf')
     w.write(rmol)
-    w.flush()
+    w.flush()'''
 
 
