@@ -44,6 +44,8 @@ class Fragment_Recombination:
 
     def remove_Li_bonds(self):
         '''
+        Only for recombination through rdkit.
+        TODO: Still not working. rdkit does not allow extra valence for other elements either.
         If Li is bonded to more than one atom, need to remove extra bonds b/c this will cause a problem for generating 3d structure from uff.
         '''
         mol_graphs_new = []
@@ -88,6 +90,24 @@ class Fragment_Recombination:
         rmol = em.GetMol()
 
         return rmol
+
+    def get_structure(self, mol_graph):
+        '''
+        Convert a mol graph to a schrodinger structure, with the 3d coords information.
+        :param mol_graph: MoleculeGraph
+        :return: [schrodinger.structure]
+        '''
+        from schrodinger import structure
+        struct = structure.create_new_structure(num_atoms=0)
+        for site in mol_graph.molecule:
+            symbol = site.specie.name
+            coords = site.coords
+            struct.addAtom(symbol,coords[0],coords[1],coords[2])
+
+        for edge in mol_graph.graph.edges.data():
+            struct.addBond(edge[0]+1,edge[1]+1,1)
+
+        return struct
 
     def get_combined_rmol(self, frag1, frag2, index1, index2, gen_3d=True):
         '''
@@ -517,18 +537,21 @@ class Fragment_Recombination:
 
         return
 
-    def recombine_between_mol_graphs_through_schrodinger(self, sdf_path='recomb_sdf', save_name='recomb_dict'):
+    def recombine_between_mol_graphs_through_schrodinger(self, sdf_name='recomb_mols', recomb_name='recomb_dict'):
         '''
         Generate all possible recombined mol_graphs from a list of mol_graphs through Schrodinger (to generate 3d structures).
         :param mol_graphs: [MoleculeGraph]
         :return: recomb_mol_graphs: [MoleculeGraph],
         recomb_dict: {'mol1_index'+'_'+'mol2_index'+'_'+'atom1_index'+'_'+'atom2_index': mol_graph index in the previous list}.
         '''
+        self.structs = [self.get_structure(mol_graph) for mol_graph in self.mol_graphs]
+        assert len(self.structs) == len(self.mol_graphs)
         if not os.path.isdir(sdf_path):
             os.mkdir(sdf_path)
         keys = self.generate_all_combinations_for_pymatgen(self.mol_graphs)
 
         self.recomb_mol_graphs = []
+        self.recomb_structs = []
         self.recomb_dict = {}
         for key in keys:
             print(key)
@@ -537,24 +560,33 @@ class Fragment_Recombination:
             recomb_mol_graph, recomb_struct = self.build_mol_graph_from_two_fragments_through_schrodinger(
                 self.mol_graphs[mol_ind1], self.mol_graphs[mol_ind2], atom_ind1, atom_ind2, True)
             found = False
-            recomb_struct.write(os.path.join(sdf_path, key+'.sdf'))
+            #recomb_struct.write(os.path.join(sdf_path, key+'.sdf'))
             for i, mol_graph in enumerate(self.recomb_mol_graphs):
                 if (mol_graph.molecule.composition.alphabetical_formula == recomb_mol_graph.molecule.composition.alphabetical_formula) and \
                     mol_graph.isomorphic_to(recomb_mol_graph):
-                    self.recomb_dict[key] = i
+                    self.recomb_dict[key] = i + len(self.mol_graphs)
                     found = True
             if not found:
-                self.recomb_dict[key] = len(self.recomb_mol_graphs)
+                self.recomb_dict[key] = len(self.recomb_mol_graphs) + len(self.mol_graphs)
                 self.recomb_mol_graphs.append(recomb_mol_graph)
-        dumpfn(self.recomb_dict,save_name+'.json')
+                self.recomb_structs.append(recomb_struct)
+        dumpfn(self.recomb_dict,recomb_name+'.json')
+        assert len(self.recomb_structs) == len(self.recomb_mol_graphs)
 
+        self.total_mol_graphs = self.mol_graphs + self.recomb_mol_graphs
+        self.total_structs = self.structs + self.recomb_structs
+
+        with structure.StructureWriter(sdf_name+".sdf") as writer:
+            for st in self.total_structs:
+                writer.append(st)
         return
 
-    def to_xyz(self, path='recombination/recomb_mols'):
-        if not os.path.isdir(path):
-            os.mkdir(path)
-        for i, mol_graph in enumerate(self.recomb_mol_graphs):
-            mol_graph.molecule.to('xyz',os.path.join(path, str(i)+'.xyz'))
+    def to_xyz(self, recomb_path='recomb_mols'):
+        if not os.path.isdir(recomb_path):
+            os.mkdir(recomb_path)
+        for i, mol_graph in enumerate(self.total_mol_graphs):
+            mol_graph.molecule.to('xyz',os.path.join(recomb_path, str(i)+'.xyz'))
+
 
     def visualize_obmol(self,obmol):
         for i in range(obmol.NumAtoms()):
@@ -639,8 +671,8 @@ if __name__== '__main__':
                 found = True
         if not found:
             unique_frags.append(frag)
-    for i,mol_graph in enumerate(unique_frags):
-        mol_graph.molecule.to('xyz','/Users/xiaoweixie/pymatgen/pymatgen/analysis/reaction_network/recombination/mgcf/orig_frags/'+str(i)+'.xyz')
+    # for i,mol_graph in enumerate(unique_frags):
+    #     mol_graph.molecule.to('xyz','/Users/xiaoweixie/pymatgen/pymatgen/analysis/reaction_network/recombination/mgcf/orig_frags/'+str(i)+'.xyz')
     '''
     FR = Fragment_Recombination(unique_frags)
     # FR.remove_Li_bonds()
