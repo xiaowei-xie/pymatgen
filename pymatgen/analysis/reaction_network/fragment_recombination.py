@@ -517,7 +517,7 @@ class Fragment_Recombination:
 
         return
 
-    def recombine_between_mol_graphs_through_schrodinger(self, sdf_path='recomb_sdf'):
+    def recombine_between_mol_graphs_through_schrodinger(self, sdf_path='recomb_sdf', save_name='recomb_dict'):
         '''
         Generate all possible recombined mol_graphs from a list of mol_graphs through Schrodinger (to generate 3d structures).
         :param mol_graphs: [MoleculeGraph]
@@ -546,7 +546,7 @@ class Fragment_Recombination:
             if not found:
                 self.recomb_dict[key] = len(self.recomb_mol_graphs)
                 self.recomb_mol_graphs.append(recomb_mol_graph)
-        dumpfn(self.recomb_dict,'recomb_dict.json')
+        dumpfn(self.recomb_dict,save_name+'.json')
 
         return
 
