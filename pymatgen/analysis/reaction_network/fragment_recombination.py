@@ -574,7 +574,8 @@ class Fragment_Recombination:
 
         self.total_mol_graphs = self.mol_graphs + self.recomb_mol_graphs
         self.total_structs = self.structs + self.recomb_structs
-
+        
+        from schrodinger import structure
         with structure.StructureWriter(sdf_name+".sdf") as writer:
             for st in self.total_structs:
                 writer.append(st)
