@@ -870,22 +870,22 @@ if __name__== '__main__':
     w.write(rmol)
     w.flush()'''
 
-LiH = Molecule.from_file('/Users/xiaoweixie/Desktop/Sam_production/xyzs/LiH.xyz')
-LiH_graph = MoleculeGraph.with_local_env_strategy(
-    LiH,
-    OpenBabelNN(),
-    reorder=False,
-    extend_structure=False)
+    LiH = Molecule.from_file('/Users/xiaoweixie/Desktop/Sam_production/xyzs/LiH.xyz')
+    LiH_graph = MoleculeGraph.with_local_env_strategy(
+        LiH,
+        OpenBabelNN(),
+        reorder=False,
+        extend_structure=False)
 
 
-path = '/Users/xiaoweixie/pymatgen/pymatgen/analysis/reaction_network/recombination/mgcf/test1/recomb_mols/'
-for i in range(5258):
-    mol = Molecule.from_file(path+str(i)+'.xyz')
-    mol_graph = MoleculeGraph.with_local_env_strategy(
-    mol,
-    OpenBabelNN(),
-    reorder=False,
-    extend_structure=False)
-    if mol_graph.molecule.composition.alphabetical_formula == LiH.composition.alphabetical_formula:
-        if mol_graph.isomorphic_to(LiH_graph):
-            print(i)
+    path = '/Users/xiaoweixie/pymatgen/pymatgen/analysis/reaction_network/recombination/mgcf/test1/recomb_mols/'
+    for i in range(5258):
+        mol = Molecule.from_file(path+str(i)+'.xyz')
+        mol_graph = MoleculeGraph.with_local_env_strategy(
+        mol,
+        OpenBabelNN(),
+        reorder=False,
+        extend_structure=False)
+        if mol_graph.molecule.composition.alphabetical_formula == LiH.composition.alphabetical_formula:
+            if mol_graph.isomorphic_to(LiH_graph):
+                print(i)
