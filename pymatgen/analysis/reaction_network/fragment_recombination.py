@@ -723,17 +723,20 @@ class Fragment_Recombination:
                             if self.opt_to_orig_keys[j] == int(mol_ind2):
                                 charge2 = mol_graph2.molecule.charge
                                 fragments = sorted([i,j])
-                                if charge1 + charge2 == 1:
-                                    reactant = self.recomb_dict[key]
-                                elif charge1 + charge2 == 0:
-                                    reactant = self.recomb_dict[key] + len(self.recomb_structs)
-                                elif charge1 + charge2 == -1:
-                                    reactant = self.recomb_dict[key] + 2*len(self.recomb_structs)
-                                reactant_fragments = [reactant] + fragments
-                                if reactant_fragments not in self.all_reactions:
-                                    self.all_reactions.append(reactant_fragments)
-                                    filewriter.writerow(reactant_fragments)
-                                    self.new_recomb_dict[str(i)+"_"+str(j)+"_"+atom_ind1+"_"+atom_ind2] = reactant
+                                if charge1 + charge2 in [-1,0,1]:
+                                    if charge1 + charge2 == 1:
+                                        reactant = self.recomb_dict[key]
+                                    elif charge1 + charge2 == 0:
+                                        reactant = self.recomb_dict[key] + len(self.recomb_structs)
+                                    elif charge1 + charge2 == -1:
+                                        reactant = self.recomb_dict[key] + 2*len(self.recomb_structs)
+                                    reactant_fragments = [reactant] + fragments
+                                    if reactant_fragments not in self.all_reactions:
+                                        self.all_reactions.append(reactant_fragments)
+                                        filewriter.writerow(reactant_fragments)
+                                        self.new_recomb_dict[str(i)+"_"+str(j)+"_"+atom_ind1+"_"+atom_ind2] = reactant
+                                else:
+                                    continue
         print('Total number of reactions:',len(self.all_reactions))
         dumpfn(self.new_recomb_dict, recomb_dict_name+'.json')
         return
