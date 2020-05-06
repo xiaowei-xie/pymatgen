@@ -18,6 +18,8 @@ from rdkit import Chem
 import networkx as nx
 from networkx.readwrite import json_graph
 from rdkit.Chem import AllChem
+from atomate.qchem.database import QChemCalcDb
+from pymatgen.entries.mol_entry import MoleculeEntry
 
 __author__ = "Xiaowei Xie"
 __copyright__ = "Copyright 2020, The Materials Project"
@@ -40,6 +42,73 @@ class Fragment_Recombination:
         :param mol_graphs: [MoleculeGraph]
         '''
         self.mol_graphs = mol_graphs
+        return
+
+    def query_database(self,db_file="/Users/xiaoweixie/Desktop/sam_db.json", save=False, entries_name="smd_target_entries"):
+        mmdb = QChemCalcDb.from_db_file(db_file, admin=True)
+        self.target_entries = list(mmdb.collection.find({"environment": "smd_18.5,1.415,0.00,0.735,20.2,0.00,0.00"}))
+        print(len(self.target_entries), "production entries")
+        if save:
+            dumpfn(self.target_entries,entries_name+".json")
+        return
+
+    def get_optimized_structures(self,energy_dict_name='free_energy_dict',
+                                 opt_to_orig_dict_name='opt_to_orig_index_dict',
+                                 load_entries=False, entries_name="smd_target_entries"):
+        '''
+        For getting optimized structures that are isomorphic to provided mol graphs in the mongodb database.
+        Need to call this before recombination.
+        :return: self.opt_mol_graphs
+        '''
+        # Make a dict that provides the map between optimized structures in self.opt_mol_graphs and
+        # original mol graphs in self.mol_graphs. {opt_mol_graph index: mol_graph index}.
+        self.opt_to_orig_keys = {}
+        self.opt_mol_graphs = []
+        info_dict = {}
+        for i in range(len(self.mol_graphs)):
+            info_dict[i] = {}
+            info_dict[i][1] = {"index":None, "free_energy":1e8}
+            info_dict[i][-1] = {"index": None, "free_energy": 1e8}
+            info_dict[i][0] = {"index": None, "free_energy": 1e8}
+        if load_entries:
+            self.target_entries = loadfn(entries_name+".json")
+        for i, entry in enumerate(self.target_entries):
+            for j, mol_graph in enumerate(self.mol_graphs):
+                if "mol_graph" in entry:
+                    mol_entry = MoleculeEntry(molecule=Molecule.from_dict(entry["molecule"]),
+                                              energy=entry["energy_Ha"],
+                                              mol_doc={"mol_graph": MoleculeGraph.from_dict(entry["mol_graph"]),
+                                                       "enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
+                                                       "entropy_cal/molK": entry["entropy_cal/molK"],
+                                                       "task_id": entry["task_id"]})
+                    if mol_entry.molecule.composition.alphabetical_formula == mol_graph.molecule.composition.alphabetical_formula:
+                        mol_graph_in_db = mol_entry.mol_graph
+                        total_charge = mol_entry.charge
+                        if mol_graph_in_db.isomorphic_to(mol_graph):
+                            free_energy = mol_entry.free_energy
+                            if free_energy < info_dict[j][total_charge]["free_energy"]:
+                                info_dict[j][total_charge]["free_energy"] = free_energy
+                                info_dict[j][total_charge]["index"] = i
+        total_charges = [1,0,-1]
+        self.free_energy_dict = {}
+        # keys of self.free_energy_dict correspond to indices in self.opt_mol_graphs
+        for key in info_dict.keys():
+            for charge in total_charges:
+                if info_dict[key][charge]["index"] != None:
+                    index = info_dict[key][charge]["index"]
+                    entry = self.target_entries[index]
+                    mol_entry = MoleculeEntry(molecule=Molecule.from_dict(entry["molecule"]),
+                                              energy=entry["energy_Ha"],
+                                              mol_doc={"mol_graph": MoleculeGraph.from_dict(entry["mol_graph"]),
+                                                       "enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
+                                                       "entropy_cal/molK": entry["entropy_cal/molK"],
+                                                       "task_id": entry["task_id"]})
+                    opt_mol_graph = mol_entry.mol_graph
+                    self.free_energy_dict[len(self.opt_mol_graphs)] = mol_entry.free_energy
+                    self.opt_to_orig_keys[len(self.opt_mol_graphs)] = key
+                    self.opt_mol_graphs.append(opt_mol_graph)
+        dumpfn(self.free_energy_dict, energy_dict_name+".json")
+        dumpfn(self.opt_to_orig_keys, opt_to_orig_dict_name + ".json")
         return
 
     def remove_Li_bonds(self):
@@ -144,7 +213,7 @@ class Fragment_Recombination:
 
         return rmol
 
-    def get_combined_schrodinger_structure(self, frag1, frag2, index1, index2, gen_3d=True, path='sdf_files'):
+    def get_combined_schrodinger_structure(self, frag1, frag2, index1, index2, gen_3d=True):
         '''
         Make a direct recombination of two mol_graphs and add a bond between atom index1 in frag1 and atom index2 in frag2.
         Output a rdkit Mol.
@@ -537,15 +606,15 @@ class Fragment_Recombination:
 
         return
 
-    def recombine_between_mol_graphs_through_schrodinger(self, sdf_name='recomb_mols', recomb_name='recomb_dict'):
+    def recombine_between_mol_graphs_through_schrodinger(self):
         '''
         Generate all possible recombined mol_graphs from a list of mol_graphs through Schrodinger (to generate 3d structures).
         :param mol_graphs: [MoleculeGraph]
         :return: recomb_mol_graphs: [MoleculeGraph],
         recomb_dict: {'mol1_index'+'_'+'mol2_index'+'_'+'atom1_index'+'_'+'atom2_index': mol_graph index in the previous list}.
         '''
-        self.structs = [self.get_structure(mol_graph) for mol_graph in self.mol_graphs]
-        assert len(self.structs) == len(self.mol_graphs)
+        self.opt_structs = [self.get_structure(mol_graph) for mol_graph in self.opt_mol_graphs]
+        assert len(self.opt_structs) == len(self.opt_mol_graphs)
 
         keys = self.generate_all_combinations_for_pymatgen(self.mol_graphs)
 
@@ -563,22 +632,75 @@ class Fragment_Recombination:
             for i, mol_graph in enumerate(self.recomb_mol_graphs):
                 if (mol_graph.molecule.composition.alphabetical_formula == recomb_mol_graph.molecule.composition.alphabetical_formula) and \
                     mol_graph.isomorphic_to(recomb_mol_graph):
-                    self.recomb_dict[key] = i + len(self.mol_graphs)
+                    self.recomb_dict[key] = i + len(self.opt_mol_graphs)
                     found = True
             if not found:
-                self.recomb_dict[key] = len(self.recomb_mol_graphs) + len(self.mol_graphs)
+                self.recomb_dict[key] = len(self.recomb_mol_graphs) + len(self.opt_mol_graphs)
                 self.recomb_mol_graphs.append(recomb_mol_graph)
                 self.recomb_structs.append(recomb_struct)
-        dumpfn(self.recomb_dict,recomb_name+'.json')
+        #dumpfn(self.recomb_dict,recomb_name+'.json')
         assert len(self.recomb_structs) == len(self.recomb_mol_graphs)
 
-        self.total_mol_graphs = self.mol_graphs + self.recomb_mol_graphs
-        self.total_structs = self.structs + self.recomb_structs
-        
+        return
+
+    def generate_files_for_BDE_prediction(self,sdf_name='recomb_mols', charge_file_name='total_charges',
+                                          reaction_file_name='reactions', recomb_dict_name='recomb_dict'):
+        '''
+        This is for integrating with Mingjian's model for predicting bond dissociation energies.
+        Each recombined structure has to be repeated 3 times for different charge states.
+        Write sdf file for all structures in self.total_structs.
+        :return:
+        '''
+        import csv
         from schrodinger import structure
-        with structure.StructureWriter(sdf_name+".sdf") as writer:
+        self.total_mol_graphs = self.opt_mol_graphs + self.recomb_mol_graphs + self.recomb_mol_graphs + self.recomb_mol_graphs
+        self.total_structs = self.opt_structs + self.recomb_structs + self.recomb_structs + self.recomb_structs
+        self.total_charges = []
+        for i, mol_graph in enumerate(self.opt_mol_graphs):
+            charge = mol_graph.molecule.charge
+            self.total_charges.append(charge)
+        self.total_charges += [1] * len(self.recomb_structs)
+        self.total_charges += [0] * len(self.recomb_structs)
+        self.total_charges += [-1] * len(self.recomb_structs)
+        assert len(self.total_charges) == len(self.total_structs) == len(self.total_mol_graphs)
+        with structure.StructureWriter(sdf_name + ".sdf") as writer:
             for st in self.total_structs:
                 writer.append(st)
+
+        f = open(charge_file_name, "w")
+        for charge in self.total_charges:
+            f.write(str(charge)+"\n")
+        f.close()
+
+        self.all_reactions = []
+        self.new_recomb_dict = {}
+        with open(reaction_file_name+".csv", "w") as csvfile:
+            filewriter = csv.writer(csvfile, delimiter=',',
+                                    quotechar='|', quoting=csv.QUOTE_MINIMAL)
+            filewriter.writerow(
+                ["reactant", "fragment1", "fragment2"])
+            for key in self.recomb_dict.keys():
+                mol_ind1, mol_ind2, atom_ind1, atom_ind2 = key.split('_')
+                for i, mol_graph1 in enumerate(self.opt_mol_graphs):
+                    if self.opt_to_orig_keys[i] == int(mol_ind1):
+                        charge1 = mol_graph1.molecule.charge
+                        for j, mol_graph2 in enumerate(self.opt_mol_graphs):
+                            if self.opt_to_orig_keys[j] == int(mol_ind2):
+                                charge2 = mol_graph2.molecule.charge
+                                fragments = sorted([i,j])
+                                if charge1 + charge2 == 1:
+                                    reactant = self.recomb_dict[key]
+                                elif charge1 + charge2 == 0:
+                                    reactant = self.recomb_dict[key] + len(self.recomb_structs)
+                                elif charge1 + charge2 == -1:
+                                    reactant = self.recomb_dict[key] + 2*len(self.recomb_structs)
+                                reactant_fragments = [reactant] + fragments
+                                if reactant_fragments not in self.all_reactions:
+                                    self.all_reactions.append(reactant_fragments)
+                                    filewriter.writerow(reactant_fragments)
+                                    self.new_recomb_dict[str(i)+"_"+str(j)+"_"+atom_ind1+"_"+atom_ind2] = reactant
+        print('Total number of reactions:',len(self.all_reactions))
+        dumpfn(self.new_recomb_dict, recomb_dict_name+'.json')
         return
 
     def to_xyz(self, recomb_path='recomb_mols'):
@@ -624,7 +746,7 @@ if __name__== '__main__':
     LiEC_neutral_graph = MoleculeGraph.with_local_env_strategy(LiEC_neutral, OpenBabelNN(),
                                                                reorder=False,
                                                                extend_structure=False)
-    #LiEC_neutral_graph = metal_edge_extender(LiEC_neutral_graph)
+    LiEC_neutral_graph_extender = metal_edge_extender(LiEC_neutral_graph)
 
     Li = Molecule.from_file('/Users/xiaoweixie/PycharmProjects/electrolyte/reaction_mechanism_final_3/Li.xyz')
     Li_graph = MoleculeGraph.with_local_env_strategy(Li, OpenBabelNN(),
@@ -646,7 +768,7 @@ if __name__== '__main__':
                                                         reorder=False,
                                                         extend_structure=False)
 
-    fragments = [LiEC_neutral_graph, LPF6_graph, water_graph]
+    fragments = [LiEC_neutral_graph, LiEC_neutral_graph_extender, LPF6_graph, water_graph]
 
     fragmenter = Fragmenter(LiEC_neutral, depth=2,open_rings=True, use_metal_edge_extender=False)
     for i, key in enumerate(fragmenter.unique_frag_dict.keys()):
@@ -673,8 +795,10 @@ if __name__== '__main__':
             unique_frags.append(frag)
     # for i,mol_graph in enumerate(unique_frags):
     #     mol_graph.molecule.to('xyz','/Users/xiaoweixie/pymatgen/pymatgen/analysis/reaction_network/recombination/mgcf/orig_frags/'+str(i)+'.xyz')
-    '''
+
     FR = Fragment_Recombination(unique_frags)
+    FR.query_database(save=True)
+    '''
     # FR.remove_Li_bonds()
     # FR.recombine_between_mol_graphs()
     # FR.to_xyz()
