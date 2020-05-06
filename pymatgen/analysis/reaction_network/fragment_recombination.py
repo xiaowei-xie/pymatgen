@@ -110,21 +110,38 @@ class Fragment_Recombination:
         total_charges = [1,0,-1]
         self.free_energy_dict = {}
         # keys of self.free_energy_dict correspond to indices in self.opt_mol_graphs
-        for key in info_dict.keys():
-            for charge in total_charges:
-                if info_dict[key][charge]["index"] != None:
-                    index = info_dict[key][charge]["index"]
-                    entry = self.target_entries[index]
-                    mol_entry = MoleculeEntry(molecule=Molecule.from_dict(entry["molecule"]),
-                                              energy=entry["energy_Ha"],
-                                              mol_doc={"mol_graph": MoleculeGraph.from_dict(entry["mol_graph"]),
-                                                       "enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
-                                                       "entropy_cal/molK": entry["entropy_cal/molK"],
-                                                       "task_id": entry["task_id"]})
-                    opt_mol_graph = mol_entry.mol_graph
-                    self.free_energy_dict[len(self.opt_mol_graphs)] = mol_entry.free_energy
-                    self.opt_to_orig_keys[len(self.opt_mol_graphs)] = key
-                    self.opt_mol_graphs.append(opt_mol_graph)
+        if load_entries:
+            for key in info_dict.keys():
+                for charge in total_charges:
+                    if info_dict[key][charge]["index"] != None:
+                        index = info_dict[key][charge]["index"]
+                        entry = self.target_entries[index]
+                        mol_entry = MoleculeEntry(molecule=entry["molecule"],
+                                                  energy=entry["energy_Ha"],
+                                                  mol_doc={"mol_graph": entry["mol_graph"],
+                                                           "enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
+                                                           "entropy_cal/molK": entry["entropy_cal/molK"],
+                                                           "task_id": entry["task_id"]})
+                        opt_mol_graph = mol_entry.mol_graph
+                        self.free_energy_dict[len(self.opt_mol_graphs)] = mol_entry.free_energy
+                        self.opt_to_orig_keys[len(self.opt_mol_graphs)] = key
+                        self.opt_mol_graphs.append(opt_mol_graph)
+        else:
+            for key in info_dict.keys():
+                for charge in total_charges:
+                    if info_dict[key][charge]["index"] != None:
+                        index = info_dict[key][charge]["index"]
+                        entry = self.target_entries[index]
+                        mol_entry = MoleculeEntry(molecule=Molecule.from_dict(entry["molecule"]),
+                                                  energy=entry["energy_Ha"],
+                                                  mol_doc={"mol_graph": MoleculeGraph.from_dict(entry["mol_graph"]),
+                                                           "enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
+                                                           "entropy_cal/molK": entry["entropy_cal/molK"],
+                                                           "task_id": entry["task_id"]})
+                        opt_mol_graph = mol_entry.mol_graph
+                        self.free_energy_dict[len(self.opt_mol_graphs)] = mol_entry.free_energy
+                        self.opt_to_orig_keys[len(self.opt_mol_graphs)] = key
+                        self.opt_mol_graphs.append(opt_mol_graph)
         dumpfn(self.free_energy_dict, energy_dict_name+".json")
         dumpfn(self.opt_to_orig_keys, opt_to_orig_dict_name + ".json")
         return
