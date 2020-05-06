@@ -687,9 +687,22 @@ class Fragment_Recombination:
         :return:
         '''
         import csv
-        from schrodinger import structure
+        from gnn.database.molwrapper import MoleculeWrapper
+        #from schrodinger import structure
+
         self.total_mol_graphs = self.opt_mol_graphs + self.recomb_mol_graphs + self.recomb_mol_graphs + self.recomb_mol_graphs
-        self.total_structs = self.opt_structs + self.recomb_structs + self.recomb_structs + self.recomb_structs
+        self.total_sdf_string = ""
+        for i, mol_graph in enumerate(self.total_mol_graphs):
+            MW = MoleculeWrapper()
+            MW.mol_graph = mol_graph
+            MW.pymatgen_mol = mol_graph.molecule
+            sdf_string = MW.write(message="index: "+str(i))
+            self.total_sdf_string += sdf_string
+        f = open(sdf_name, "w")
+        f.write(self.total_sdf_string)
+        f.close()
+
+        #self.total_structs = self.opt_structs + self.recomb_structs + self.recomb_structs + self.recomb_structs
         self.total_charges = []
         for i, mol_graph in enumerate(self.opt_mol_graphs):
             charge = mol_graph.molecule.charge
@@ -697,10 +710,10 @@ class Fragment_Recombination:
         self.total_charges += [1] * len(self.recomb_structs)
         self.total_charges += [0] * len(self.recomb_structs)
         self.total_charges += [-1] * len(self.recomb_structs)
-        assert len(self.total_charges) == len(self.total_structs) == len(self.total_mol_graphs)
-        with structure.StructureWriter(sdf_name + ".sdf") as writer:
-            for st in self.total_structs:
-                writer.append(st)
+        assert len(self.total_charges)  == len(self.total_mol_graphs) # == len(self.total_structs)
+        # with structure.StructureWriter(sdf_name + ".sdf") as writer:
+        #     for st in self.total_structs:
+        #         writer.append(st)
 
         f = open(charge_file_name, "w")
         for charge in self.total_charges:
@@ -835,7 +848,7 @@ if __name__== '__main__':
     #     mol_graph.molecule.to('xyz','/Users/xiaoweixie/pymatgen/pymatgen/analysis/reaction_network/recombination/mgcf/orig_frags/'+str(i)+'.xyz')
 
     FR = Fragment_Recombination(unique_frags)
-    FR.query_database(save=True)
+    #FR.query_database(save=True)
     '''
     # FR.remove_Li_bonds()
     # FR.recombine_between_mol_graphs()
@@ -857,4 +870,22 @@ if __name__== '__main__':
     w.write(rmol)
     w.flush()'''
 
+LiH = Molecule.from_file('/Users/xiaoweixie/Desktop/Sam_production/xyzs/LiH.xyz')
+LiH_graph = MoleculeGraph.with_local_env_strategy(
+    LiH,
+    OpenBabelNN(),
+    reorder=False,
+    extend_structure=False)
 
+
+path = '/Users/xiaoweixie/pymatgen/pymatgen/analysis/reaction_network/recombination/mgcf/test1/recomb_mols/'
+for i in range(5258):
+    mol = Molecule.from_file(path+str(i)+'.xyz')
+    mol_graph = MoleculeGraph.with_local_env_strategy(
+    mol,
+    OpenBabelNN(),
+    reorder=False,
+    extend_structure=False)
+    if mol_graph.molecule.composition.alphabetical_formula == LiH.composition.alphabetical_formula:
+        if mol_graph.isomorphic_to(LiH_graph):
+            print(i)
