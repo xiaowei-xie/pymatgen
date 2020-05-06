@@ -71,8 +71,8 @@ class BabelMolAdaptor2(BabelMolAdaptor):
             obmol.EndModify()
 
             # FIX 1
-            obmol.SetTotalSpinMultiplicity(mol.spin_multiplicity)
-            obmol.SetTotalCharge(mol.charge)
+            #obmol.SetTotalSpinMultiplicity(mol.spin_multiplicity)
+            #obmol.SetTotalCharge(mol.charge)
 
             self._obmol = obmol
         elif isinstance(mol, ob.OBMol):
