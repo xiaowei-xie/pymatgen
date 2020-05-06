@@ -20,6 +20,7 @@ from networkx.readwrite import json_graph
 from rdkit.Chem import AllChem
 from atomate.qchem.database import QChemCalcDb
 from pymatgen.entries.mol_entry import MoleculeEntry
+from pymatgen.analysis.reaction_network.utils import BabelMolAdaptor2, MoleculeWrapper
 
 __author__ = "Xiaowei Xie"
 __copyright__ = "Copyright 2020, The Materials Project"
@@ -687,7 +688,6 @@ class Fragment_Recombination:
         :return:
         '''
         import csv
-        from gnn.database.molwrapper import MoleculeWrapper
         #from schrodinger import structure
 
         self.total_mol_graphs = self.opt_mol_graphs + self.recomb_mol_graphs + self.recomb_mol_graphs + self.recomb_mol_graphs
