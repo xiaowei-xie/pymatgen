@@ -16,7 +16,6 @@ from pymatgen import Molecule
 from pymatgen.analysis.fragmenter import metal_edge_extender
 
 """
-
 """
 
 __author__ = "Sam Blau"
@@ -29,21 +28,19 @@ __date__ = "Aug 1, 2019"
 
 class MoleculeEntry(MSONable):
     """
-
     """
 
     def __init__(self, molecule, energy, correction=0.0, enthalpy=None, entropy=None,
-                 parameters=None, entry_id=None, attribute=None):
+                 parameters=None, entry_id=None, attribute=None, mol_doc=None):
         """
         Initializes a MoleculeEntry.
-
         Args:
             molecule (Molecule): Molecule of interest.
             energy (float): Electronic energy of the molecule in Hartree.
             correction (float): A correction to be applied to the energy.
                 This is used to modify the energy for certain analyses.
                 Defaults to 0.0.
-            enthalpy (float): Enthalpy of the molecule (kcal/mol). Defaults to None. 
+            enthalpy (float): Enthalpy of the molecule (kcal/mol). Defaults to None.
             entropy (float): Entropy of the molecule (cal/mol.K). Defaults to None.
             parameters (dict): An optional dict of parameters associated with
                 the molecule. Defaults to None.
@@ -63,12 +60,30 @@ class MoleculeEntry(MSONable):
         self.parameters = parameters if parameters else {}
         self.entry_id = entry_id
         self.attribute = attribute
+        self.mol_doc = mol_doc if mol_doc else {}
 
-        self.mol_graph = MoleculeGraph.with_local_env_strategy(self.molecule,
-                                                          OpenBabelNN(),
-                                                          reorder=False,
-                                                          extend_structure=False)
-        self.mol_graph = metal_edge_extender(self.mol_graph)
+        if self.mol_doc != {}:
+
+            self.enthalpy = self.mol_doc["enthalpy_kcal/mol"]
+            self.entropy = self.mol_doc["entropy_cal/molK"]
+            self.entry_id = self.mol_doc["task_id"]
+            if "mol_graph" in self.mol_doc:
+                if isinstance(self.mol_doc["mol_graph"], MoleculeGraph):
+                    self.mol_graph = self.mol_doc["mol_graph"]
+                else:
+                    self.mol_graph = MoleculeGraph.from_dict(self.mol_doc["mol_graph"])
+            else:
+                mol_graph = MoleculeGraph.with_local_env_strategy(self.molecule,
+                                                                  OpenBabelNN(),
+                                                                  reorder=False,
+                                                                  extend_structure=False)
+                self.mol_graph = metal_edge_extender(mol_graph)
+        else:
+            mol_graph = MoleculeGraph.with_local_env_strategy(self.molecule,
+                                                              OpenBabelNN(),
+                                                              reorder=False,
+                                                              extend_structure=False)
+            self.mol_graph = metal_edge_extender(mol_graph)
 
     @property
     def graph(self):
@@ -88,7 +103,7 @@ class MoleculeEntry(MSONable):
     @property
     def free_energy(self, temp=298.0):
         if self.enthalpy != None and self.entropy != None:
-            return self.energy*27.21139+0.0433641*self.enthalpy-temp*self.entropy*0.0000433641
+            return self.energy * 27.21139 + 0.0433641 * self.enthalpy - temp * self.entropy * 0.0000433641
         else:
             return None
 
@@ -106,9 +121,9 @@ class MoleculeEntry(MSONable):
 
     def __repr__(self):
         output = ["MoleculeEntry {} - {} - E{} - C{}".format(self.entry_id,
-                                                      self.formula,
-                                                      self.Nbonds,
-                                                      self.charge),
+                                                             self.formula,
+                                                             self.Nbonds,
+                                                             self.charge),
                   "Energy = {:.4f} Hartree".format(self.uncorrected_energy),
                   "Correction = {:.4f} Hartree".format(self.correction),
                   "Enthalpy = {:.4f} kcal/mol".format(self.enthalpy),
