@@ -698,7 +698,7 @@ class Fragment_Recombination:
             MW.pymatgen_mol = mol_graph.molecule
             sdf_string = MW.write(message="index: "+str(i))
             self.total_sdf_string += sdf_string
-        f = open(sdf_name, "w")
+        f = open(sdf_name+'.sdf', "w")
         f.write(self.total_sdf_string)
         f.close()
 
