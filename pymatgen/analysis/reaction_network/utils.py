@@ -87,7 +87,7 @@ class BabelMolAdaptor2(BabelMolAdaptor):
         self._add_and_remove_bond(mol_graph)
         return self
 
-    def add_bond(self, idx1, idx2, order=0):
+    def add_bond(self, idx1, idx2, order=1):
         """
         Add a bond to an openbabel molecule with the specified order
 
