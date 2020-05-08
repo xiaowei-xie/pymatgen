@@ -2033,7 +2033,7 @@ class ReactionNetwork(MSONable):
                 path_dict["hardest_step_deltaG"] = self.graph.nodes[path_dict["hardest_step"]]["free_energy"]
         return path_dict
 
-    def solve_prerequisites(self,starts,target,weight,max_iter=100):
+    def solve_prerequisites(self,starts,target,weight,max_iter=100,save=False, name='default'):
         PRs = {}
         self.old_solved_PRs = []
         new_solved_PRs = ["placeholder"]
@@ -2191,6 +2191,13 @@ class ReactionNetwork(MSONable):
         #     if i not in self.min_cost.keys():
         #         print('not solved:', i)
             #print(self.min_cost[i])
+        if save:
+            dumpfn(PRs, name+'_PR_paths.json')
+            dumpfn(self.min_cost, name+'_min_cost.json')
+            dumpfn(json_graph.adjacency_data(self.graph),name+'_graph.json')
+            dumpfn(self.unsolved_PRs, name+'_unsolved_PRs.json')
+            dumpfn(self.cost_from_start, name+'_cost_from_start.json')
+            dumpfn(self.old_solved_PRs, name+'_old_solved_PRs.json')
         return PRs
 
     def solve_prerequisites_wo_target(self,starts,weight,max_iter=100, save=False, name='default'):
