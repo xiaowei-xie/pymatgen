@@ -1,10 +1,11 @@
 from pymatgen.analysis.graphs import MoleculeGraph, MolGraphSplitError
 from atomate.qchem.database import QChemCalcDb
 from pymatgen import Molecule
-from pymatgen.analysis.reaction_network.fragment_recombination_util import *
 import copy
 from itertools import combinations_with_replacement, combinations
 from pymatgen.analysis.fragmenter import open_ring
+from monty.serialization import dumpfn, loadfn
+import numpy as np
 
 def convert_atomic_numbers_to_stoi_dict(atomic_numbers):
     '''
@@ -12,8 +13,8 @@ def convert_atomic_numbers_to_stoi_dict(atomic_numbers):
     :param atomic_numbers: a list of atomic numbers
     :return: {'Li':1, '110':0,'C':3,...} zero padding for non-existing elements
     '''
-    atomic_num_to_element = {1:'H',3:'Li',6:'C',8:'O',9:'F',15:'110'}
-    elements = ['H','Li','C','O','F','110']
+    atomic_num_to_element = {1:'H',3:'Li',6:'C',8:'O',9:'F',15:'P'}
+    elements = ['H','Li','C','O','F','P']
     stoi_dict = {}
 
     for num in atomic_numbers:
@@ -29,7 +30,7 @@ def convert_atomic_numbers_to_stoi_dict(atomic_numbers):
 def combine_stoi_dict(stoi_dict1, stoi_dict2):
     new_stoi_dict = {'C': stoi_dict1['C'] + stoi_dict2['C'], 'O': stoi_dict1['O'] + stoi_dict2['O'],
                      'H': stoi_dict1['H'] + stoi_dict2['H'], 'Li': stoi_dict1['Li'] + stoi_dict2['Li'],
-                     '110': stoi_dict1['110'] + stoi_dict2['110'], 'F':stoi_dict1['F'] + stoi_dict2['F']}
+                     'P': stoi_dict1['P'] + stoi_dict2['P'], 'F':stoi_dict1['F'] + stoi_dict2['F']}
     return new_stoi_dict
 
 
@@ -360,63 +361,6 @@ def identify_self_reactions_record_one_bond_breakage(mol_graph1, mol_graph2, num
             return str(is_self_reaction), one_bond_dict
     return str(is_self_reaction), one_bond_dict
 
-def identify_self_reactions_old(mol_graph1, mol_graph2):
-    '''
-    # Check if we can get to the same two fragments by breaking one bond on each of the mols.
-    # Different ring closure if they both break a bond in the ring
-    # One fragment comes from breaking a bond in the ring in another fragment
-    # Not considering breaking two bonds and forming two bonds in one mol???
-    :param mol_graph1:
-    :param mol_graph2:
-    :return: bool: is self reaction or not
-    '''
-    is_self_reaction = False
-    if len(mol_graph1.graph.edges) != 0:
-        for edge1 in mol_graph1.graph.edges:
-            bond1 = [(edge1[0], edge1[1])]
-            try:
-                frags1 = mol_graph1.split_molecule_subgraphs(bond1, allow_reverse=True)
-                if len(mol_graph2.graph.edges) != 0:
-                    for edge2 in mol_graph2.graph.edges:
-                        bond2 = [(edge2[0], edge2[1])]
-                        try:
-                            frags2 = mol_graph2.split_molecule_subgraphs(bond2, allow_reverse=True)
-                            if frags1[0].molecule.composition.alphabetical_formula == frags2[0].molecule.composition.alphabetical_formula and \
-                                    frags1[1].molecule.composition.alphabetical_formula == frags2[1].molecule.composition.alphabetical_formula:
-                                if (frags1[0].isomorphic_to(frags2[0]) and frags1[1].isomorphic_to(frags2[1])):
-                                    is_self_reaction = True
-                                    return is_self_reaction
-                            elif frags1[0].molecule.composition.alphabetical_formula == frags2[1].molecule.composition.alphabetical_formula and \
-                                    frags1[1].molecule.composition.alphabetical_formula == frags2[0].molecule.composition.alphabetical_formula:
-                                if (frags1[0].isomorphic_to(frags2[1]) and frags1[1].isomorphic_to(frags2[0])):
-                                    is_self_reaction = True
-                                    return is_self_reaction
-
-                        except MolGraphSplitError:
-                            frag2 = open_ring(mol_graph2, bond2, 10000)
-                            if frag2.molecule.composition.alphabetical_formula == mol_graph1.composition.alphabetical_formula:
-                                if frag2.isomorphic_to(mol_graph1):
-                                    is_self_reaction = True
-                                    return is_self_reaction
-
-            except MolGraphSplitError:
-                frag1 = open_ring(mol_graph1, bond1, 10000)
-                if len(mol_graph2.graph.edges) != 0:
-                    for edge2 in mol_graph2.graph.edges:
-                        bond2 = [(edge2[0], edge2[1])]
-                        try:
-                            frag2 = open_ring(mol_graph2, bond2, 10000)
-                            if frag1.molecule.composition.alphabetical_formula == frag2.composition.alphabetical_formula:
-                                if frag1.isomorphic_to(frag2):
-                                    is_self_reaction = True
-                                    return is_self_reaction
-                        except:
-                            if frag1.molecule.composition.alphabetical_formula == mol_graph2.composition.alphabetical_formula:
-                                if frag1.isomorphic_to(mol_graph2):
-                                    is_self_reaction = True
-                                    return is_self_reaction
-    return is_self_reaction
-
 def identify_reactions_AB_C(mol_graphs1, mol_graphs2):
     '''
     A + B -> C type reactions
@@ -606,238 +550,6 @@ def identify_reactions_AB_C_record_one_bond_breakage(mol_graphs1, mol_graphs2, n
             print('AB each once!')
     return str(is_reactions_AB_C), one_bond_dict
 
-
-def identify_reactions_AB_C_old(mol_graphs1, mol_graphs2):
-    '''
-    A + B -> C type reactions
-    1. single bond breakage, break C once and check if the two fragments correspond to A and B
-    2. break C twice,
-       if two fragments: check if is A and B;
-       if 3 fragments: check if A or B or A-RO or B-RO in the 3 fragments, then check if breaking the other one (A or B)
-                       can create the other 2 fragments
-    3. Is this enough???
-    :param mol_graphs1: 2 components A and B
-    :param mol_graphs2: 1 component C
-    :return: True or False
-    '''
-    is_AB_C_reaction = False
-    assert len(mol_graphs1) == 2 and len(mol_graphs2) == 1
-    if len(mol_graphs2[0].graph.edges) != 0:
-        for edge in mol_graphs2[0].graph.edges:
-            bond = [(edge[0], edge[1])]
-            try:
-                #break C only once
-                frags = mol_graphs2[0].split_molecule_subgraphs(bond, allow_reverse=True)
-                if check_same_mol_graphs(frags, mol_graphs1):
-                    is_AB_C_reaction = True
-                    return is_AB_C_reaction
-            except MolGraphSplitError:
-                continue
-
-        all_possible_fragments = break_two_bonds_in_one_mol(mol_graphs2[0])
-        for frags in all_possible_fragments:
-            if len(frags) == 2:
-                if check_same_mol_graphs(frags, mol_graphs1):
-                    is_AB_C_reaction = True
-                    return is_AB_C_reaction
-            else:
-                # len(frags) == 3
-                if check_in_list(mol_graphs1[0],frags) or \
-                    any(check_in_list(test_mol_graph, frags) for test_mol_graph in open_ring_in_one_mol(mol_graphs1[0])):
-                    if len(mol_graphs1[1].graph.edges) != 0:
-                        for edge2 in mol_graphs1[1].graph.edges:
-                            bond2 = [(edge2[0], edge2[1])]
-                            try:
-                                frags2 = mol_graphs1[1].split_molecule_subgraphs(bond2, allow_reverse=True)
-                                if check_same_mol_graphs(frags2+[mol_graphs1[0]],frags):
-                                    is_AB_C_reaction = True
-                                    return is_AB_C_reaction
-                            except MolGraphSplitError:
-                                # Have to be able to break one bond and form two fragments
-                                continue
-                elif check_in_list(mol_graphs1[1],frags) or \
-                    any(check_in_list(test_mol_graph, frags) for test_mol_graph in open_ring_in_one_mol(mol_graphs1[1])):
-                    if len(mol_graphs1[0].graph.edges) != 0:
-                        for edge2 in mol_graphs1[0].graph.edges:
-                            bond2 = [(edge2[0], edge2[1])]
-                            try:
-                                frags2 = mol_graphs1[0].split_molecule_subgraphs(bond2, allow_reverse=True)
-                                if check_same_mol_graphs(frags2+[mol_graphs1[1]],frags):
-                                    is_AB_C_reaction = True
-                                    return is_AB_C_reaction
-                            except MolGraphSplitError:
-                                # Have to be able to break one bond and form two fragments
-                                continue
-    return is_AB_C_reaction
-
-def identify_reactions_AB_CD_3_components(mol_graphs1, mol_graphs2):
-    '''
-    A + B -> A1 + A2 + B -> A1 + (A2 + B) == C + D or
-    A + B -> A + B1 + B2 -> (A + B1) + B2 == C + D
-    try break A first, one of the fragments has to be equivalent to C, then check if breaking D can create A2 and B
-    then try break B, same strategy
-    :param mol_graphs1: a list of 2 different mol graphs
-    :param mol_graphs2: a list of 2 different mol graphs
-    :return:
-    '''
-    is_3_components_reaction = False
-    A = mol_graphs1[0]
-    B = mol_graphs1[1]
-    C = mol_graphs2[0]
-    D = mol_graphs2[1]
-    if len(A.graph.edges) != 0:
-        for edge_A in A.graph.edges:
-            bond_A = [(edge_A[0], edge_A[1])]
-            try:
-                frags_A = A.split_molecule_subgraphs(bond_A, allow_reverse=True)
-                if is_equivalent(frags_A[0],C):
-                    # D should be frags_A[1] + B
-                    if len(D.graph.edges) != 0:
-                        for edge_D in D.graph.edges:
-                            bond_D = [(edge_D[0], edge_D[1])]
-                            try:
-                                frags_D = D.split_molecule_subgraphs(bond_D, allow_reverse=True)
-                                if (is_equivalent(frags_D[0],frags_A[1]) and is_ring_isomorphic(frags_D[1], B)) or \
-                                    (is_equivalent(frags_D[1], frags_A[1]) and is_ring_isomorphic(frags_D[0], B)) or \
-                                    (is_equivalent(frags_D[0], B) and is_ring_isomorphic(frags_D[1], frags_A[1])) or \
-                                        (is_equivalent(frags_D[1], B) and is_ring_isomorphic(frags_D[0], frags_A[1])):
-                                    is_3_components_reaction = True
-                                    return is_3_components_reaction
-                            except:
-                                # D must be able to be splitted into 2 fragments
-                                continue
-                elif is_equivalent(frags_A[1],C):
-                    # D should be frags_A[0] + B
-                    if len(D.graph.edges) != 0:
-                        for edge_D in D.graph.edges:
-                            bond_D = [(edge_D[0], edge_D[1])]
-                            try:
-                                frags_D = D.split_molecule_subgraphs(bond_D, allow_reverse=True)
-                                if (is_equivalent(frags_D[0], frags_A[0]) and is_ring_isomorphic(frags_D[1], B)) or \
-                                        (is_equivalent(frags_D[1], frags_A[0]) and is_ring_isomorphic(frags_D[0], B)) or \
-                                        (is_equivalent(frags_D[0], B) and is_ring_isomorphic(frags_D[1], frags_A[0])) or \
-                                        (is_equivalent(frags_D[1], B) and is_ring_isomorphic(frags_D[0], frags_A[0])):
-                                    is_3_components_reaction = True
-                                    return is_3_components_reaction
-                            except:
-                                # D must be able to be splitted into 2 fragments
-                                continue
-
-                elif is_equivalent(frags_A[1], D):
-                    # C should be frags_A[0] + B
-                    if len(C.graph.edges) != 0:
-                        for edge_C in C.graph.edges:
-                            bond_C = [(edge_C[0], edge_C[1])]
-                            try:
-                                frags_C = C.split_molecule_subgraphs(bond_C, allow_reverse=True)
-                                if (is_equivalent(frags_C[0], frags_A[0]) and is_ring_isomorphic(frags_C[1], B)) or \
-                                        (is_equivalent(frags_C[1], frags_A[0]) and is_ring_isomorphic(frags_C[0], B)) or \
-                                        (is_equivalent(frags_C[0], B) and is_ring_isomorphic(frags_C[1], frags_A[0])) or \
-                                        (is_equivalent(frags_C[1], B) and is_ring_isomorphic(frags_C[0], frags_A[0])):
-                                    is_3_components_reaction = True
-                                    return is_3_components_reaction
-                            except:
-                                # C must be able to be splitted into 2 fragments
-                                continue
-
-                elif is_equivalent(frags_A[0], D):
-                    # C should be frags_A[1] + B
-                    if len(C.graph.edges) != 0:
-                        for edge_C in C.graph.edges:
-                            bond_C = [(edge_C[0], edge_C[1])]
-                            try:
-                                frags_C = C.split_molecule_subgraphs(bond_C, allow_reverse=True)
-                                if (is_equivalent(frags_C[0], frags_A[1]) and is_ring_isomorphic(frags_C[1], B)) or \
-                                        (is_equivalent(frags_C[1], frags_A[1]) and is_ring_isomorphic(frags_C[0], B)) or \
-                                        (is_equivalent(frags_C[0], B) and is_ring_isomorphic(frags_C[1], frags_A[1])) or \
-                                        (is_equivalent(frags_C[1], B) and is_ring_isomorphic(frags_C[0], frags_A[1])):
-                                    is_3_components_reaction = True
-                                    return is_3_components_reaction
-                            except:
-                                # C must be able to be splitted into 2 fragments
-                                continue
-
-            except:
-                # A must be able to break into 2 fragments to make sure there is one fragment present in C + D
-                continue
-    # same thing for B
-    if len(B.graph.edges) != 0:
-        for edge_B in B.graph.edges:
-            bond_B = [(edge_B[0], edge_B[1])]
-            try:
-                frags_B = B.split_molecule_subgraphs(bond_B, allow_reverse=True)
-                if is_equivalent(frags_B[0],C):
-                    # D should be frags_B[1] + A
-                    if len(D.graph.edges) != 0:
-                        for edge_D in D.graph.edges:
-                            bond_D = [(edge_D[0], edge_D[1])]
-                            try:
-                                frags_D = D.split_molecule_subgraphs(bond_D, allow_reverse=True)
-                                if (is_equivalent(frags_D[0],frags_B[1]) and is_ring_isomorphic(frags_D[1], A)) or \
-                                    (is_equivalent(frags_D[1], frags_B[1]) and is_ring_isomorphic(frags_D[0], A)) or \
-                                    (is_equivalent(frags_D[0], A) and is_ring_isomorphic(frags_D[1], frags_B[1])) or \
-                                        (is_equivalent(frags_D[1], A) and is_ring_isomorphic(frags_D[0], frags_B[1])):
-                                    is_3_components_reaction = True
-                                    return is_3_components_reaction
-                            except:
-                                # D must be able to be splitted into 2 fragments
-                                continue
-                elif is_equivalent(frags_B[1],C):
-                    # D should be frags_B[0] + B
-                    if len(D.graph.edges) != 0:
-                        for edge_D in D.graph.edges:
-                            bond_D = [(edge_D[0], edge_D[1])]
-                            try:
-                                frags_D = D.split_molecule_subgraphs(bond_D, allow_reverse=True)
-                                if (is_equivalent(frags_D[0], frags_B[0]) and is_ring_isomorphic(frags_D[1], A)) or \
-                                        (is_equivalent(frags_D[1], frags_B[0]) and is_ring_isomorphic(frags_D[0], A)) or \
-                                        (is_equivalent(frags_D[0], A) and is_ring_isomorphic(frags_D[1], frags_B[0])) or \
-                                        (is_equivalent(frags_D[1], A) and is_ring_isomorphic(frags_D[0], frags_B[0])):
-                                    is_3_components_reaction = True
-                                    return is_3_components_reaction
-                            except:
-                                # D must be able to be splitted into 2 fragments
-                                continue
-
-                elif is_equivalent(frags_B[1], D):
-                    # C should be frags_B[0] + A
-                    if len(C.graph.edges) != 0:
-                        for edge_C in C.graph.edges:
-                            bond_C = [(edge_C[0], edge_C[1])]
-                            try:
-                                frags_C = C.split_molecule_subgraphs(bond_C, allow_reverse=True)
-                                if (is_equivalent(frags_C[0], frags_B[0]) and is_ring_isomorphic(frags_C[1], A)) or \
-                                        (is_equivalent(frags_C[1], frags_B[0]) and is_ring_isomorphic(frags_C[0], A)) or \
-                                        (is_equivalent(frags_C[0], A) and is_ring_isomorphic(frags_C[1], frags_B[0])) or \
-                                        (is_equivalent(frags_C[1], A) and is_ring_isomorphic(frags_C[0], frags_B[0])):
-                                    is_3_components_reaction = True
-                                    return is_3_components_reaction
-                            except:
-                                # C must be able to be splitted into 2 fragments
-                                continue
-
-                elif is_equivalent(frags_B[0], D):
-                    # C should be frags_B[1] + A
-                    if len(C.graph.edges) != 0:
-                        for edge_C in C.graph.edges:
-                            bond_C = [(edge_C[0], edge_C[1])]
-                            try:
-                                frags_C = C.split_molecule_subgraphs(bond_C, allow_reverse=True)
-                                if (is_equivalent(frags_C[0], frags_B[1]) and is_ring_isomorphic(frags_C[1], A)) or \
-                                        (is_equivalent(frags_C[1], frags_B[1]) and is_ring_isomorphic(frags_C[0], A)) or \
-                                        (is_equivalent(frags_C[0], A) and is_ring_isomorphic(frags_C[1], frags_B[1])) or \
-                                        (is_equivalent(frags_C[1], A) and is_ring_isomorphic(frags_C[0], frags_B[1])):
-                                    is_3_components_reaction = True
-                                    return is_3_components_reaction
-                            except:
-                                # C must be able to be splitted into 2 fragments
-                                continue
-
-            except:
-                # B must be able to break into 2 fragments to make sure there is one fragment present in C + D
-                continue
-    is_3_components_reaction = identify_reactions_AB_CD_3_components(mol_graphs2, mol_graphs1)
-    return is_3_components_reaction
 
 def identify_reactions_AB_CD(mol_graphs1, mol_graphs2):
     '''
@@ -1196,161 +908,345 @@ def identify_reactions_AB_CD_record_one_bond_each(mol_graphs1, mol_graphs2, nums
 
     return str(is_reactions_AB_CD), one_bond_dict
 
+class FindConcertedReactions:
+    def __init__(self, entries_list, name):
+        """
+        class for finding concerted reactions
+        Args:
+        :param entries_list, entries_list = [MoleculeEntry]
+        :param name: name for saving various dicts.
+        """
+        self.entries_list = entries_list
+        self.name = name
 
-def identify_reactions_AB_CD_old(mol_graphs1, mol_graphs2):
-    A = mol_graphs1[0]
-    B = mol_graphs1[1]
-    C = mol_graphs2[0]
-    D = mol_graphs2[1]
+        return
 
-    # first scenario
-    if len(A.graph.edges) != 0:
-        for edge_A in A.graph.edges:
-            bond_A = [(edge_A[0], edge_A[1])]
-            try:
-                frags_A = A.split_molecule_subgraphs(bond_A, allow_reverse=True)
-                if len(B.graph.edges) != 0:
-                    for edge_B in B.graph.edges:
-                        bond_B = [(edge_B[0], edge_B[1])]
-                        try:
-                            frags_B = B.split_molecule_subgraphs(bond_B, allow_reverse=True)
-                            if len(C.graph.edges) != 0:
-                                for edge_C in C.graph.edges:
-                                    bond_C = [(edge_C[0], edge_C[1])]
-                                    try:
-                                        frags_C = C.split_molecule_subgraphs(bond_C, allow_reverse=True)
-                                        if len(D.graph.edges) != 0:
-                                            for edge_D in D.graph.edges:
-                                                bond_D = [(edge_D[0], edge_D[1])]
-                                                try:
-                                                    frags_D = D.split_molecule_subgraphs(bond_D, allow_reverse=True)
-                                                    if check_same_mol_graphs(frags_A+frags_B, frags_C+frags_D):
-                                                        is_reactions_AB_CD = True
-                                                        return  is_reactions_AB_CD
-                                                except:
-                                                    continue
-                                    except:
-                                        continue
-                        except:
-                            continue
-            except:
-                continue
-    # second scenario
-    frags_A_two_step = break_two_bonds_in_one_mol(A)
-    if frags_A_two_step != []:
-        if len(C.graph.edges) != 0:
-            for edge_C in C.graph.edges:
-                bond_C = [(edge_C[0], edge_C[1])]
-                try:
-                    frags_C = C.split_molecule_subgraphs(bond_C, allow_reverse=True)
-                    if len(D.graph.edges) != 0:
-                        for edge_D in D.graph.edges:
-                            bond_D = [(edge_D[0], edge_D[1])]
-                            try:
-                                frags_D = D.split_molecule_subgraphs(bond_D, allow_reverse=True)
-                                for item in frags_A_two_step:
-                                    if check_same_mol_graphs(item + B, frags_C + frags_D):
-                                        is_reactions_AB_CD = True
-                                        return is_reactions_AB_CD
-                            except:
-                                continue
-                except:
+    def find_concerted_candidates(self):
+        '''
+        Find concerted reaction candidates by finding reactant-product pairs that match the stoichiometry.
+        Args:
+        :param entries: ReactionNetwork(input_entries).entries_list, entries_list = [MoleculeEntry]
+        :param name: name for saving self.unique_mol_graph_dict.
+        :return: self.concerted_rxns_to_determine: [['15_43', '19_43']]: [[str(reactants),str(products)]]
+                 reactants and products are separated by "_".
+                 The number correspond to the index of a mol_graph in self.unique_mol_graphs_new.
+        '''
+        print("Finding concerted reaction candidates!")
+        self.unique_mol_graphs = []
+        for entry in self.entries_list:
+            mol_graph = entry.mol_graph
+            self.unique_mol_graphs.append(mol_graph)
+
+        self.unique_mol_graphs_new = []
+        # For duplicate mol graphs, create a map between later species with former ones
+        # Only determine once for each unique mol_graph.
+        self.unique_mol_graph_dict = {}
+
+        for i in range(len(self.unique_mol_graphs)):
+            mol_graph = self.unique_mol_graphs[i]
+            found = False
+            for j in range(len(self.unique_mol_graphs_new)):
+                new_mol_graph = self.unique_mol_graphs_new[j]
+                if mol_graph.isomorphic_to(new_mol_graph):
+                    found = True
+                    self.unique_mol_graph_dict[i] = j
                     continue
-    frags_B_two_step = break_two_bonds_in_one_mol(B)
-    if frags_B_two_step != []:
-        if len(C.graph.edges) != 0:
-            for edge_C in C.graph.edges:
-                bond_C = [(edge_C[0], edge_C[1])]
-                try:
-                    frags_C = C.split_molecule_subgraphs(bond_C, allow_reverse=True)
-                    if len(D.graph.edges) != 0:
-                        for edge_D in D.graph.edges:
-                            bond_D = [(edge_D[0], edge_D[1])]
-                            try:
-                                frags_D = D.split_molecule_subgraphs(bond_D, allow_reverse=True)
-                                for item in frags_B_two_step:
-                                    if check_same_mol_graphs(A + item, frags_C + frags_D):
-                                        is_reactions_AB_CD = True
-                                        return is_reactions_AB_CD
-                            except:
-                                continue
-                except:
-                    continue
-
-    # third scenario
-    frags_C_two_step = break_two_bonds_in_one_mol(C)
-
-    frags_D_two_step = break_two_bonds_in_one_mol(D)
-    pass
-
-
-def identify_reactions_within_same_stoi(mol_graphs, stoi_dict):
-    '''
-    Identify reactions that are accessible by <=2 bond breakage <=2 bond formation
-    :param mol_graphs: a list of mol graphs
-    :param stoi_dict: a dictionary with key index of stoi, a list of mol_pair indices corresponding to the indices in mol_graphs
-    :return: A dict of filtered reactions
-    '''
-    new_stoi_dict = {}
-    for key in stoi_dict:
-        new_stoi_dict[key] = []
-        mol_pairs = stoi_dict[key]
-        num_mol_pairs = len(mol_pairs)
-        combos = list(combinations(range(num_mol_pairs),2))
-        for combo in combos:
-            mol_pair1 = mol_pairs[combo[0]]
-            mol_pair2 = mol_pairs[combo[1]]
-            # not necessarily two molecules, could be one
-            mols1 = mol_pair1.split('_')
-            mols2 = mol_pair2.split('_')
-            if len(mols1) == len(mols2) == 1:
-                # only self reaction possible
-                mol_graph1 = mol_graphs[int(mols1[0])]
-                mol_graph2 = mol_graphs[int(mols2[0])]
-                if identify_self_reactions(mol_graph1, mol_graph2):
-                    new_stoi_dict[key].append([mols1, mols2])
-            else:
-                # At least one mol list has 2 mols
-                if (len(mols1) == 2 and len(mols2) == 1) or (len(mols1) == 1 and len(mols2) == 2):
-                    # A + B -> C or C -> A + B
-                    mol_graphs1 = [mol_graphs[int(i)] for i in mols1]
-                    mol_graphs2 = [mol_graphs[int(i)] for i in mols2]
-                    if len(mols1) == 2:
-                        if identify_reactions_AB_C(mol_graphs1, mol_graphs2):
-                            new_stoi_dict[key].append([mols1, mols2])
-                    elif len(mols2) == 2:
-                        if identify_reactions_AB_C(mol_graphs2, mol_graphs1):
-                            new_stoi_dict[key].append([mols1, mols2])
-
-                for i, mol in enumerate(mols1):
-                    # if they have common molecules, then it's a self-reaction where only one mol is involved.
-                    # Check if we can get to the same two fragments by breaking one bond on each of the mols.
-                    # Different ring closure also considered
-                    if mol in mols2:
-                        j = mols2.index(mol)
-                        mols1.pop(i)
-                        mols2.pop(j)
-                        mol_graph1 = mol_graphs[int(mols1[0])]
-                        mol_graph2 = mol_graphs[int(mols2[0])]
-                        if identify_self_reactions(mol_graph1, mol_graph2):
-                            new_stoi_dict[key].append([mols1[0], mols2[0]])
-
-                    # A + B -> C + D
+            if not found:
+                self.unique_mol_graph_dict[i] = len(self.unique_mol_graphs_new)
+                self.unique_mol_graphs_new.append(mol_graph)
+        #dumpfn(self.unique_mol_graph_dict, self.name + "_unique_mol_graph_map.json")
+        # find all molecule pairs that satisfy the stoichiometry constraint
+        self.stoi_list, self.species_same_stoi_dict = identify_same_stoi_mol_pairs(self.unique_mol_graphs_new)
+        self.reac_prod_dict = {}
+        for i, key in enumerate(self.species_same_stoi_dict.keys()):
+            species_list = self.species_same_stoi_dict[key]
+            new_species_list_reactant = []
+            new_species_list_product = []
+            for species in species_list:
+                new_species_list_reactant.append(species)
+                new_species_list_product.append(species)
+            if new_species_list_reactant != [] and new_species_list_product != []:
+                self.reac_prod_dict[key] = {'reactants': new_species_list_reactant,
+                                            'products': new_species_list_product}
+        self.concerted_rxns_to_determine = []
+        for key in self.reac_prod_dict.keys():
+            reactants = self.reac_prod_dict[key]['reactants']
+            products = self.reac_prod_dict[key]['products']
+            for j in range(len(reactants)):
+                reac = reactants[j]
+                for k in range(len(products)):
+                    prod = products[k]
+                    if k <= j:
+                        continue
                     else:
-                        pass
+                        self.concerted_rxns_to_determine.append([reac, prod])
+        return
 
+    def find_concerted_break2_form2(self, args):
+        '''
+        Determine whether one reaction in self.concerted_rxns_to_determine is a <=2 bond break, <=2 bond formation concerted reaction.
+        Note that if a reaction is elementary (in class "RedoxReaction", "IntramolSingleBondChangeReaction", "IntermolecularReaction",
+        "CoordinationBondChangeReaction"), it is also considered concerted. It has to be removed later on in the ReactionNetwork class.
 
+        :param args: [i,name]
+                   i: Index in self.concerted_rxns_to_determine
+                   name: This is for calling self.find_concerted_multiprocess later. Name for saving self.valid_reactions.
+        :return: valid_reactions:[['15_43', '19_43']]: [[str(reactants),str(products)]]
+                 reactants and products are separated by "_".
+                 The number correspond to the index of a mol_graph in self.unique_mol_graphs_new.
+        '''
+        i, name = args[0], args[1]
+        valid_reactions = []
 
-def identify_reactions(mol_graphs):
-    '''
+        reac = self.concerted_rxns_to_determine[i][0]
+        prod = self.concerted_rxns_to_determine[i][1]
 
-    :param mol_graphs: A list of mol_graphs
-    :return: a dictionary with all reactions A+B -> C+D (<= 2 bond breakage, <= 2 bond formation)
-    '''
-    num_mols = len(mol_graphs)
-    all_mol_pair_index = list(combinations_with_replacement(range(num_mols), 2))
+        print('reactant:', reac)
+        print('product:', prod)
+        split_reac = reac.split('_')
+        split_prod = prod.split('_')
+        if (len(split_reac) == 1 and len(split_prod) == 1):
+            mol_graph1 = self.unique_mol_graphs_new[int(split_reac[0])]
+            mol_graph2 = self.unique_mol_graphs_new[int(split_prod[0])]
+            if identify_self_reactions(mol_graph1, mol_graph2):
+                if [reac, prod] not in valid_reactions:
+                    valid_reactions.append([reac, prod])
+        elif (len(split_reac) == 2 and len(split_prod) == 1):
+            assert split_prod[0] not in split_reac
+            mol_graphs1 = [self.unique_mol_graphs_new[int(split_reac[0])],
+                           self.unique_mol_graphs_new[int(split_reac[1])]]
+            mol_graphs2 = [self.unique_mol_graphs_new[int(split_prod[0])]]
+            if identify_reactions_AB_C(mol_graphs1, mol_graphs2):
+                if [reac, prod] not in valid_reactions:
+                    valid_reactions.append([reac, prod])
+        elif (len(split_reac) == 1 and len(split_prod) == 2):
+            mol_graphs1 = [self.unique_mol_graphs_new[int(split_prod[0])],
+                           self.unique_mol_graphs_new[int(split_prod[1])]]
+            mol_graphs2 = [self.unique_mol_graphs_new[int(split_reac[0])]]
+            if identify_reactions_AB_C(mol_graphs1, mol_graphs2):
+                if [reac, prod] not in valid_reactions:
+                    valid_reactions.append([reac, prod])
+        elif (len(split_reac) == 2 and len(split_prod) == 2):
+            # self reaction
+            if (split_reac[0] in split_prod) or (split_reac[1] in split_prod):
+                new_split_reac = None
+                new_split_prod = None
+                if (split_reac[0] in split_prod):
+                    prod_index = split_prod.index(split_reac[0])
+                    new_split_reac = split_reac[1]
+                    if prod_index == 0:
+                        new_split_prod = split_prod[1]
+                    elif prod_index == 1:
+                        new_split_prod = split_prod[0]
+                elif (split_reac[1] in split_prod):
+                    prod_index = split_prod.index(split_reac[1])
+                    new_split_reac = split_reac[0]
+                    if prod_index == 0:
+                        new_split_prod = split_prod[1]
+                    elif prod_index == 1:
+                        new_split_prod = split_prod[0]
+                mol_graph1 = self.unique_mol_graphs_new[int(new_split_reac)]
+                mol_graph2 = self.unique_mol_graphs_new[int(new_split_prod)]
+                if identify_self_reactions(mol_graph1, mol_graph2):
+                    if [new_split_reac, new_split_prod] not in valid_reactions:
+                        valid_reactions.append([new_split_reac, new_split_prod])
+            # A + B -> C + D
+            else:
+                mol_graphs1 = [self.unique_mol_graphs_new[int(split_reac[0])],
+                               self.unique_mol_graphs_new[int(split_reac[1])]]
+                mol_graphs2 = [self.unique_mol_graphs_new[int(split_prod[0])],
+                               self.unique_mol_graphs_new[int(split_prod[1])]]
+                if identify_reactions_AB_CD(mol_graphs1, mol_graphs2):
+                    if [reac, prod] not in valid_reactions:
+                        valid_reactions.append([reac, prod])
+        return valid_reactions
 
-    pass
+    def find_concerted_break1_form1(self, index):
+        '''
+        Determine whether one reaction in self.concerted_rxns_to_determine is a <=1 bond break, <=1 bond formation concerted reaction.
+        Note that if a reaction is elementary (in class "RedoxReaction", "IntramolSingleBondChangeReaction", "IntermolecularReaction",
+        "CoordinationBondChangeReaction"), it is also considered concerted. It has to be removed later on in the ReactionNetwork class.
+
+        :param index: Index in self.concerted_rxns_to_determine
+        :return: valid_reactions:[['15_43', '19_43']]: [[str(reactants),str(products)]]
+                 reactants and products are separated by "_".
+                 The number correspond to the index of a mol_graph in self.unique_mol_graphs_new.
+        '''
+        valid_reactions = []
+
+        reac = self.concerted_rxns_to_determine[index][0]
+        prod = self.concerted_rxns_to_determine[index][1]
+
+        print('reactant:', reac)
+        print('product:', prod)
+        split_reac = reac.split('_')
+        split_prod = prod.split('_')
+        if (len(split_reac) == 1 and len(split_prod) == 1):
+            mol_graph1 = self.unique_mol_graphs_new[int(split_reac[0])]
+            mol_graph2 = self.unique_mol_graphs_new[int(split_prod[0])]
+            if identify_self_reactions(mol_graph1, mol_graph2):
+                if [reac, prod] not in valid_reactions:
+                    valid_reactions.append([reac, prod])
+        elif (len(split_reac) == 2 and len(split_prod) == 1):
+            assert split_prod[0] not in split_reac
+            mol_graphs1 = [self.unique_mol_graphs_new[int(split_reac[0])],
+                           self.unique_mol_graphs_new[int(split_reac[1])]]
+            mol_graphs2 = [self.unique_mol_graphs_new[int(split_prod[0])]]
+            if identify_reactions_AB_C_break1_form1(mol_graphs1, mol_graphs2):
+                if [reac, prod] not in valid_reactions:
+                    valid_reactions.append([reac, prod])
+        elif (len(split_reac) == 1 and len(split_prod) == 2):
+            mol_graphs1 = [self.unique_mol_graphs_new[int(split_prod[0])],
+                           self.unique_mol_graphs_new[int(split_prod[1])]]
+            mol_graphs2 = [self.unique_mol_graphs_new[int(split_reac[0])]]
+            if identify_reactions_AB_C_break1_form1(mol_graphs1, mol_graphs2):
+                if [reac, prod] not in valid_reactions:
+                    valid_reactions.append([reac, prod])
+        elif (len(split_reac) == 2 and len(split_prod) == 2):
+            # self reaction
+            if (split_reac[0] in split_prod) or (split_reac[1] in split_prod):
+                new_split_reac = None
+                new_split_prod = None
+                if (split_reac[0] in split_prod):
+                    prod_index = split_prod.index(split_reac[0])
+                    new_split_reac = split_reac[1]
+                    if prod_index == 0:
+                        new_split_prod = split_prod[1]
+                    elif prod_index == 1:
+                        new_split_prod = split_prod[0]
+                elif (split_reac[1] in split_prod):
+                    prod_index = split_prod.index(split_reac[1])
+                    new_split_reac = split_reac[0]
+                    if prod_index == 0:
+                        new_split_prod = split_prod[1]
+                    elif prod_index == 1:
+                        new_split_prod = split_prod[0]
+                mol_graph1 = self.unique_mol_graphs_new[int(new_split_reac)]
+                mol_graph2 = self.unique_mol_graphs_new[int(new_split_prod)]
+                if identify_self_reactions(mol_graph1, mol_graph2):
+                    if [new_split_reac, new_split_prod] not in valid_reactions:
+                        valid_reactions.append([new_split_reac, new_split_prod])
+            # A + B -> C + D
+            else:
+                mol_graphs1 = [self.unique_mol_graphs_new[int(split_reac[0])],
+                               self.unique_mol_graphs_new[int(split_reac[1])]]
+                mol_graphs2 = [self.unique_mol_graphs_new[int(split_prod[0])],
+                               self.unique_mol_graphs_new[int(split_prod[1])]]
+                if identify_reactions_AB_CD_break1_form1(mol_graphs1, mol_graphs2):
+                    if [reac, prod] not in valid_reactions:
+                        valid_reactions.append([reac, prod])
+        return valid_reactions
+
+    def find_concerted_multiprocess(self, num_processors, reaction_type="break2_form2"):
+        '''
+        Use multiprocessing to determine concerted reactions in parallel.
+        Args:
+        :param num_processors:
+        :param reaction_type: Can choose from "break2_form2" and "break1_form1"
+        :return: self.valid_reactions:[['15_43', '19_43']]: [[str(reactants),str(products)]]
+                 reactants and products are separated by "_".
+                 The number correspond to the index of a mol_graph in self.unique_mol_graphs_new.
+        '''
+        print("Finding concerted reactions!")
+        if reaction_type == "break2_form2":
+            func = self.find_concerted_break2_form2
+            print("Reaction type: break2 form2")
+        elif reaction_type == "break1_form1":
+            func = self.find_concerted_break1_form1
+            print("Reaction type: break1 form1")
+        from pathos.multiprocessing import ProcessingPool as Pool
+        nums = list(np.arange(len(self.concerted_rxns_to_determine)))
+        args = [(i) for i in nums]
+        pool = Pool(num_processors)
+        results = pool.map(func, args)
+        self.valid_reactions = []
+        for i in range(len(results)):
+            valid_reactions = results[i]
+            self.valid_reactions += valid_reactions
+        #dumpfn(self.valid_reactions, name + "_valid_concerted_rxns.json")
+        return
+
+    def get_final_concerted_reactions(self, name, num_processors, reaction_type="break2_form2"):
+        '''
+        This is for getting the final set of concerted reactions: entry index corresponds to the index in self.entries_list.
+        Args:
+        :param name: name for saving self.valid_reactions. self.valid_reactions has the following form:
+               [["0_1", "6_46"]]: [[str(reactants), str(products)]] reactants and products are separated by "_".
+               The number correspond to the index of a mol_graph in self.unique_mol_graphs_new.
+        :param num_processors:
+        :param reaction_type: Can choose from "break2_form2" and "break1_form1"
+
+        :return: [['15_43', '19_43']]: [[str(reactants),str(products)]]
+                 reactants and products are separated by "_".
+                 The number correspond to the index of a mol_graph in self.entries_list.
+        '''
+        print("Summarizing concerted reactions!")
+        self.find_concerted_candidates()
+        self.find_concerted_multiprocess(num_processors, reaction_type)
+        self.final_concerted_reactions = []
+        for i in range(len(self.valid_reactions)):
+            rxn = self.valid_reactions[i]
+            reactant_nodes = rxn[0].split('_')
+            product_nodes = rxn[1].split('_')
+            reactant_candidates = []
+            product_candidates = []
+            for reac in reactant_nodes:
+                reac_cands = []
+                for map_key in self.unique_mol_graph_dict.keys():
+                    if self.unique_mol_graph_dict[map_key] == int(reac):
+                        reac_cands.append(map_key)
+                reactant_candidates.append(reac_cands)
+            for prod in product_nodes:
+                prod_cands = []
+                for map_key in self.unique_mol_graph_dict.keys():
+                    if self.unique_mol_graph_dict[map_key] == int(prod):
+                        prod_cands.append(map_key)
+                product_candidates.append(prod_cands)
+            print('reactant candidates:',reactant_candidates)
+            print('product candidates:',product_candidates)
+
+            if len(reactant_candidates) == 1 and len(product_candidates) == 1:
+                for j in reactant_candidates[0]:
+                    for k in product_candidates[0]:
+                        self.final_concerted_reactions.append([str(j),str(k)])
+
+            elif len(reactant_candidates) == 2 and len(product_candidates) == 1:
+                for j in reactant_candidates[0]:
+                    for k in reactant_candidates[1]:
+                        for m in product_candidates[0]:
+                            if int(j) <= int(k):
+                                reactant_name = str(j) + '+' + str(k)
+                            else:
+                                reactant_name = str(k) + '+' + str(j)
+                            self.final_concerted_reactions.append([reactant_name,str(m)])
+
+            elif len(reactant_candidates) == 1 and len(product_candidates) == 2:
+                for j in reactant_candidates[0]:
+                    for m in product_candidates[0]:
+                        for n in product_candidates[1]:
+                            if int(m) <= int(n):
+                                product_name = str(m) + '+' + str(n)
+                            else:
+                                product_name = str(n) + '+' + str(m)
+                            self.final_concerted_reactions.append([str(j),product_name])
+
+            elif len(reactant_candidates) == 2 and len(product_candidates) == 2:
+                for j in reactant_candidates[0]:
+                    for k in reactant_candidates[1]:
+                        for m in product_candidates[0]:
+                            for n in product_candidates[1]:
+                                if int(j) <= int(k):
+                                    reactant_name = str(j) + '+' + str(k)
+                                else:
+                                    reactant_name = str(k) + '+' + str(j)
+                                if int(m) <= int(n):
+                                    product_name = str(m) + '+' + str(n)
+                                else:
+                                    product_name = str(n) + '+' + str(m)
+                                self.final_concerted_reactions.append([reactant_name,product_name])
+        dumpfn(self.final_concerted_reactions, name+'_concerted_rxns.json')
+        return self.final_concerted_reactions
+
 
 if __name__ == '__main__':
     mol = Molecule.from_file('/Users/xiaowei_xie/PycharmProjects/electrolyte/recombination_final_2/LiEC_LPF6_water_recomb_mols/175.xyz')
