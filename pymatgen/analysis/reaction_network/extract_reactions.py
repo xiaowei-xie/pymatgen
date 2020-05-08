@@ -1180,9 +1180,9 @@ class FindConcertedReactions:
                  reactants and products are separated by "_".
                  The number correspond to the index of a mol_graph in self.entries_list.
         '''
-        print("Summarizing concerted reactions!")
         self.find_concerted_candidates()
         self.find_concerted_multiprocess(num_processors, reaction_type)
+        print("Summarizing concerted reactions!")
         self.final_concerted_reactions = []
         for i in range(len(self.valid_reactions)):
             rxn = self.valid_reactions[i]
@@ -1215,9 +1215,9 @@ class FindConcertedReactions:
                     for k in reactant_candidates[1]:
                         for m in product_candidates[0]:
                             if int(j) <= int(k):
-                                reactant_name = str(j) + '+' + str(k)
+                                reactant_name = str(j) + '_' + str(k)
                             else:
-                                reactant_name = str(k) + '+' + str(j)
+                                reactant_name = str(k) + '_' + str(j)
                             self.final_concerted_reactions.append([reactant_name,str(m)])
 
             elif len(reactant_candidates) == 1 and len(product_candidates) == 2:
@@ -1225,9 +1225,9 @@ class FindConcertedReactions:
                     for m in product_candidates[0]:
                         for n in product_candidates[1]:
                             if int(m) <= int(n):
-                                product_name = str(m) + '+' + str(n)
+                                product_name = str(m) + '_' + str(n)
                             else:
-                                product_name = str(n) + '+' + str(m)
+                                product_name = str(n) + '_' + str(m)
                             self.final_concerted_reactions.append([str(j),product_name])
 
             elif len(reactant_candidates) == 2 and len(product_candidates) == 2:
@@ -1236,13 +1236,13 @@ class FindConcertedReactions:
                         for m in product_candidates[0]:
                             for n in product_candidates[1]:
                                 if int(j) <= int(k):
-                                    reactant_name = str(j) + '+' + str(k)
+                                    reactant_name = str(j) + '_' + str(k)
                                 else:
-                                    reactant_name = str(k) + '+' + str(j)
+                                    reactant_name = str(k) + '_' + str(j)
                                 if int(m) <= int(n):
-                                    product_name = str(m) + '+' + str(n)
+                                    product_name = str(m) + '_' + str(n)
                                 else:
-                                    product_name = str(n) + '+' + str(m)
+                                    product_name = str(n) + '_' + str(m)
                                 self.final_concerted_reactions.append([reactant_name,product_name])
         dumpfn(self.final_concerted_reactions, name+'_concerted_rxns.json')
         return self.final_concerted_reactions

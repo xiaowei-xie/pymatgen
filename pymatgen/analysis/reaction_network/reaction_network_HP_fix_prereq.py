@@ -1057,8 +1057,8 @@ class ConcertedReaction(Reaction):
 
         reactions = []
         for reaction in all_concerted_reactions:
-            reactants = reaction[0].split("_")
-            products = reaction[1].split("_")
+            reactants = reaction[0].split("+")
+            products = reaction[1].split("+")
             entries0 = [entries_list[int(item)] for item in reactants]
             entries1 = [entries_list[int(item)] for item in products]
             reactant_total_charge = np.sum([item.charge for item in entries0])
