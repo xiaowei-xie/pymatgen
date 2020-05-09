@@ -1057,8 +1057,8 @@ class ConcertedReaction(Reaction):
 
         reactions = []
         for reaction in all_concerted_reactions:
-            reactants = reaction[0].split("+")
-            products = reaction[1].split("+")
+            reactants = reaction[0].split("_")
+            products = reaction[1].split("_")
             entries0 = [entries_list[int(item)] for item in reactants]
             entries1 = [entries_list[int(item)] for item in products]
             reactant_total_charge = np.sum([item.charge for item in entries0])
@@ -1116,6 +1116,7 @@ class ConcertedReaction(Reaction):
              :return dictionary of the form {"energy_A": energy_A, "energy_B": energy_B}
              where energy_A is the primary type of the reaction based on the reactant and product of the ConcertedReaction
              object, and the backwards of this reaction would be energy_B.
+             Electron electronic energy set to 0 for now.
         """
         if all(reactant.energy != None for reactant in self.reactants) and all(
                 product.energy != None for product in self.products):
@@ -1124,8 +1125,8 @@ class ConcertedReaction(Reaction):
             reactant_total_energy = np.sum([item.energy for item in self.reactants])
             product_total_energy = np.sum([item.energy for item in self.products])
             total_charge_change = product_total_charge - reactant_total_charge
-            energy_A = product_total_energy - reactant_total_energy + total_charge_change * self.electron_energy
-            energy_B = reactant_total_energy - product_total_energy - total_charge_change * self.electron_energy
+            energy_A = product_total_energy - reactant_total_energy #+ total_charge_change * self.electron_energy
+            energy_B = reactant_total_energy - product_total_energy #- total_charge_change * self.electron_energy
 
         else:
             energy_A = None
@@ -1262,7 +1263,7 @@ class ReactionPath(MSONable):
                     else:
                         print("Missing PR cost to remove:", PR)
             for PR in class_instance.all_prereqs:
-                if PR in PR_paths:
+                if str(PR) in PR_paths or PR in PR_paths: # XX
                     class_instance.solved_prereqs.append(PR)
                 else:
                     class_instance.unsolved_prereqs.append(PR)
@@ -1613,7 +1614,7 @@ class ReactionNetwork(MSONable):
                 if no path exist, value is "no_path", if path is unsolved yet, value is "unsolved_path"
         :return: graph: ReactionNetwork.graph of type nx.DiGraph with updated edge weights based on solved PRs
         """
-        PRs = {}
+        self.PRs = {}
         old_solved_PRs = []
         new_solved_PRs = ["placeholder"]
         old_attrs = {}
@@ -1626,21 +1627,21 @@ class ReactionNetwork(MSONable):
         orig_graph = copy.deepcopy(self.graph)
 
         for start in starts:
-            PRs[start] = {}
+            self.PRs[start] = {}
 
-        for PR in PRs:
+        for PR in self.PRs:
             for start in starts:
                 if start == PR:
-                    PRs[PR][start] = ReactionPath.characterize_path([start], weight, self.min_cost, self.graph)
+                    self.PRs[PR][start] = ReactionPath.characterize_path([start], weight, self.min_cost, self.graph)
                 else:
-                    PRs[PR][start] = ReactionPath(None)
+                    self.PRs[PR][start] = ReactionPath(None)
 
             old_solved_PRs.append(PR)
-            self.min_cost[PR] = PRs[PR][PR].cost
+            self.min_cost[PR] = self.PRs[PR][PR].cost
         for node in self.graph.nodes():
             if self.graph.nodes[node]["bipartite"] == 0 and node != target:
-                if node not in PRs:
-                    PRs[node] = {}
+                if node not in self.PRs:
+                    self.PRs[node] = {}
 
         ii = 0
 
@@ -1648,24 +1649,24 @@ class ReactionNetwork(MSONable):
             min_cost = {}
             cost_from_start = {}
             self.unsolved_PRs = {} # modified by XX. Added a unsolved_PR dict to keep track of unsolved.
-            for PR in PRs:
+            for PR in self.PRs:
                 cost_from_start[PR] = {}
                 min_cost[PR] = 10000000000000000.0
-                for start in PRs[PR]:
-                    if PRs[PR][start].path == None:
+                for start in self.PRs[PR]:
+                    if self.PRs[PR][start].path == None:
                         cost_from_start[PR][start] = "no_path"
                     else:
-                        cost_from_start[PR][start] = PRs[PR][start].cost
-                        if PRs[PR][start].cost < min_cost[PR]:
-                            min_cost[PR] = PRs[PR][start].cost
+                        cost_from_start[PR][start] = self.PRs[PR][start].cost
+                        if self.PRs[PR][start].cost < min_cost[PR]:
+                            min_cost[PR] = self.PRs[PR][start].cost
                 for start in starts:
                     if start not in cost_from_start[PR]:
                         cost_from_start[PR][start] = "unsolved"
 
-            PRs, cost_from_start, min_cost = self.find_path_cost(starts, target, weight, old_solved_PRs,
-                                                                 cost_from_start, min_cost, PRs)
+            self.PRs, cost_from_start, min_cost = self.find_path_cost(starts, target, weight, old_solved_PRs,
+                                                                 cost_from_start, min_cost, self.PRs)
             solved_PRs = copy.deepcopy(old_solved_PRs)
-            solved_PRs, new_solved_PRs, cost_from_start = self.identify_solved_PRs(PRs, solved_PRs, cost_from_start)
+            solved_PRs, new_solved_PRs, cost_from_start = self.identify_solved_PRs(self.PRs, solved_PRs, cost_from_start)
 
             print(ii, len(solved_PRs), len(new_solved_PRs), len(self.unsolved_PRs))
             # modified by XX. Printing (1) iteration index,
@@ -1680,16 +1681,16 @@ class ReactionNetwork(MSONable):
             new_attrs = copy.deepcopy(attrs)
 
             ii += 1
-        dumpfn(PRs, filename, default=lambda o: o.as_dict)
-        dumpfn(self.unsolved_PRs, 'unsolved_PRs.json', default=lambda o: o.as_dict)
-        self.final_PR_check(PRs)
+        #dumpfn(PRs, filename, default=lambda o: o.as_dict)
+        #dumpfn(self.unsolved_PRs, 'unsolved_PRs.json', default=lambda o: o.as_dict)
+        self.final_PR_check(self.PRs)
         if save:
             if filename is None:
                 print("Provide filename to save the PRs, for now saving as PRs.json")
                 filename = "PRs.json"
-            # dumpfn(PRs, filename, default=lambda o: o.as_dict)
-            # dumpfn(self.unsolved_PRs, 'unsolved_PRs.json',default=lambda o: o.as_dict)
-        return PRs
+            dumpfn(self.PRs, filename, default=lambda o: o.as_dict)
+            dumpfn(self.unsolved_PRs, 'unsolved_PRs.json',default=lambda o: o.as_dict)
+        return self.PRs
 
     def find_path_cost(self, starts, target, weight, old_solved_PRs, cost_from_start, min_cost, PRs):
         """
@@ -1708,6 +1709,16 @@ class ReactionNetwork(MSONable):
         :return: cost_from_start: updated cost_from_start based on new PRs solved
         :return: min_cost: updated min_cost based on new PRs solved
         """
+        ## Below modified by XX. Keep a record of entries cannot be reached from starting materials. When doing dijkstra algorithm, we need to remove those nodes.
+        self.not_reachable_nodes = []
+        for PR in PRs:
+            reachable = False
+            for start in starts:
+                if PRs[PR][start].path != None:
+                    reachable = True
+            if not reachable:
+                self.not_reachable_nodes.append(PR)
+        ## XX modification ends
         self.num_starts = len(starts)
         for node in self.graph.nodes():
             if self.graph.nodes[node]["bipartite"] == 0 and node not in old_solved_PRs and node != target:
@@ -1720,7 +1731,7 @@ class ReactionNetwork(MSONable):
                                 self.graph,
                                 source=hash(start),
                                 target=hash(node),
-                                ignore_nodes=self.find_or_remove_bad_nodes([node, target]),
+                                ignore_nodes=self.find_or_remove_bad_nodes([node, target]+self.not_reachable_nodes),
                                 weight=self.weight)
                         except nx.exception.NetworkXNoPath:
                             PRs[node][start] = ReactionPath(None)
