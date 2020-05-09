@@ -1614,7 +1614,7 @@ class ReactionNetwork(MSONable):
                 if no path exist, value is "no_path", if path is unsolved yet, value is "unsolved_path"
         :return: graph: ReactionNetwork.graph of type nx.DiGraph with updated edge weights based on solved PRs
         """
-        self.PRs = {}
+        PRs = {}
         old_solved_PRs = []
         new_solved_PRs = ["placeholder"]
         old_attrs = {}
@@ -1627,21 +1627,21 @@ class ReactionNetwork(MSONable):
         orig_graph = copy.deepcopy(self.graph)
 
         for start in starts:
-            self.PRs[start] = {}
+            PRs[start] = {}
 
-        for PR in self.PRs:
+        for PR in PRs:
             for start in starts:
                 if start == PR:
-                    self.PRs[PR][start] = ReactionPath.characterize_path([start], weight, self.min_cost, self.graph)
+                    PRs[PR][start] = ReactionPath.characterize_path([start], weight, self.min_cost, self.graph)
                 else:
-                    self.PRs[PR][start] = ReactionPath(None)
+                    PRs[PR][start] = ReactionPath(None)
 
             old_solved_PRs.append(PR)
-            self.min_cost[PR] = self.PRs[PR][PR].cost
+            self.min_cost[PR] = PRs[PR][PR].cost
         for node in self.graph.nodes():
             if self.graph.nodes[node]["bipartite"] == 0 and node != target:
-                if node not in self.PRs:
-                    self.PRs[node] = {}
+                if node not in PRs:
+                    PRs[node] = {}
 
         ii = 0
 
@@ -1649,24 +1649,24 @@ class ReactionNetwork(MSONable):
             min_cost = {}
             cost_from_start = {}
             self.unsolved_PRs = {} # modified by XX. Added a unsolved_PR dict to keep track of unsolved.
-            for PR in self.PRs:
+            for PR in PRs:
                 cost_from_start[PR] = {}
                 min_cost[PR] = 10000000000000000.0
-                for start in self.PRs[PR]:
-                    if self.PRs[PR][start].path == None:
+                for start in PRs[PR]:
+                    if PRs[PR][start].path == None:
                         cost_from_start[PR][start] = "no_path"
                     else:
-                        cost_from_start[PR][start] = self.PRs[PR][start].cost
-                        if self.PRs[PR][start].cost < min_cost[PR]:
-                            min_cost[PR] = self.PRs[PR][start].cost
+                        cost_from_start[PR][start] = PRs[PR][start].cost
+                        if PRs[PR][start].cost < min_cost[PR]:
+                            min_cost[PR] = PRs[PR][start].cost
                 for start in starts:
                     if start not in cost_from_start[PR]:
                         cost_from_start[PR][start] = "unsolved"
 
-            self.PRs, cost_from_start, min_cost = self.find_path_cost(starts, target, weight, old_solved_PRs,
-                                                                 cost_from_start, min_cost, self.PRs)
+            PRs, cost_from_start, min_cost = self.find_path_cost(starts, target, weight, old_solved_PRs,
+                                                                 cost_from_start, min_cost, PRs)
             solved_PRs = copy.deepcopy(old_solved_PRs)
-            solved_PRs, new_solved_PRs, cost_from_start = self.identify_solved_PRs(self.PRs, solved_PRs, cost_from_start)
+            solved_PRs, new_solved_PRs, cost_from_start = self.identify_solved_PRs(PRs, solved_PRs, cost_from_start)
 
             print(ii, len(solved_PRs), len(new_solved_PRs), len(self.unsolved_PRs))
             # modified by XX. Printing (1) iteration index,
@@ -1681,16 +1681,19 @@ class ReactionNetwork(MSONable):
             new_attrs = copy.deepcopy(attrs)
 
             ii += 1
-        #dumpfn(PRs, filename, default=lambda o: o.as_dict)
-        #dumpfn(self.unsolved_PRs, 'unsolved_PRs.json', default=lambda o: o.as_dict)
-        self.final_PR_check(self.PRs)
+        if filename is None:
+            print("Provide filename to save the PRs, for now saving as PRs.json")
+            filename = "PRs.json"
+        dumpfn(PRs, filename, default=lambda o: o.as_dict)
+        dumpfn(self.unsolved_PRs, 'unsolved_PRs.json', default=lambda o: o.as_dict)
+        self.final_PR_check(PRs)
         if save:
             if filename is None:
                 print("Provide filename to save the PRs, for now saving as PRs.json")
                 filename = "PRs.json"
-            dumpfn(self.PRs, filename, default=lambda o: o.as_dict)
-            dumpfn(self.unsolved_PRs, 'unsolved_PRs.json',default=lambda o: o.as_dict)
-        return self.PRs
+            # dumpfn(PRs, filename, default=lambda o: o.as_dict)
+            # dumpfn(self.unsolved_PRs, 'unsolved_PRs.json',default=lambda o: o.as_dict)
+        return PRs
 
     def find_path_cost(self, starts, target, weight, old_solved_PRs, cost_from_start, min_cost, PRs):
         """
@@ -1713,11 +1716,15 @@ class ReactionNetwork(MSONable):
         self.not_reachable_nodes = []
         for PR in PRs:
             reachable = False
-            for start in starts:
-                if PRs[PR][start].path != None:
-                    reachable = True
+            if all(start in PRs[PR].keys() for start in starts):
+                for start in starts:
+                    if PRs[PR][start].path != None:
+                        reachable = True
+            else:
+                reachable = True
             if not reachable:
                 self.not_reachable_nodes.append(PR)
+        print('not reachable nodes:', self.not_reachable_nodes)
         ## XX modification ends
         self.num_starts = len(starts)
         for node in self.graph.nodes():
