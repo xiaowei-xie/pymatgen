@@ -982,27 +982,27 @@ class FindConcertedReactions:
                         continue
                     else:
                         self.concerted_rxns_to_determine.append([reac, prod])
+        print('number of concerted candidates:',len(self.concerted_rxns_to_determine))
         dumpfn(self.concerted_rxns_to_determine, 'concerted_candidates.json')
+
         return
 
-    def find_concerted_break2_form2(self, args):
+    def find_concerted_break2_form2(self, index):
         '''
         Determine whether one reaction in self.concerted_rxns_to_determine is a <=2 bond break, <=2 bond formation concerted reaction.
         Note that if a reaction is elementary (in class "RedoxReaction", "IntramolSingleBondChangeReaction", "IntermolecularReaction",
         "CoordinationBondChangeReaction"), it is also considered concerted. It has to be removed later on in the ReactionNetwork class.
 
-        :param args: [i,name]
-                   i: Index in self.concerted_rxns_to_determine
-                   name: This is for calling self.find_concerted_multiprocess later. Name for saving self.valid_reactions.
+        :param index: Index in self.concerted_rxns_to_determine
         :return: valid_reactions:[['15_43', '19_43']]: [[str(reactants),str(products)]]
                  reactants and products are separated by "_".
                  The number correspond to the index of a mol_graph in self.unique_mol_graphs_new.
         '''
-        i, name = args[0], args[1]
+        print('current index:', index)
         valid_reactions = []
 
-        reac = self.concerted_rxns_to_determine[i][0]
-        prod = self.concerted_rxns_to_determine[i][1]
+        reac = self.concerted_rxns_to_determine[index][0]
+        prod = self.concerted_rxns_to_determine[index][1]
 
         print('reactant:', reac)
         print('product:', prod)
@@ -1080,6 +1080,7 @@ class FindConcertedReactions:
                  reactants and products are separated by "_".
                  The number correspond to the index of a mol_graph in self.unique_mol_graphs_new.
         '''
+        print('current index:',index)
         valid_reactions = []
 
         reac = self.concerted_rxns_to_determine[index][0]

@@ -2080,5 +2080,5 @@ if __name__ == "__main__":
     max_iter = 100
     RN.num_starts = len(starts)
     RN.build()
-    RN.build_concerted_reactions(name="nothing", read_file=False, num_processors=2, reaction_type="break1_form1", allowed_charge_change=0)
+    RN.build_concerted_reactions(name="nothing", read_file=False, num_processors=2, reaction_type="break2_form2", allowed_charge_change=0)
     #RN.solve_prerequisites(starts,target,weight,max_iter,save=True)
