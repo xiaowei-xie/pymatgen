@@ -265,6 +265,7 @@ class FixedCompositionNetwork:
         # keys of self.free_energy_dict correspond to indices in self.opt_mol_graphs
         if load_entries:
             for key in info_dict.keys():
+                self.opt_entries[key] = {}
                 for charge in total_charges:
                     if info_dict[key][charge]["index"] != None:
                         index = info_dict[key][charge]["index"]
@@ -282,6 +283,7 @@ class FixedCompositionNetwork:
                         self.opt_species_w_charge.append(str(key)+'_'+str(charge))
         else:
             for key in info_dict.keys():
+                self.opt_entries[key] = {}
                 for charge in total_charges:
                     if info_dict[key][charge]["index"] != None:
                         index = info_dict[key][charge]["index"]
