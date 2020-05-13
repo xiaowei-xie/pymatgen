@@ -302,6 +302,8 @@ class FixedCompositionNetwork:
 
         dumpfn(self.free_energy_dict, energy_dict_name+".json")
         dumpfn(self.opt_to_orig_keys, opt_to_orig_dict_name + ".json")
+        dumpfn(self.opt_entries, 'opt_entries.json')
+        dumpfn(self.opt_species_w_charge, 'opt_species_w_charge.json')
         return
 
     def recombination(self):
