@@ -1681,18 +1681,16 @@ class ReactionNetwork(MSONable):
             new_attrs = copy.deepcopy(attrs)
 
             ii += 1
-        if filename is None:
-            print("Provide filename to save the PRs, for now saving as PRs.json")
-            filename = "PRs.json"
-        dumpfn(PRs, filename, default=lambda o: o.as_dict)
-        dumpfn(self.unsolved_PRs, 'unsolved_PRs.json', default=lambda o: o.as_dict)
+
         self.final_PR_check(PRs)
         if save:
             if filename is None:
                 print("Provide filename to save the PRs, for now saving as PRs.json")
                 filename = "PRs.json"
-            # dumpfn(PRs, filename, default=lambda o: o.as_dict)
-            # dumpfn(self.unsolved_PRs, 'unsolved_PRs.json',default=lambda o: o.as_dict)
+            dumpfn(PRs, filename, default=lambda o: o.as_dict)
+            dumpfn(self.unsolved_PRs, 'unsolved_PRs.json',default=lambda o: o.as_dict)
+            dumpfn(json_graph.adjacency_data(self.graph),'RN_graph.json')
+            dumpfn(self.min_cost, 'min_cost.json', default=lambda o: o.as_dict)
         return PRs
 
     def find_path_cost(self, starts, target, weight, old_solved_PRs, cost_from_start, min_cost, PRs):
@@ -1892,7 +1890,7 @@ class ReactionNetwork(MSONable):
 
     def find_paths(self, starts, target, weight, num_paths=10, solved_PRs_path=None):  # -> ??
         """
-            A method to find the shorted parth from given starts to a target
+            A method to find the shorted path from given starts to a target
         :param starts: starts: List(molecular nodes), list of molecular nodes of type int found in the ReactionNetwork.graph
         :param target: a single molecular node of type int found in the ReactionNetwork.graph
         :param weight: "softplus" or "exponent", type of cost function to use when calculating edge weights
@@ -2081,4 +2079,6 @@ if __name__ == "__main__":
     weight = "softplus"
     max_iter = 100
     RN.num_starts = len(starts)
-    RN.solve_prerequisites(starts,target,weight,max_iter,save=True)
+    RN.build()
+    RN.build_concerted_reactions(name="nothing", read_file=False, num_processors=2, reaction_type="break1_form1", allowed_charge_change=0)
+    #RN.solve_prerequisites(starts,target,weight,max_iter,save=True)

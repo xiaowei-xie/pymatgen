@@ -6,6 +6,8 @@ from itertools import combinations_with_replacement, combinations
 from pymatgen.analysis.fragmenter import open_ring
 from monty.serialization import dumpfn, loadfn
 import numpy as np
+import pathos
+import gzip
 
 def convert_atomic_numbers_to_stoi_dict(atomic_numbers):
     '''
@@ -980,6 +982,7 @@ class FindConcertedReactions:
                         continue
                     else:
                         self.concerted_rxns_to_determine.append([reac, prod])
+        dumpfn(self.concerted_rxns_to_determine, 'concerted_candidates.json')
         return
 
     def find_concerted_break2_form2(self, args):
@@ -1059,6 +1062,11 @@ class FindConcertedReactions:
                 if identify_reactions_AB_CD(mol_graphs1, mol_graphs2):
                     if [reac, prod] not in valid_reactions:
                         valid_reactions.append([reac, prod])
+        #output = "valid_reactions-{}".format(pathos.helpers.mp.currentProcess().getPid())
+        output = "valid_reactions"
+        with open(output, 'a+') as f:
+            for rxn in valid_reactions:
+                f.write(str(rxn)+'\n')
         return valid_reactions
 
     def find_concerted_break1_form1(self, index):
@@ -1135,6 +1143,11 @@ class FindConcertedReactions:
                 if identify_reactions_AB_CD_break1_form1(mol_graphs1, mol_graphs2):
                     if [reac, prod] not in valid_reactions:
                         valid_reactions.append([reac, prod])
+        output = "valid_reactions"
+        #output = "valid_reactions-{}".format(pathos.helpers.mp.currentProcess().getPid())
+        with open(output, 'a+') as f:
+            for rxn in valid_reactions:
+                f.write(str(rxn)+'\n')
         return valid_reactions
 
     def find_concerted_multiprocess(self, num_processors, reaction_type="break2_form2"):
