@@ -45,9 +45,9 @@ class Fragment_Recombination:
         self.mol_graphs = mol_graphs
         return
 
-    def query_database(self,db_file="/Users/xiaoweixie/Desktop/sam_db.json", save=False, entries_name="smd_target_entries_test"):
+    def query_database(self,db_file="/Users/xiaoweixie/Desktop/sam_db.json", save=False, entries_name="smd_target_entries"):
         mmdb = QChemCalcDb.from_db_file(db_file, admin=True)
-        self.target_entries = list(mmdb.collection.find({"environment": "smd_18.5,1.415,0.00,0.735,20.2,0.00,0.00"}))[:5]
+        self.target_entries = list(mmdb.collection.find({"environment": "smd_18.5,1.415,0.00,0.735,20.2,0.00,0.00"}))
         print(len(self.target_entries), "production entries")
         if save:
             dumpfn(self.target_entries,entries_name+".json")
@@ -59,6 +59,7 @@ class Fragment_Recombination:
         '''
         For getting optimized structures that are isomorphic to provided mol graphs in the mongodb database.
         Need to call this before recombination.
+        If not load entries, must run self.query_database first. entries_name variable should be the same as that in self.query_database.
         :return: self.opt_mol_graphs
         '''
         # Make a dict that provides the map between optimized structures in self.opt_mol_graphs and
@@ -642,6 +643,45 @@ class Fragment_Recombination:
 
         return
 
+    def recombine_between_mol_graphs_through_schrodinger_no_opt(self):
+        '''
+        Generate all possible recombined mol_graphs from a list of mol_graphs through Schrodinger (to generate 3d structures).
+        Not considering optimized structure in this function.
+        Indexing in self.recomb_dict_no_opt also different from the self.recombine_between_mol_graphs_through_schrodinger function.
+        This function keeps every mol graph in self.total_mol_graphs_no_opt unique.
+        :param mol_graphs: [MoleculeGraph]
+        :return: recomb_mol_graphs: [MoleculeGraph],
+        recomb_dict: {'mol1_index'+'_'+'mol2_index'+'_'+'atom1_index'+'_'+'atom2_index': mol_graph index in the previous list}.
+        '''
+        # Recombining through self.mol_graphs instead of self.opt_mol_graphs
+        keys = self.generate_all_combinations_for_pymatgen(self.mol_graphs)
+
+        self.recomb_mol_graphs_no_opt = []
+        self.recomb_structs_no_opt = []
+        self.recomb_dict_no_opt = {}
+        for key in keys:
+            print(key)
+            inds = key.split('_')
+            mol_ind1, mol_ind2, atom_ind1, atom_ind2 = int(inds[0]), int(inds[1]), int(inds[2]), int(inds[3])
+            recomb_mol_graph, recomb_struct = self.build_mol_graph_from_two_fragments_through_schrodinger(
+                self.mol_graphs[mol_ind1], self.mol_graphs[mol_ind2], atom_ind1, atom_ind2, True)
+            found = False
+            #recomb_struct.write(os.path.join(sdf_path, key+'.sdf'))
+            for i, mol_graph in enumerate(self.mol_graphs + self.recomb_mol_graphs_no_opt):
+                if (mol_graph.molecule.composition.alphabetical_formula == recomb_mol_graph.molecule.composition.alphabetical_formula) and \
+                    mol_graph.isomorphic_to(recomb_mol_graph):
+                    self.recomb_dict_no_opt[key] = i
+                    found = True
+            if not found:
+                self.recomb_dict_no_opt[key] = len(self.recomb_mol_graphs_no_opt) + len(self.mol_graphs)
+                self.recomb_mol_graphs_no_opt.append(recomb_mol_graph)
+                self.recomb_structs_no_opt.append(recomb_struct)
+        #dumpfn(self.recomb_dict,recomb_name+'.json')
+        assert len(self.recomb_structs_no_opt) == len(self.recomb_mol_graphs_no_opt)
+        self.total_mol_graphs_no_opt = self.mol_graphs + self.recomb_mol_graphs_no_opt
+
+        return
+
     def recombine_between_mol_graphs_through_schrodinger(self):
         '''
         Generate all possible recombined mol_graphs from a list of mol_graphs through Schrodinger (to generate 3d structures).
@@ -652,6 +692,7 @@ class Fragment_Recombination:
         self.opt_structs = [self.get_structure(mol_graph) for mol_graph in self.opt_mol_graphs]
         assert len(self.opt_structs) == len(self.opt_mol_graphs)
 
+        # Recombining through self.mol_graphs instead of self.opt_mol_graphs
         keys = self.generate_all_combinations_for_pymatgen(self.mol_graphs)
 
         self.recomb_mol_graphs = []
@@ -676,6 +717,7 @@ class Fragment_Recombination:
                 self.recomb_structs.append(recomb_struct)
         #dumpfn(self.recomb_dict,recomb_name+'.json')
         assert len(self.recomb_structs) == len(self.recomb_mol_graphs)
+        self.total_mol_graphs = self.opt_mol_graphs + self.recomb_mol_graphs
 
         return
 
@@ -754,12 +796,12 @@ class Fragment_Recombination:
         dumpfn(self.new_recomb_dict, recomb_dict_name+'.json')
         return
 
-    def to_xyz(self, recomb_path='recomb_mols'):
+    def to_xyz(self, mol_graphs, recomb_path='recomb_mols'):
         if not os.path.isdir(recomb_path):
             os.mkdir(recomb_path)
-        for i, mol_graph in enumerate(self.total_mol_graphs):
+        for i, mol_graph in enumerate(mol_graphs):
             mol_graph.molecule.to('xyz',os.path.join(recomb_path, str(i)+'.xyz'))
-
+        return
 
     def visualize_obmol(self,obmol):
         for i in range(obmol.NumAtoms()):
