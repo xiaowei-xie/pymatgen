@@ -189,6 +189,7 @@ class FixedCompositionNetwork:
                 if new_item not in self.fragmentation_dict_new[self.old_to_new_index_dict[key]]:
                     self.fragmentation_dict_new[self.old_to_new_index_dict[key]].append(new_item)
 
+        dumpfn(self.fragmentation_dict_new, 'fragmentation_dict_new.json')
         return self.unique_fragments_new, self.fragmentation_dict_new
 
     def query_database(self, db_file="/Users/xiaoweixie/Desktop/sam_db.json", save=False,
@@ -218,6 +219,7 @@ class FixedCompositionNetwork:
         self.opt_entries_list = []
         self.opt_species_w_charge = []
         info_dict = {}
+        print('NUmber of mol graphs:', len(self.total_mol_graphs_no_opt))
         for i in range(len(self.total_mol_graphs_no_opt)):
             info_dict[i] = {}
             info_dict[i][1] = {"index":None, "free_energy":1e8}
@@ -317,6 +319,7 @@ class FixedCompositionNetwork:
         FR.recombine_between_mol_graphs_through_schrodinger_no_opt()
         self.total_mol_graphs_no_opt = FR.total_mol_graphs_no_opt
         self.recomb_dict_no_opt = FR.recomb_dict_no_opt
+        dumpfn(self.recomb_dict_no_opt, 'recomb_dict_no_opt.json')
         FR.to_xyz(self.total_mol_graphs_no_opt,recomb_path='recomb_mols_no_opt')
 
     def generate_stoichiometry_table(self):
@@ -1031,9 +1034,15 @@ class FixedCompositionNetwork:
         :param crude_energy_thresh:
         :return:
         '''
+        print('working on fragmentation and recombination!')
         self.recombination()
+        print('recombination done!')
+        print('working on creating stoichiometry table!')
         self.generate_stoichiometry_table()
+        print('creating stoichiometry table done!')
+        print('working on getting optimized structures!')
         self.get_optimized_structures(load_entries=True,entries_name=load_entries_name)
+        print('getting optimized structures done!')
         starting_mols, crude_energy_thresh = self.find_starting_mols_and_crude_energy_thresh(starting_mol_graphs, starting_charges, starting_num_electrons)
         starting_mols_list = [starting_mols]
         all_possible_products, all_possible_product_energies = \
