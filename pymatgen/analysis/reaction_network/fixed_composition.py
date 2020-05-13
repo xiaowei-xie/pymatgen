@@ -1033,7 +1033,7 @@ class FixedCompositionNetwork:
         return
 
     def whole_workflow(self,target_composition, target_charge, starting_mol_graphs, starting_charges, starting_num_electrons,
-                       allowed_num_mols=5, energy_thresh=0.0, graph_file_name='reaction_network', entries_file_name='valid'):
+                       allowed_num_mols=5, energy_thresh=0.0, load_entries_name='smd_target_entries',graph_file_name='reaction_network', entries_file_name='valid'):
         '''
         Have to run self.query_database beforehand and save the entries.
         :param target_composition:
@@ -1043,7 +1043,7 @@ class FixedCompositionNetwork:
         '''
         self.recombination()
         self.generate_stoichiometry_table()
-        self.get_optimized_structures(load_entries=True)
+        self.get_optimized_structures(load_entries=True,entries_name=load_entries_name)
         starting_mols, crude_energy_thresh = self.find_starting_mols_and_crude_energy_thresh(starting_mol_graphs, starting_charges, starting_num_electrons)
         starting_mols_list = [starting_mols]
         all_possible_products, all_possible_product_energies = \
