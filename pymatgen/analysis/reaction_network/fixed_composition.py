@@ -67,11 +67,10 @@ class FixedCompositionNetwork:
             Defaults to -2.15 eV, the value at which the LiEC SEI forms.
 
     """
-    def __init__(self, mol_graphs, fragmentation_depth, use_metal_edge_extender, electron_free_energy=-2.15):
+    def __init__(self, mol_graphs, fragmentation_depth, electron_free_energy=-2.15):
 
         self.mol_graphs = mol_graphs
         self.fragmentation_depth = fragmentation_depth
-        self.use_metal_edge_extender = use_metal_edge_extender
         self.electron_free_energy = electron_free_energy
         self.unique_fragments = []
         return
