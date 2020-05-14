@@ -214,9 +214,8 @@ class FixedCompositionNetwork:
         '''
         # Make a dict that provides the map between optimized structures in self.opt_entries_list and
         # original mol graphs in self.total_mol_graphs_no_opt. {self.opt_entries_list index: mol_graph index}.
-        self.opt_to_orig_keys = {}
+
         self.opt_entries = {}
-        self.opt_entries_list = []
         self.opt_species_w_charge = []
         info_dict = {}
         print('NUmber of mol graphs:', len(self.total_mol_graphs_no_opt))
@@ -278,9 +277,7 @@ class FixedCompositionNetwork:
                                                            "enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
                                                            "entropy_cal/molK": entry["entropy_cal/molK"],
                                                            "task_id": entry["task_id"]})
-                        self.free_energy_dict[len(self.opt_entries_list)] = mol_entry.free_energy
-                        self.opt_to_orig_keys[len(self.opt_entries_list)] = key
-                        self.opt_entries_list.append(mol_entry)
+
                         self.opt_entries[key][charge] = mol_entry
                         self.opt_species_w_charge.append(str(key)+'_'+str(charge))
         else:
@@ -296,14 +293,10 @@ class FixedCompositionNetwork:
                                                            "enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
                                                            "entropy_cal/molK": entry["entropy_cal/molK"],
                                                            "task_id": entry["task_id"]})
-                        self.free_energy_dict[len(self.opt_entries_list)] = mol_entry.free_energy
-                        self.opt_to_orig_keys[len(self.opt_entries_list)] = key
-                        self.opt_entries_list.append(mol_entry)
+
                         self.opt_entries[key][charge] = mol_entry
                         self.opt_species_w_charge.append(str(key) + '_' + str(charge))
 
-        dumpfn(self.free_energy_dict, energy_dict_name+".json")
-        dumpfn(self.opt_to_orig_keys, opt_to_orig_dict_name + ".json")
         dumpfn(self.opt_entries, 'opt_entries.json')
         dumpfn(self.opt_species_w_charge, 'opt_species_w_charge.json')
         return
@@ -319,8 +312,10 @@ class FixedCompositionNetwork:
         FR.recombine_between_mol_graphs_through_schrodinger_no_opt()
         self.total_mol_graphs_no_opt = FR.total_mol_graphs_no_opt
         self.recomb_dict_no_opt = FR.recomb_dict_no_opt
+        dumpfn(self.total_mol_graphs_no_opt, 'total_mol_graphs_no_opt.json')
         dumpfn(self.recomb_dict_no_opt, 'recomb_dict_no_opt.json')
         FR.to_xyz(self.total_mol_graphs_no_opt,recomb_path='recomb_mols_no_opt')
+
 
     def generate_stoichiometry_table(self):
         '''
@@ -426,7 +421,7 @@ class FixedCompositionNetwork:
             print('finding composition round:', i)
             if int(mol_charge) == target_charge and self.all_stoi_dict[mol_index] == target_composition:
                 to_add = [mol]
-                energy = self.opt_entries[mol.split]
+                energy = self.opt_entries[int(mol.split('_')[0])][int(mol.split('_')[1])].free_energy
                 if to_add not in all_possible_products and energy < energy_thresh:
                     all_possible_products.append(to_add)
                     all_possible_product_energies.append(energy)
@@ -439,7 +434,7 @@ class FixedCompositionNetwork:
                         if (self.all_stoi_dict[mol1_index] == remain_stoi) and ((mol1_charge - remain_charge) <= 2):
                             if (mol1_charge - remain_charge) == 0:
                                 to_add = [mol, mol1]
-                                energy = np.sum([self.opt_entries[int(item.split('_')[0])][int(item.split('_')[1])] for item in to_add])
+                                energy = np.sum([self.opt_entries[int(item.split('_')[0])][int(item.split('_')[1])].free_energy for item in to_add])
                                 if energy < energy_thresh:
                                     to_add.sort()
                                     if to_add not in all_possible_products:
@@ -447,7 +442,7 @@ class FixedCompositionNetwork:
                                         all_possible_product_energies.append(energy)
                             elif (mol1_charge - remain_charge) == 1:
                                 to_add = [mol, mol1, 'e_-1']
-                                energy = np.sum([self.opt_entries[int(item.split('_')[0])][int(item.split('_')[1])] for item in to_add])
+                                energy = np.sum([self.opt_entries[int(item.split('_')[0])][int(item.split('_')[1])].free_energy for item in to_add])
                                 if energy < energy_thresh:
                                     to_add.sort()
                                     if to_add not in all_possible_products:
@@ -455,7 +450,7 @@ class FixedCompositionNetwork:
                                         all_possible_product_energies.append(energy)
                             elif (mol1_charge - remain_charge) == 2:
                                 to_add = [mol, mol1, 'e_-1', 'e_-1']
-                                energy = np.sum([self.opt_entries[int(item.split('_')[0])][int(item.split('_')[1])] for item in to_add])
+                                energy = np.sum([self.opt_entries[int(item.split('_')[0])][int(item.split('_')[1])].free_energy for item in to_add])
                                 if energy < energy_thresh:
                                     to_add.sort()
                                     if to_add not in all_possible_products:
@@ -471,7 +466,7 @@ class FixedCompositionNetwork:
                                             (mol2_charge - remain_charge1) <= 2):
                                         if (mol2_charge - remain_charge1) == 0:
                                             to_add = [mol, mol1, mol2]
-                                            energy = np.sum([self.opt_entries[int(item.split('_')[0])][int(item.split('_')[1])] for item in to_add])
+                                            energy = np.sum([self.opt_entries[int(item.split('_')[0])][int(item.split('_')[1])].free_energy for item in to_add])
                                             if energy < energy_thresh:
                                                 to_add.sort()
                                                 if to_add not in all_possible_products:
@@ -479,7 +474,7 @@ class FixedCompositionNetwork:
                                                     all_possible_product_energies.append(energy)
                                         elif (mol2_charge - remain_charge1) == 1:
                                             to_add = [mol, mol1, mol2, 'e_-1']
-                                            energy = np.sum([self.opt_entries[int(item.split('_')[0])][int(item.split('_')[1])] for item in to_add])
+                                            energy = np.sum([self.opt_entries[int(item.split('_')[0])][int(item.split('_')[1])].free_energy for item in to_add])
                                             if energy < energy_thresh:
                                                 to_add.sort()
                                                 if to_add not in all_possible_products:
@@ -487,7 +482,7 @@ class FixedCompositionNetwork:
                                                     all_possible_product_energies.append(energy)
                                         elif (mol2_charge - remain_charge1) == 2:
                                             to_add = [mol, mol1, mol2, 'e_-1', 'e_-1']
-                                            energy = np.sum([self.opt_entries[int(item.split('_')[0])][int(item.split('_')[1])] for item in to_add])
+                                            energy = np.sum([self.opt_entries[int(item.split('_')[0])][int(item.split('_')[1])].free_energy for item in to_add])
                                             if energy < energy_thresh:
                                                 to_add.sort()
                                                 if to_add not in all_possible_products:
@@ -503,7 +498,7 @@ class FixedCompositionNetwork:
                                                         (mol3_charge - remain_charge2) <= 2):
                                                     if (mol3_charge - remain_charge2) == 0:
                                                         to_add = [mol, mol1, mol2, mol3]
-                                                        energy = np.sum([self.opt_entries[int(item.split('_')[0])][int(item.split('_')[1])] for item in to_add])
+                                                        energy = np.sum([self.opt_entries[int(item.split('_')[0])][int(item.split('_')[1])].free_energy for item in to_add])
                                                         if energy < energy_thresh:
                                                             to_add.sort()
                                                             if to_add not in all_possible_products:
@@ -511,7 +506,7 @@ class FixedCompositionNetwork:
                                                                 all_possible_product_energies.append(energy)
                                                     elif (mol3_charge - remain_charge2) == 1:
                                                         to_add = [mol, mol1, mol2, mol3, 'e_-1']
-                                                        energy = np.sum([self.opt_entries[int(item.split('_')[0])][int(item.split('_')[1])] for item in to_add])
+                                                        energy = np.sum([self.opt_entries[int(item.split('_')[0])][int(item.split('_')[1])].free_energy for item in to_add])
                                                         if energy < energy_thresh:
                                                             to_add.sort()
                                                             if to_add not in all_possible_products:
@@ -519,7 +514,7 @@ class FixedCompositionNetwork:
                                                                 all_possible_product_energies.append(energy)
                                                     elif (mol3_charge - remain_charge2) == 2:
                                                         to_add = [mol, mol1, mol2, mol3, 'e_-1', 'e_-1']
-                                                        energy = np.sum([self.opt_entries[int(item.split('_')[0])][int(item.split('_')[1])] for item in to_add])
+                                                        energy = np.sum([self.opt_entries[int(item.split('_')[0])][int(item.split('_')[1])].free_energy for item in to_add])
                                                         if energy < energy_thresh:
                                                             to_add.sort()
                                                             if to_add not in all_possible_products:
@@ -534,7 +529,7 @@ class FixedCompositionNetwork:
                                                             if (self.all_stoi_dict[mol4_index] == remain_stoi3) and ((mol4_charge - remain_charge3) <= 2):
                                                                 if (mol4_charge - remain_charge3) == 0:
                                                                     to_add = [mol, mol1, mol2, mol3, mol4]
-                                                                    energy = np.sum([self.opt_entries[int(item.split('_')[0])][int(item.split('_')[1])] for item in to_add])
+                                                                    energy = np.sum([self.opt_entries[int(item.split('_')[0])][int(item.split('_')[1])].free_energy for item in to_add])
                                                                     if energy < energy_thresh:
                                                                         to_add.sort()
                                                                         if to_add not in all_possible_products:
@@ -542,7 +537,7 @@ class FixedCompositionNetwork:
                                                                             all_possible_product_energies.append(energy)
                                                                 elif (mol4_charge - remain_charge3) == 1:
                                                                     to_add = [mol, mol1, mol2, mol3, mol4, 'e_-1']
-                                                                    energy = np.sum([self.opt_entries[int(item.split('_')[0])][int(item.split('_')[1])] for item in to_add])
+                                                                    energy = np.sum([self.opt_entries[int(item.split('_')[0])][int(item.split('_')[1])].free_energy for item in to_add])
                                                                     if energy < energy_thresh:
                                                                         to_add.sort()
                                                                         if to_add not in all_possible_products:
@@ -550,7 +545,7 @@ class FixedCompositionNetwork:
                                                                             all_possible_product_energies.append(energy)
                                                                 elif (mol4_charge - remain_charge3) == 2:
                                                                     to_add = [mol, mol1, mol2, mol3, mol4, 'e_-1','e_-1']
-                                                                    energy = np.sum([self.opt_entries[int(item.split('_')[0])][int(item.split('_')[1])] for item in to_add])
+                                                                    energy = np.sum([self.opt_entries[int(item.split('_')[0])][int(item.split('_')[1])].free_energy for item in to_add])
                                                                     if energy < energy_thresh:
                                                                         to_add.sort()
                                                                         if to_add not in all_possible_products:
@@ -625,13 +620,13 @@ class FixedCompositionNetwork:
                     if key == mol_index:
                         for nodes in self.fragmentation_dict_new[key]:
                             if len(nodes) == 1:
-                                parent_mol_index = nodes[0]
+                                parent_mol_index = int(nodes[0])
                                 if mol_charge in self.opt_entries[parent_mol_index]:
                                     parent_mol = str(parent_mol_index) + '_' + str(mol_charge)
                                     parents[i].append({parent_mol: 1})
                             elif len(nodes) == 2:
-                                parent_mol1_index = nodes[0]
-                                parent_mol2_index = nodes[1]
+                                parent_mol1_index = int(nodes[0])
+                                parent_mol2_index = int(nodes[1])
                                 for parent_mol1_charge in charge_options:
                                     parent_mol2_charge = mol_charge - parent_mol1_charge
                                     if parent_mol1_charge in self.opt_entries[parent_mol1_index] and \
@@ -645,16 +640,16 @@ class FixedCompositionNetwork:
                     else:
                         for nodes in self.fragmentation_dict_new[key]:
                             if mol_index in nodes:
-                                parent_mol1_index = key
+                                parent_mol1_index = int(key)
                                 if len(nodes) == 1:
                                     if mol_charge in self.opt_entries[parent_mol1_index]:
                                         parent_mol1 = str(parent_mol1_index) + '_' + str(mol_charge)
                                         parents[i].append({parent_mol1: 1})
                                 elif len(nodes) == 2:
                                     if nodes[0] == mol_index:
-                                        parent_mol2_index = nodes[1]
+                                        parent_mol2_index = int(nodes[1])
                                     elif nodes[1] == mol_index:
-                                        parent_mol2_index = nodes[0]
+                                        parent_mol2_index = int(nodes[0])
                                     for parent_mol1_charge in charge_options:
                                         parent_mol2_charge = parent_mol1_charge - mol_charge
                                         if parent_mol1_charge in self.opt_entries[parent_mol1_index] and \
@@ -697,11 +692,11 @@ class FixedCompositionNetwork:
             parents_list.append(parents)
 
         # merge species dict
-        energy_standard = np.sum([self.opt_entries[key.split('_')[0]][key.split('_')[1]].free_energy for key in starting_mols])
+        energy_standard = np.sum([self.opt_entries[int(key.split('_')[0])][int(key.split('_')[1])].free_energy for key in starting_mols])
         possible_pathways_before_final = []
         for i in range(len(parents_list)):
             energy_reference = np.sum(
-                [self.opt_entries[key.split('_')[0]][key.split('_')[1]].free_energy * possible_products[i][key] for key in possible_products[i]])
+                [self.opt_entries[int(key.split('_')[0])][int(key.split('_')[1])].free_energy * possible_products[i][key] for key in possible_products[i]])
             possible_pathways_dummy = []
             parents = parents_list[i]  # [[{1},{2}],  [{3},{4}],  [{5},{6},{7}],  [{8},{9},{10},{11}]]
             num_parents = len(parents)
@@ -719,7 +714,7 @@ class FixedCompositionNetwork:
                 # eliminate the case with negative stoichiometry
                 if all(merge_species_dict[key] > 0 for key in merge_species_dict.keys()):
                     energy = np.sum(
-                        [self.opt_entries[key.split('_')[0]][key.split('_')[1]].free_energy * merge_species_dict[key] for key in merge_species_dict.keys()])
+                        [self.opt_entries[int(key.split('_')[0])][int(key.split('_')[1])].free_energy * merge_species_dict[key] for key in merge_species_dict.keys()])
                     if energy + energy_thresh >= energy_reference and energy <= energy_standard + energy_thresh:
                         possible_pathways_dummy.append(merge_species_dict)
             possible_pathways_before_final.append(possible_pathways_dummy)
@@ -795,7 +790,7 @@ class FixedCompositionNetwork:
         node_energies = []
         for node in pathway_nodes:
             assert all(key in self.opt_species_w_charge for key in node)
-            energy = np.sum([self.opt_entries[key.split('_')[0]][key.split('_')[1]].free_energy * node[key] for key in node])
+            energy = np.sum([self.opt_entries[int(key.split('_')[0])][int(key.split('_')[1])].free_energy * node[key] for key in node])
             node_energies.append(energy)
 
         valid_edges = []
@@ -880,7 +875,7 @@ class FixedCompositionNetwork:
                     if mol_graph.isomorphic_to(mol_graph_to_find):
                         starting_mols.append(str(i)+'_'+str(charges[j]))
         for mol in starting_mols:
-            crude_energy_thresh += self.opt_entries[mol.split('_')[0]][mol.split('_')[1]].free_energy
+            crude_energy_thresh += self.opt_entries[int(mol.split('_')[0])][int(mol.split('_')[1])].free_energy
         if num_electrons != 0:
             for i in range(num_electrons):
                 starting_mols.append('e_-1')
@@ -1018,7 +1013,7 @@ class FixedCompositionNetwork:
                 if key not in unique_species:
                     unique_species.append(key)
                     if key != 'e_-1':
-                        mol_entry = self.opt_entries[key.split('_')[0]][key.split('_')[1]]
+                        mol_entry = self.opt_entries[int(key.split('_')[0])][int(key.split('_')[1])]
                         self.good_entries.append(mol_entry)
                 else:
                     continue
@@ -1026,7 +1021,8 @@ class FixedCompositionNetwork:
         return
 
     def whole_workflow(self,target_composition, target_charge, starting_mol_graphs, starting_charges, starting_num_electrons,
-                       allowed_num_mols=5, energy_thresh=0.0, load_entries_name='smd_target_entries',graph_file_name='reaction_network', entries_file_name='valid'):
+                       allowed_num_mols=5, energy_thresh=0.0, load_entries_name='smd_target_entries',graph_file_name='reaction_network',
+                       entries_file_name='valid'):
         '''
         Have to run self.query_database beforehand and save the entries.
         :param target_composition:
@@ -1043,6 +1039,37 @@ class FixedCompositionNetwork:
         print('working on getting optimized structures!')
         self.get_optimized_structures(load_entries=True,entries_name=load_entries_name)
         print('getting optimized structures done!')
+        starting_mols, crude_energy_thresh = self.find_starting_mols_and_crude_energy_thresh(starting_mol_graphs, starting_charges, starting_num_electrons)
+        starting_mols_list = [starting_mols]
+        all_possible_products, all_possible_product_energies = \
+            self.find_all_product_composition_from_target(target_composition, target_charge, crude_energy_thresh)
+        all_possible_product_lowest_n, all_possible_product_energies_lowest_n = \
+            self.find_n_lowest_product_composition(all_possible_products, all_possible_product_energies)
+        pathway_nodes_final, pathway_edges_final, node_energies = \
+            self.map_all_possible_pathways(all_possible_product_lowest_n, [starting_mols], allowed_num_mols, energy_thresh)
+        new_pathway_nodes, new_pathway_edges, new_energies = self.transform_nodes_and_edges(pathway_nodes_final, pathway_edges_final, starting_mols_list, node_energies)
+        self.visualize_reaction_network(new_pathway_nodes, new_pathway_edges, new_energies, graph_file_name)
+        self.generate_entries(new_pathway_nodes,entries_file_name)
+
+        return
+
+    def whole_workflow_load_file(self,target_composition, target_charge, starting_mol_graphs, starting_charges, starting_num_electrons,
+                       allowed_num_mols=5, energy_thresh=0.0, graph_file_name='reaction_network',
+                       entries_file_name='valid'):
+        '''
+        Have to run self.query_database beforehand and save the entries.
+        :param target_composition:
+        :param target_charge:
+        :param crude_energy_thresh:
+        :return:
+        '''
+
+        self.fragmentation_dict_new = loadfn('fragmentation_dict_new.json')
+        self.recomb_dict_no_opt = loadfn(self.recomb_dict_no_opt, 'recomb_dict_no_opt.json')
+        self.opt_entries = loadfn('opt_entries.json')
+        self.opt_species_w_charge = loadfn('opt_species_w_charge.json')
+        self.total_mol_graphs_no_opt = loadfn('total_mol_graphs_no_opt.json')
+
         starting_mols, crude_energy_thresh = self.find_starting_mols_and_crude_energy_thresh(starting_mol_graphs, starting_charges, starting_num_electrons)
         starting_mols_list = [starting_mols]
         all_possible_products, all_possible_product_energies = \
