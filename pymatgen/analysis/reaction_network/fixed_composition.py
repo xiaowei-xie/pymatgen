@@ -551,7 +551,8 @@ class FixedCompositionNetwork:
                                                                         if to_add not in all_possible_products:
                                                                             all_possible_products.append(to_add)
                                                                             all_possible_product_energies.append(energy)
-
+        dumpfn(all_possible_products, 'all_possible_products.json')
+        dumpfn(all_possible_product_energies, 'all_possible_product_energies.json')
         return all_possible_products, all_possible_product_energies
 
     def find_n_lowest_product_composition(self,all_possible_products, all_possible_product_energies, n=10):
@@ -578,6 +579,7 @@ class FixedCompositionNetwork:
         all_possible_product_lowest_n_new = []
         for i in range(len(all_possible_product_energies_lowest_n)):
             products = all_possible_product_energies_lowest_n[i]
+            print('products:',products)
             products_dict = {}
             for item in products:
                 if item in products_dict.keys():
