@@ -1070,6 +1070,21 @@ class FixedCompositionNetwork:
         self.opt_species_w_charge = loadfn('opt_species_w_charge.json')
         self.total_mol_graphs_no_opt = loadfn('total_mol_graphs_no_opt.json')
 
+        # clean up some dicts b/c loadfn will make the keys into strings
+        self.fragmentation_dict_new_2 = {}
+        for key in self.fragmentation_dict_new:
+            self.fragmentation_dict_new_2[int(key)] = self.fragmentation_dict_new[key]
+        self.fragmentation_dict_new = copy.deepcopy(self.fragmentation_dict_new_2)
+        del self.fragmentation_dict_new_2
+
+        self.opt_entries_new = {}
+        for key in self.opt_entries:
+            self.opt_entries_new[int(key)] = {}
+            for key1 in self.opt_entries[key]:
+                self.opt_entries_new[int(key)][int(key1)] = self.opt_entries[key][key1]
+        self.opt_entries = copy.deepcopy(self.opt_entries_new)
+        del self.opt_entries_new
+
         starting_mols, crude_energy_thresh = self.find_starting_mols_and_crude_energy_thresh(starting_mol_graphs, starting_charges, starting_num_electrons)
         starting_mols_list = [starting_mols]
         all_possible_products, all_possible_product_energies = \
