@@ -1065,7 +1065,7 @@ class FixedCompositionNetwork:
         '''
 
         self.fragmentation_dict_new = loadfn('fragmentation_dict_new.json')
-        self.recomb_dict_no_opt = loadfn(self.recomb_dict_no_opt, 'recomb_dict_no_opt.json')
+        self.recomb_dict_no_opt = loadfn('recomb_dict_no_opt.json')
         self.opt_entries = loadfn('opt_entries.json')
         self.opt_species_w_charge = loadfn('opt_species_w_charge.json')
         self.total_mol_graphs_no_opt = loadfn('total_mol_graphs_no_opt.json')
