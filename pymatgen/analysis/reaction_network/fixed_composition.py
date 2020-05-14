@@ -1085,6 +1085,10 @@ class FixedCompositionNetwork:
         self.opt_entries = copy.deepcopy(self.opt_entries_new)
         del self.opt_entries_new
 
+        print('working on creating stoichiometry table!')
+        self.generate_stoichiometry_table()
+        print('creating stoichiometry table done!')
+
         starting_mols, crude_energy_thresh = self.find_starting_mols_and_crude_energy_thresh(starting_mol_graphs, starting_charges, starting_num_electrons)
         starting_mols_list = [starting_mols]
         all_possible_products, all_possible_product_energies = \
