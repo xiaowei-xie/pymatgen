@@ -577,8 +577,8 @@ class FixedCompositionNetwork:
 
         # Transform products from list format to stoichiometry dict format.
         all_possible_product_lowest_n_new = []
-        for i in range(len(all_possible_product_energies_lowest_n)):
-            products = all_possible_product_energies_lowest_n[i]
+        for i in range(len(all_possible_product_lowest_n)):
+            products = all_possible_product_lowest_n[i]
             print('products:',products)
             products_dict = {}
             for item in products:
