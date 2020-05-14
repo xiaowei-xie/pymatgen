@@ -1046,7 +1046,7 @@ class FixedCompositionNetwork:
         all_possible_product_lowest_n, all_possible_product_energies_lowest_n = \
             self.find_n_lowest_product_composition(all_possible_products, all_possible_product_energies)
         pathway_nodes_final, pathway_edges_final, node_energies = \
-            self.map_all_possible_pathways(all_possible_product_lowest_n, [starting_mols], allowed_num_mols, energy_thresh)
+            self.map_all_possible_pathways(all_possible_product_lowest_n, starting_mols, allowed_num_mols, energy_thresh)
         new_pathway_nodes, new_pathway_edges, new_energies = self.transform_nodes_and_edges(pathway_nodes_final, pathway_edges_final, starting_mols_list, node_energies)
         self.visualize_reaction_network(new_pathway_nodes, new_pathway_edges, new_energies, graph_file_name)
         self.generate_entries(new_pathway_nodes,entries_file_name)
@@ -1096,7 +1096,7 @@ class FixedCompositionNetwork:
         all_possible_product_lowest_n, all_possible_product_energies_lowest_n = \
             self.find_n_lowest_product_composition(all_possible_products, all_possible_product_energies)
         pathway_nodes_final, pathway_edges_final, node_energies = \
-            self.map_all_possible_pathways(all_possible_product_lowest_n, [starting_mols], allowed_num_mols, energy_thresh)
+            self.map_all_possible_pathways(all_possible_product_lowest_n, starting_mols, allowed_num_mols, energy_thresh)
         new_pathway_nodes, new_pathway_edges, new_energies = self.transform_nodes_and_edges(pathway_nodes_final, pathway_edges_final, starting_mols_list, node_energies)
         self.visualize_reaction_network(new_pathway_nodes, new_pathway_edges, new_energies, graph_file_name)
         self.generate_entries(new_pathway_nodes,entries_file_name)
