@@ -276,8 +276,11 @@ class ReactionNetwork(MSONable):
 
     def concerted_2_steps(self):
         reactions_to_add = []
+        finished_species_node_number = -1
         for node0 in self.graph.nodes():
             if self.graph.node[node0]["bipartite"] == 0:
+                finished_species_node_number += 1
+                print('finished species node number:', finished_species_node_number)
                 node0_rxns = list(self.graph.neighbors(node0))
                 for rxn0 in node0_rxns:
                     if self.graph.node[rxn0]["free_energy"] > 0:
