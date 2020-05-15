@@ -608,6 +608,7 @@ class FixedCompositionNetwork:
             num_species = len(species_list)
             parents = [[] for i in range(int(num_species))]
             for i, mol in enumerate(species_list):
+                print('mol:',mol)
                 if mol == 'e_-1':
                     parents[i].append({mol: 1})
                     continue
