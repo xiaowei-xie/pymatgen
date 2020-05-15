@@ -936,7 +936,7 @@ class FixedCompositionNetwork:
         pathway_edges_final = self.add_obvious_edges(pathway_nodes_final, pathway_edges_final)
         pathway_edges_final, node_energies = self.eliminate_edges_by_energy(pathway_nodes_final, pathway_edges_final, energy_thresh)
 
-        dumpfn(pathway_nodes_final, 'pathway_edges_final.json')
+        dumpfn(pathway_nodes_final, 'pathway_nodes_final.json')
         dumpfn(pathway_edges_final, 'pathway_edges_final.json')
         dumpfn(node_energies, 'node_energies.json')
         return pathway_nodes_final, pathway_edges_final, node_energies
@@ -1148,3 +1148,41 @@ if __name__ == "__main__":
     # path = '/Users/xiaoweixie/pymatgen/pymatgen/analysis/reaction_network/fixed_composition/test_xyz/'
     # for i, frag in enumerate(unique_fragments_new):
     #     frag.molecule.to('xyz',path+str(i)+'.xyz')
+FCN.fragmentation_dict_new = loadfn('fragmentation_dict_new.json')
+FCN.recomb_dict_no_opt = loadfn('recomb_dict_no_opt.json')
+FCN.opt_entries = loadfn('opt_entries.json')
+FCN.opt_species_w_charge = loadfn('opt_species_w_charge.json')
+FCN.total_mol_graphs_no_opt = loadfn('total_mol_graphs_no_opt.json')
+
+# clean up some dicts b/c loadfn will make the keys into strings
+FCN.fragmentation_dict_new_2 = {}
+for key in FCN.fragmentation_dict_new:
+    FCN.fragmentation_dict_new_2[int(key)] = FCN.fragmentation_dict_new[key]
+FCN.fragmentation_dict_new = copy.deepcopy(FCN.fragmentation_dict_new_2)
+del FCN.fragmentation_dict_new_2
+
+FCN.opt_entries_new = {}
+for key in FCN.opt_entries:
+    FCN.opt_entries_new[int(key)] = {}
+    for key1 in FCN.opt_entries[key]:
+        FCN.opt_entries_new[int(key)][int(key1)] = FCN.opt_entries[key][key1]
+FCN.opt_entries = copy.deepcopy(FCN.opt_entries_new)
+del FCN.opt_entries_new
+
+print('working on creating stoichiometry table!')
+FCN.generate_stoichiometry_table()
+print('creating stoichiometry table done!')
+
+starting_mols, crude_energy_thresh = FCN.find_starting_mols_and_crude_energy_thresh(starting_mol_graphs,
+                                                                                     starting_charges,
+                                                                                     starting_num_electrons)
+starting_mols_list = [starting_mols]
+all_possible_products = loadfn('all_possible_products.json')
+all_possible_product_energies = loadfn('all_possible_product_energies.json')
+pathway_nodes_final = loadfn('pathway_nodes_final.json')
+pathway_edges_final = loadfn('pathway_edges_final.json')
+node_energies = loadfn('node_energies')
+FCN.new_pathway_nodes, FCN.new_pathway_edges, FCN.new_energies = FCN.transform_nodes_and_edges(pathway_nodes_final,
+                                                                                                   pathway_edges_final,
+                                                                                                   starting_mols_list,
+                                                                                                   node_energies)
