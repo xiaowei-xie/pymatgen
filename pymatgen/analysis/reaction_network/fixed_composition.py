@@ -694,11 +694,15 @@ class FixedCompositionNetwork:
             parents_list.append(parents)
 
         # merge species dict
-        energy_standard = np.sum([self.opt_entries[int(key.split('_')[0])][int(key.split('_')[1])].free_energy for key in starting_mols])
+        energy_standard = np.sum([self.opt_entries[int(key.split('_')[0])][int(key.split('_')[1])].free_energy for key in starting_mols if key!='e_-1'])
+        if 'e_-1' in starting_mols:
+            energy_standard += self.electron_free_energy * starting_mols['e_-1']
         possible_pathways_before_final = []
         for i in range(len(parents_list)):
             energy_reference = np.sum(
-                [self.opt_entries[int(key.split('_')[0])][int(key.split('_')[1])].free_energy * possible_products[i][key] for key in possible_products[i]])
+                [self.opt_entries[int(key.split('_')[0])][int(key.split('_')[1])].free_energy * possible_products[i][key] for key in possible_products[i] if key!='e_-1'])
+            if 'e_-1' in possible_products[i]:
+                energy_reference += self.electron_free_energy * possible_products[i]['e_-1']
             possible_pathways_dummy = []
             parents = parents_list[i]  # [[{1},{2}],  [{3},{4}],  [{5},{6},{7}],  [{8},{9},{10},{11}]]
             num_parents = len(parents)
@@ -716,7 +720,9 @@ class FixedCompositionNetwork:
                 # eliminate the case with negative stoichiometry
                 if all(merge_species_dict[key] > 0 for key in merge_species_dict.keys()):
                     energy = np.sum(
-                        [self.opt_entries[int(key.split('_')[0])][int(key.split('_')[1])].free_energy * merge_species_dict[key] for key in merge_species_dict.keys()])
+                        [self.opt_entries[int(key.split('_')[0])][int(key.split('_')[1])].free_energy * merge_species_dict[key] for key in merge_species_dict.keys() if key!='e_-1'])
+                    if 'e_-1' in merge_species_dict:
+                        energy += self.electron_free_energy * merge_species_dict['e_-1']
                     if energy + energy_thresh >= energy_reference and energy <= energy_standard + energy_thresh:
                         possible_pathways_dummy.append(merge_species_dict)
             possible_pathways_before_final.append(possible_pathways_dummy)
@@ -792,7 +798,9 @@ class FixedCompositionNetwork:
         node_energies = []
         for node in pathway_nodes:
             assert all(key in self.opt_species_w_charge for key in node)
-            energy = np.sum([self.opt_entries[int(key.split('_')[0])][int(key.split('_')[1])].free_energy * node[key] for key in node])
+            energy = np.sum([self.opt_entries[int(key.split('_')[0])][int(key.split('_')[1])].free_energy * node[key] for key in node if key != 'e_-1'])
+            if 'e_-1' in node:
+                energy += self.electron_free_energy * node['e_-1']
             node_energies.append(energy)
 
         valid_edges = []
