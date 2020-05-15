@@ -802,7 +802,7 @@ class FixedCompositionNetwork:
         '''
         node_energies = []
         for node in pathway_nodes:
-            assert all(key in self.opt_species_w_charge for key in node)
+            assert all(key in self.opt_species_w_charge for key in node if key != 'e_-1')
             energy = np.sum([self.opt_entries[int(key.split('_')[0])][int(key.split('_')[1])].free_energy * node[key] for key in node if key != 'e_-1'])
             if 'e_-1' in node:
                 energy += self.electron_free_energy * node['e_-1']
