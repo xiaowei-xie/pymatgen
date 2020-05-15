@@ -118,7 +118,7 @@ class ReactionNetwork(MSONable):
         self.intermol_single_bond_change()
         self.coordination_bond_change()
         #self.add_water_reactions()
-        #self.concerted_2_steps()
+        self.concerted_2_steps()
         #self.add_LEDC_concerted_reactions()
         #self.add_water_lithium_reaction()
         self.PR_record = self.build_PR_record()
