@@ -1180,6 +1180,35 @@ class FindConcertedReactions:
         #dumpfn(self.valid_reactions, name + "_valid_concerted_rxns.json")
         return
 
+    def find_concerted_multiprocess_no_saving(self, num_processors, reaction_type="break2_form2"):
+        '''
+        Use multiprocessing to determine concerted reactions in parallel.
+        Args:
+        :param num_processors:
+        :param reaction_type: Can choose from "break2_form2" and "break1_form1"
+        :return: self.valid_reactions:[['15_43', '19_43']]: [[str(reactants),str(products)]]
+                 reactants and products are separated by "_".
+                 The number correspond to the index of a mol_graph in self.unique_mol_graphs_new.
+        '''
+        print("Finding concerted reactions!")
+        if reaction_type == "break2_form2":
+            func = self.find_concerted_break2_form2
+            print("Reaction type: break2 form2")
+        elif reaction_type == "break1_form1":
+            func = self.find_concerted_break1_form1
+            print("Reaction type: break1 form1")
+        from pathos.multiprocessing import ProcessingPool as Pool
+        nums = list(np.arange(len(self.concerted_rxns_to_determine)))
+        args = [(i) for i in nums]
+        pool = Pool(num_processors)
+        results = pool.map(func, args)
+        # self.valid_reactions = []
+        # for i in range(len(results)):
+        #     valid_reactions = results[i]
+        #     self.valid_reactions += valid_reactions
+        #dumpfn(self.valid_reactions, name + "_valid_concerted_rxns.json")
+        return
+
     def get_final_concerted_reactions(self, name, num_processors, reaction_type="break2_form2"):
         '''
         This is for getting the final set of concerted reactions: entry index corresponds to the index in self.entries_list.
