@@ -949,7 +949,7 @@ class FindConcertedReactions:
             found = False
             for j in range(len(self.unique_mol_graphs_new)):
                 new_mol_graph = self.unique_mol_graphs_new[j]
-                if mol_graph.isomorphic_to(new_mol_graph):
+                if mol_graph.molecule.composition.alphabetical_formula == new_mol_graph.molecule.composition.alphabetical_formula and mol_graph.isomorphic_to(new_mol_graph):
                     found = True
                     self.unique_mol_graph_dict[i] = j
                     continue
@@ -958,22 +958,22 @@ class FindConcertedReactions:
                 self.unique_mol_graphs_new.append(mol_graph)
         #dumpfn(self.unique_mol_graph_dict, self.name + "_unique_mol_graph_map.json")
         # find all molecule pairs that satisfy the stoichiometry constraint
-        self.stoi_list, self.species_same_stoi_dict = identify_same_stoi_mol_pairs(self.unique_mol_graphs_new)
-        self.reac_prod_dict = {}
-        for i, key in enumerate(self.species_same_stoi_dict.keys()):
-            species_list = self.species_same_stoi_dict[key]
+        stoi_list, species_same_stoi_dict = identify_same_stoi_mol_pairs(self.unique_mol_graphs_new)
+        reac_prod_dict = {}
+        for i, key in enumerate(species_same_stoi_dict.keys()):
+            species_list = species_same_stoi_dict[key]
             new_species_list_reactant = []
             new_species_list_product = []
             for species in species_list:
                 new_species_list_reactant.append(species)
                 new_species_list_product.append(species)
             if new_species_list_reactant != [] and new_species_list_product != []:
-                self.reac_prod_dict[key] = {'reactants': new_species_list_reactant,
+                reac_prod_dict[key] = {'reactants': new_species_list_reactant,
                                             'products': new_species_list_product}
         self.concerted_rxns_to_determine = []
-        for key in self.reac_prod_dict.keys():
-            reactants = self.reac_prod_dict[key]['reactants']
-            products = self.reac_prod_dict[key]['products']
+        for key in reac_prod_dict.keys():
+            reactants = reac_prod_dict[key]['reactants']
+            products = reac_prod_dict[key]['products']
             for j in range(len(reactants)):
                 reac = reactants[j]
                 for k in range(len(products)):
