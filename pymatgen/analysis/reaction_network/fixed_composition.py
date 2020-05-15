@@ -608,7 +608,7 @@ class FixedCompositionNetwork:
             num_species = len(species_list)
             parents = [[] for i in range(int(num_species))]
             for i, mol in enumerate(species_list):
-                print('mol:',mol)
+                #print('mol:',mol)
                 if mol == 'e_-1':
                     parents[i].append({mol: 1})
                     continue
@@ -936,6 +936,9 @@ class FixedCompositionNetwork:
         pathway_edges_final = self.add_obvious_edges(pathway_nodes_final, pathway_edges_final)
         pathway_edges_final, node_energies = self.eliminate_edges_by_energy(pathway_nodes_final, pathway_edges_final, energy_thresh)
 
+        dumpfn(pathway_nodes_final, 'pathway_edges_final.json')
+        dumpfn(pathway_edges_final, 'pathway_edges_final.json')
+        dumpfn(node_energies, 'node_energies.json')
         return pathway_nodes_final, pathway_edges_final, node_energies
 
     def transform_nodes_and_edges(self, pathway_nodes, pathway_edges, starting_mols_list, node_energies):
@@ -979,6 +982,10 @@ class FixedCompositionNetwork:
         new_pathway_nodes, new_pathway_edges, new_energies = \
             self.eliminate_nodes_from_nowhere(transformed_nodes, transformed_edges, indices, node_energies)
 
+        dumpfn(self.number_to_nodes_dict, 'number_to_nodes_dict.json')
+        dumpfn(new_pathway_nodes, 'new_pathway_nodes.json')
+        dumpfn(new_pathway_edges, 'new_pathway_edges.json')
+        dumpfn(new_energies, 'new_energies.json')
         return new_pathway_nodes, new_pathway_edges, new_energies
 
     def get_color_from_list(self, num, list):
