@@ -934,18 +934,13 @@ class FindConcertedReactions:
                  The number correspond to the index of a mol_graph in self.unique_mol_graphs_new.
         '''
         print("Finding concerted reaction candidates!")
-        self.unique_mol_graphs = []
-        for entry in self.entries_list:
-            mol_graph = entry.mol_graph
-            self.unique_mol_graphs.append(mol_graph)
-
         self.unique_mol_graphs_new = []
         # For duplicate mol graphs, create a map between later species with former ones
         # Only determine once for each unique mol_graph.
         self.unique_mol_graph_dict = {}
 
-        for i in range(len(self.unique_mol_graphs)):
-            mol_graph = self.unique_mol_graphs[i]
+        for i in range(len(self.entries_list)):
+            mol_graph = self.entries_list[i].mol_graph
             found = False
             for j in range(len(self.unique_mol_graphs_new)):
                 new_mol_graph = self.unique_mol_graphs_new[j]
@@ -959,6 +954,7 @@ class FindConcertedReactions:
         #dumpfn(self.unique_mol_graph_dict, self.name + "_unique_mol_graph_map.json")
         # find all molecule pairs that satisfy the stoichiometry constraint
         stoi_list, species_same_stoi_dict = identify_same_stoi_mol_pairs(self.unique_mol_graphs_new)
+        '''
         reac_prod_dict = {}
         for i, key in enumerate(species_same_stoi_dict.keys()):
             species_list = species_same_stoi_dict[key]
@@ -970,6 +966,7 @@ class FindConcertedReactions:
             if new_species_list_reactant != [] and new_species_list_product != []:
                 reac_prod_dict[key] = {'reactants': new_species_list_reactant,
                                             'products': new_species_list_product}
+                
         self.concerted_rxns_to_determine = []
         for key in reac_prod_dict.keys():
             reactants = reac_prod_dict[key]['reactants']
@@ -981,7 +978,27 @@ class FindConcertedReactions:
                     if k <= j:
                         continue
                     else:
-                        self.concerted_rxns_to_determine.append([reac, prod])
+                        self.concerted_rxns_to_determine.append([reac, prod])'''
+        self.concerted_rxns_to_determine = []
+        for i, key in enumerate(species_same_stoi_dict.keys()):
+            species_list = species_same_stoi_dict[key]
+            new_species_list_reactant = []
+            new_species_list_product = []
+            for species in species_list:
+                new_species_list_reactant.append(species)
+                new_species_list_product.append(species)
+            if new_species_list_reactant != [] and new_species_list_product != []:
+                reactants = new_species_list_reactant
+                products = new_species_list_product
+                for j in range(len(reactants)):
+                    reac = reactants[j]
+                    for k in range(len(products)):
+                        prod = products[k]
+                        if k <= j:
+                            continue
+                        else:
+                            self.concerted_rxns_to_determine.append([reac, prod])
+
         print('number of concerted candidates:',len(self.concerted_rxns_to_determine))
         dumpfn(self.concerted_rxns_to_determine, 'concerted_candidates.json')
 
