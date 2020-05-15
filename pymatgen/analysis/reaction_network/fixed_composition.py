@@ -608,89 +608,93 @@ class FixedCompositionNetwork:
             num_species = len(species_list)
             parents = [[] for i in range(int(num_species))]
             for i, mol in enumerate(species_list):
-                mol_index, mol_charge = int(mol.split('_')[0]),int(mol.split('_')[1])
-                # Include itself
-                parents[i].append({mol: 1})
-                if (mol_charge + 1) in self.opt_entries[mol_index]:
-                    new_mol = str(mol_index) + '_' + str(mol_charge + 1)
-                    parents[i].append({new_mol: 1, 'e_-1': 1})
-                if (mol_charge - 1) in self.opt_entries[mol_index]:
-                    new_mol = str(mol_index) + '_' + str(mol_charge - 1)
-                    parents[i].append({new_mol: 1, 'e_-1': -1})
+                if mol == 'e_-1':
+                    parents[i].append({mol: 1})
+                    continue
+                else:
+                    mol_index, mol_charge = int(mol.split('_')[0]),int(mol.split('_')[1])
+                    # Include itself
+                    parents[i].append({mol: 1})
+                    if (mol_charge + 1) in self.opt_entries[mol_index]:
+                        new_mol = str(mol_index) + '_' + str(mol_charge + 1)
+                        parents[i].append({new_mol: 1, 'e_-1': 1})
+                    if (mol_charge - 1) in self.opt_entries[mol_index]:
+                        new_mol = str(mol_index) + '_' + str(mol_charge - 1)
+                        parents[i].append({new_mol: 1, 'e_-1': -1})
 
-                for key in self.fragmentation_dict_new:
-                    if key == mol_index:
-                        for nodes in self.fragmentation_dict_new[key]:
-                            if len(nodes) == 1:
-                                parent_mol_index = int(nodes[0])
-                                if mol_charge in self.opt_entries[parent_mol_index]:
-                                    parent_mol = str(parent_mol_index) + '_' + str(mol_charge)
-                                    parents[i].append({parent_mol: 1})
-                            elif len(nodes) == 2:
-                                parent_mol1_index = int(nodes[0])
-                                parent_mol2_index = int(nodes[1])
-                                for parent_mol1_charge in charge_options:
-                                    parent_mol2_charge = mol_charge - parent_mol1_charge
-                                    if parent_mol1_charge in self.opt_entries[parent_mol1_index] and \
-                                            parent_mol2_charge in self.opt_entries[parent_mol2_index]:
-                                        parent_mol1 = str(parent_mol1_index) + '_' + str(parent_mol1_charge)
-                                        parent_mol2 = str(parent_mol2_index) + '_' + str(parent_mol2_charge)
-                                        if parent_mol1 == parent_mol2:
-                                            parents[i].append({parent_mol1: 2})
-                                        else:
-                                            parents[i].append({parent_mol1: 1, parent_mol2: 1})
-                    else:
-                        for nodes in self.fragmentation_dict_new[key]:
-                            if mol_index in nodes:
-                                parent_mol1_index = int(key)
+                    for key in self.fragmentation_dict_new:
+                        if key == mol_index:
+                            for nodes in self.fragmentation_dict_new[key]:
                                 if len(nodes) == 1:
-                                    if mol_charge in self.opt_entries[parent_mol1_index]:
-                                        parent_mol1 = str(parent_mol1_index) + '_' + str(mol_charge)
-                                        parents[i].append({parent_mol1: 1})
+                                    parent_mol_index = int(nodes[0])
+                                    if mol_charge in self.opt_entries[parent_mol_index]:
+                                        parent_mol = str(parent_mol_index) + '_' + str(mol_charge)
+                                        parents[i].append({parent_mol: 1})
                                 elif len(nodes) == 2:
-                                    if nodes[0] == mol_index:
-                                        parent_mol2_index = int(nodes[1])
-                                    elif nodes[1] == mol_index:
-                                        parent_mol2_index = int(nodes[0])
+                                    parent_mol1_index = int(nodes[0])
+                                    parent_mol2_index = int(nodes[1])
                                     for parent_mol1_charge in charge_options:
-                                        parent_mol2_charge = parent_mol1_charge - mol_charge
+                                        parent_mol2_charge = mol_charge - parent_mol1_charge
                                         if parent_mol1_charge in self.opt_entries[parent_mol1_index] and \
                                                 parent_mol2_charge in self.opt_entries[parent_mol2_index]:
                                             parent_mol1 = str(parent_mol1_index) + '_' + str(parent_mol1_charge)
                                             parent_mol2 = str(parent_mol2_index) + '_' + str(parent_mol2_charge)
-                                            assert parent_mol1 != parent_mol2
-                                            parents[i].append({parent_mol1: 1, parent_mol2: -1})
+                                            if parent_mol1 == parent_mol2:
+                                                parents[i].append({parent_mol1: 2})
+                                            else:
+                                                parents[i].append({parent_mol1: 1, parent_mol2: 1})
+                        else:
+                            for nodes in self.fragmentation_dict_new[key]:
+                                if mol_index in nodes:
+                                    parent_mol1_index = int(key)
+                                    if len(nodes) == 1:
+                                        if mol_charge in self.opt_entries[parent_mol1_index]:
+                                            parent_mol1 = str(parent_mol1_index) + '_' + str(mol_charge)
+                                            parents[i].append({parent_mol1: 1})
+                                    elif len(nodes) == 2:
+                                        if nodes[0] == mol_index:
+                                            parent_mol2_index = int(nodes[1])
+                                        elif nodes[1] == mol_index:
+                                            parent_mol2_index = int(nodes[0])
+                                        for parent_mol1_charge in charge_options:
+                                            parent_mol2_charge = parent_mol1_charge - mol_charge
+                                            if parent_mol1_charge in self.opt_entries[parent_mol1_index] and \
+                                                    parent_mol2_charge in self.opt_entries[parent_mol2_index]:
+                                                parent_mol1 = str(parent_mol1_index) + '_' + str(parent_mol1_charge)
+                                                parent_mol2 = str(parent_mol2_index) + '_' + str(parent_mol2_charge)
+                                                assert parent_mol1 != parent_mol2
+                                                parents[i].append({parent_mol1: 1, parent_mol2: -1})
 
-                for key in self.recomb_dict_no_opt:
-                    inds = key.split('_')
-                    mol_ind1, mol_ind2, atom_ind1, atom_ind2 = int(inds[0]), int(inds[1]), int(inds[2]), int(inds[3])
-                    if mol_index == self.recomb_dict_no_opt[key]:
-                        parent_mol1_index = mol_ind1
-                        parent_mol2_index = mol_ind2
-                        for parent_mol1_charge in charge_options:
-                            parent_mol2_charge = mol_charge - parent_mol1_charge
-                            if parent_mol1_charge in self.opt_entries[parent_mol1_index] and \
-                                    parent_mol2_charge in self.opt_entries[parent_mol2_index]:
-                                parent_mol1 = str(parent_mol1_index) + '_' + str(parent_mol1_charge)
-                                parent_mol2 = str(parent_mol2_index) + '_' + str(parent_mol2_charge)
-                                if parent_mol1 == parent_mol2:
-                                    parents[i].append({parent_mol1: 2})
-                                else:
-                                    parents[i].append({parent_mol1: 1, parent_mol2: 1})
-                    if mol_index == mol_ind1 or mol_index == mol_ind2:
-                        parent_mol1_index = self.recomb_dict_no_opt[key]
-                        if mol_index == mol_ind1:
+                    for key in self.recomb_dict_no_opt:
+                        inds = key.split('_')
+                        mol_ind1, mol_ind2, atom_ind1, atom_ind2 = int(inds[0]), int(inds[1]), int(inds[2]), int(inds[3])
+                        if mol_index == self.recomb_dict_no_opt[key]:
+                            parent_mol1_index = mol_ind1
                             parent_mol2_index = mol_ind2
-                        elif mol_index == mol_ind2:
-                            parent_mol2_index = mol_ind1
-                        for parent_mol1_charge in charge_options:
-                            parent_mol2_charge = parent_mol1_charge - mol_charge
-                            if parent_mol1_charge in self.opt_entries[parent_mol1_index] and \
-                                    parent_mol2_charge in self.opt_entries[parent_mol2_index]:
-                                parent_mol1 = str(parent_mol1_index) + '_' + str(parent_mol1_charge)
-                                parent_mol2 = str(parent_mol2_index) + '_' + str(parent_mol2_charge)
-                                assert parent_mol1 != parent_mol2
-                                parents[i].append({parent_mol1: 1, parent_mol2: -1})
+                            for parent_mol1_charge in charge_options:
+                                parent_mol2_charge = mol_charge - parent_mol1_charge
+                                if parent_mol1_charge in self.opt_entries[parent_mol1_index] and \
+                                        parent_mol2_charge in self.opt_entries[parent_mol2_index]:
+                                    parent_mol1 = str(parent_mol1_index) + '_' + str(parent_mol1_charge)
+                                    parent_mol2 = str(parent_mol2_index) + '_' + str(parent_mol2_charge)
+                                    if parent_mol1 == parent_mol2:
+                                        parents[i].append({parent_mol1: 2})
+                                    else:
+                                        parents[i].append({parent_mol1: 1, parent_mol2: 1})
+                        if mol_index == mol_ind1 or mol_index == mol_ind2:
+                            parent_mol1_index = self.recomb_dict_no_opt[key]
+                            if mol_index == mol_ind1:
+                                parent_mol2_index = mol_ind2
+                            elif mol_index == mol_ind2:
+                                parent_mol2_index = mol_ind1
+                            for parent_mol1_charge in charge_options:
+                                parent_mol2_charge = parent_mol1_charge - mol_charge
+                                if parent_mol1_charge in self.opt_entries[parent_mol1_index] and \
+                                        parent_mol2_charge in self.opt_entries[parent_mol2_index]:
+                                    parent_mol1 = str(parent_mol1_index) + '_' + str(parent_mol1_charge)
+                                    parent_mol2 = str(parent_mol2_index) + '_' + str(parent_mol2_charge)
+                                    assert parent_mol1 != parent_mol2
+                                    parents[i].append({parent_mol1: 1, parent_mol2: -1})
             parents_list.append(parents)
 
         # merge species dict
