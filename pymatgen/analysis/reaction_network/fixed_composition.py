@@ -1106,8 +1106,10 @@ class FixedCompositionNetwork:
 
         starting_mols, crude_energy_thresh = self.find_starting_mols_and_crude_energy_thresh(starting_mol_graphs, starting_charges, starting_num_electrons)
         starting_mols_list = [starting_mols]
-        all_possible_products, all_possible_product_energies = \
-            self.find_all_product_composition_from_target(target_composition, target_charge, crude_energy_thresh)
+        all_possible_products = loadfn('all_possible_products.json')
+        all_possible_product_energies = loadfn('all_possible_product_energies.json')
+        # all_possible_products, all_possible_product_energies = \
+        #     self.find_all_product_composition_from_target(target_composition, target_charge, crude_energy_thresh)
         all_possible_product_lowest_n, all_possible_product_energies_lowest_n = \
             self.find_n_lowest_product_composition(all_possible_products, all_possible_product_energies)
         pathway_nodes_final, pathway_edges_final, node_energies = \
