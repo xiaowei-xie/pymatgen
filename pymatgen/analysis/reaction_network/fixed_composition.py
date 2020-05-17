@@ -100,7 +100,7 @@ class FixedCompositionNetwork:
             properties[node] = prop
 
         coords = {}
-        for i in range(len(mol_graph.nodes)):
+        for i in range(len(graph.nodes)):
             atom = structure.atom[i+1]
             coord = np.array([atom.x, atom.y, atom.z])
             coords[i] = coord
