@@ -101,7 +101,7 @@ class FixedCompositionNetwork:
 
         coords = {}
         for i in range(len(graph.nodes)):
-            atom = structure.atom[i+1]
+            atom = struct.atom[i+1]
             coord = np.array([atom.x, atom.y, atom.z])
             coords[i] = coord
 
