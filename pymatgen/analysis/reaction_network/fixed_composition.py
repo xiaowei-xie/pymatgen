@@ -245,6 +245,7 @@ class FixedCompositionNetwork:
                     self.fragmentation_dict_new[self.old_to_new_index_dict[key]].append(new_item)
 
         dumpfn(self.fragmentation_dict_new, 'fragmentation_dict_new.json')
+        dumpfn(self.unique_fragments_new, 'unique_fragments_new.json')
         self.to_xyz(self.unique_fragments_new, path='fragmentation_mols' )
         return self.unique_fragments_new, self.fragmentation_dict_new
 
