@@ -156,16 +156,25 @@ class FixedCompositionNetwork:
             except MolGraphSplitError:
                 fragment = self.open_ring(mol_graph, bond[0])
                 if is_connected(fragment):
-                    found = False
-                    for j, unique_fragment in enumerate(unique_fragments):
-                        if unique_fragment.isomorphic_to(fragment):
-                            found = True
-                            fragment_name = j
-                            break
-                    if not found:
-                        fragment_name = len(unique_fragments)
-                        unique_fragments.append(fragment)
-                    fragmentation_list.append([fragment_name])
+                    # Check if the fragment mol graph is still connected if Li is removed. If not connected, it should be removed.
+                    is_connected_after_removing_li = True
+                    for i, site in enumerate(fragment.molecule):
+                        if site.specie.name == "Li":
+                            fragment_copy = copy.deepcopy(fragment)
+                            fragment_copy.remove_nodes([i])
+                            if not is_connected(fragment_copy):
+                                is_connected_after_removing_li = False
+                    if is_connected_after_removing_li:
+                        found = False
+                        for j, unique_fragment in enumerate(unique_fragments):
+                            if unique_fragment.isomorphic_to(fragment):
+                                found = True
+                                fragment_name = j
+                                break
+                        if not found:
+                            fragment_name = len(unique_fragments)
+                            unique_fragments.append(fragment)
+                        fragmentation_list.append([fragment_name])
 
         unique_fragmentation_list = []
         for item in fragmentation_list:
