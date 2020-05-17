@@ -17,7 +17,7 @@ from monty.serialization import dumpfn, loadfn
 from graphviz import Digraph
 from itertools import combinations_with_replacement, product
 import copy
-
+from networkx.readwrite import json_graph
 
 
 __author__ = "Xiaowei Xie"
@@ -61,6 +61,60 @@ class FixedCompositionNetwork:
         self.unique_fragments = []
         return
 
+    def open_ring(self,mol_graph, bond):
+        '''
+        Function to actually open a ring using Schrodinger's generate 3d method.
+        Create a schrodinger structure with the same connectivity but only removing the target bond, and generate the 3d structure from force field.
+        :param mol_graph: MoleculeGraph
+        :param bond: tuple(int,int)
+        :return: ring opened MoleculeGraph
+        '''
+
+        from schrodinger import structure
+        from schrodinger.infra import fast3d
+        struct = structure.create_new_structure(num_atoms=0)
+        for site in mol_graph.molecule:
+            symbol = site.specie.name
+            struct.addAtom(symbol, 0, 0, 0)
+
+        graph = nx.MultiDiGraph(edge_weight_name="bond_length",
+                                edge_weight_units="Å",
+                                name="bonds")
+        graph.add_nodes_from(range(len(mol_graph.molecule)))
+
+        for edge in mol_graph.graph.edges.data():
+            if not (edge[0] == bond[0] and edge[1] == bond[1]):
+                struct.addBond(edge[0] + 1, edge[1] + 1, 1)
+                graph.add_edge(edge[0], edge[1], **edge[2])
+                fast3d_volumizer = fast3d.Volumizer()
+                fast3d_volumizer.run(struct, False, False)
+
+        species = {}
+        for node in range(len(mol_graph.molecule)):
+            specie = mol_graph.molecule[node].specie.symbol
+            species[node] = specie
+
+        properties = {}
+        for node in range(len(mol_graph.molecule)):
+            prop = mol_graph.molecule[node].properties
+            properties[node] = prop
+
+        coords = {}
+        for i in range(len(mol_graph.nodes)):
+            atom = structure.atom[i+1]
+            coord = np.array([atom.x, atom.y, atom.z])
+            coords[i] = coord
+
+        nx.set_node_attributes(graph, species, "specie")
+        nx.set_node_attributes(graph, coords, 'coords')
+        nx.set_node_attributes(graph, properties, "properties")
+
+        graph_data = json_graph.adjacency_data(graph)
+
+        new_mol = Molecule(species=species, coords=coords)
+
+        return MoleculeGraph(new_mol, graph_data=graph_data)
+
     def _fragment_one_level(self,mol_graph):
         '''
         Perform one-step fragmentation for a mol_graph. Resulting mol graphs have to be connected graphs.
@@ -99,7 +153,7 @@ class FixedCompositionNetwork:
                     fragmentation_list.append(fragments_name)
 
             except MolGraphSplitError:
-                fragment = open_ring(mol_graph, bond, 10000)
+                fragment = self.open_ring(mol_graph, bond[0])
                 if is_connected(fragment):
                     found = False
                     for j, unique_fragment in enumerate(unique_fragments):
@@ -895,7 +949,8 @@ class FixedCompositionNetwork:
             for i in range(num_electrons):
                 starting_mols.append('e_-1')
                 crude_energy_thresh += self.electron_free_energy
-
+        dumpfn(starting_mols, 'starting_mols.json')
+        dumpfn(crude_energy_thresh, 'crude_energy_thresh.json')
         return starting_mols, crude_energy_thresh
 
 
@@ -1194,3 +1249,4 @@ if __name__ == "__main__":
                                                                                                        pathway_edges_final,
                                                                                                        starting_mols_list,
                                                                                                        node_energies)
+
