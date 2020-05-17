@@ -18,6 +18,7 @@ from graphviz import Digraph
 from itertools import combinations_with_replacement, product
 import copy
 from networkx.readwrite import json_graph
+import os
 
 
 __author__ = "Xiaowei Xie"
@@ -244,6 +245,7 @@ class FixedCompositionNetwork:
                     self.fragmentation_dict_new[self.old_to_new_index_dict[key]].append(new_item)
 
         dumpfn(self.fragmentation_dict_new, 'fragmentation_dict_new.json')
+        self.to_xyz(self.unique_fragments_new, path='fragmentation_mols' )
         return self.unique_fragments_new, self.fragmentation_dict_new
 
     def query_database(self, db_file="/Users/xiaoweixie/Desktop/sam_db.json", save=False,
@@ -272,7 +274,7 @@ class FixedCompositionNetwork:
         self.opt_entries = {}
         self.opt_species_w_charge = []
         info_dict = {}
-        print('NUmber of mol graphs:', len(self.total_mol_graphs_no_opt))
+        print('Number of mol graphs:', len(self.total_mol_graphs_no_opt))
         for i in range(len(self.total_mol_graphs_no_opt)):
             info_dict[i] = {}
             info_dict[i][1] = {"index":None, "free_energy":1e8}
@@ -369,7 +371,14 @@ class FixedCompositionNetwork:
         dumpfn(self.total_mol_graphs_no_opt, 'total_mol_graphs_no_opt.json')
         dumpfn(self.recomb_dict_no_opt, 'recomb_dict_no_opt.json')
         FR.to_xyz(self.total_mol_graphs_no_opt,recomb_path='recomb_mols_no_opt')
+        return
 
+    def to_xyz(self, mol_graphs, path='recomb_mols'):
+        if not os.path.isdir(path):
+            os.mkdir(path)
+        for i, mol_graph in enumerate(mol_graphs):
+            mol_graph.molecule.to('xyz',os.path.join(path, str(i)+'.xyz'))
+        return
 
     def generate_stoichiometry_table(self):
         '''
