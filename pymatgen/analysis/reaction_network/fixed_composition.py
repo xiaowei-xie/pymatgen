@@ -1100,7 +1100,7 @@ class FixedCompositionNetwork:
         # line = _edge % ('2', '1', '')
         for (i, j) in pathway_edges:
             u.edge(str(i), str(j))
-        u.render('test_output/' + file_name, view=True)
+        u.render('test_output/' + file_name, view=False)
 
         return
 
