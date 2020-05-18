@@ -119,9 +119,13 @@ class FixedCompositionNetwork:
     def _fragment_one_level(self,mol_graph):
         '''
         Perform one-step fragmentation for a mol_graph. Resulting mol graphs have to be connected graphs.
+        Fragments that are not connected by removing Li will be removed.
+        TODO: For Li coordinating to 2 F in PF6 type molecules, schrodinger cannot produce reasonable 3d structures.
+              Removing for now.
         :param mol_graph (MoleculeGraph):
         :return: List of fragments. [[2,3],[4,5]]: This mol graph can be broken into 2+3 and 4+5
                 Numbers in the list are indices in unique_fragments here. Indices need to be updated later on.
+
         '''
         def is_connected(mol_graph):
             is_connected = False
@@ -164,7 +168,13 @@ class FixedCompositionNetwork:
                             fragment_copy.remove_nodes([i])
                             if not is_connected(fragment_copy):
                                 is_connected_after_removing_li = False
-                    if is_connected_after_removing_li:
+                    two_Li_F_bonds = False
+                    for i, site in enumerate(fragment.molecule):
+                        if site.specie.name == "Li":
+                            if len(fragment.get_connected_sites(i)) == 2 and all(site.name == 'F' for site in fragment.get_connected_sites(0)):
+                                two_Li_F_bonds = True
+
+                    if is_connected_after_removing_li and not two_Li_F_bonds:
                         found = False
                         for j, unique_fragment in enumerate(unique_fragments):
                             if unique_fragment.isomorphic_to(fragment):
@@ -189,10 +199,8 @@ class FixedCompositionNetwork:
         :return: self.unique_fragments_new (List[MoleculeGraph])
                 self.fragmentation_dict_new : Dictionary that maps the starting molgraph index to fragments indices.
                                               Here the indices are the indices in self.unique_fragments_new.
-
         '''
         self.fragmentation_dict = {}
-
         for i,mol_graph in enumerate(self.mol_graphs):
             previous_length = len(self.unique_fragments)
             # Need to check uniqueness of self.mol_graphs[i] later.
