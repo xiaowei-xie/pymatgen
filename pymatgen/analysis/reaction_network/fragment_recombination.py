@@ -733,16 +733,16 @@ class Fragment_Recombination:
         #from schrodinger import structure
 
         self.total_mol_graphs = self.opt_mol_graphs + self.recomb_mol_graphs + self.recomb_mol_graphs + self.recomb_mol_graphs
-        self.total_sdf_string = ""
-        for i, mol_graph in enumerate(self.total_mol_graphs):
-            MW = MoleculeWrapper()
-            MW.mol_graph = mol_graph
-            MW.pymatgen_mol = mol_graph.molecule
-            sdf_string = MW.write(message="index: "+str(i))
-            self.total_sdf_string += sdf_string
-        f = open(sdf_name+'.sdf', "w")
-        f.write(self.total_sdf_string)
-        f.close()
+        # self.total_sdf_string = ""
+        # for i, mol_graph in enumerate(self.total_mol_graphs):
+        #     MW = MoleculeWrapper()
+        #     MW.mol_graph = mol_graph
+        #     MW.pymatgen_mol = mol_graph.molecule
+        #     sdf_string = MW.write(message="index: "+str(i))
+        #     self.total_sdf_string += sdf_string
+        # f = open(sdf_name+'.sdf', "w")
+        # f.write(self.total_sdf_string)
+        # f.close()
 
         #self.total_structs = self.opt_structs + self.recomb_structs + self.recomb_structs + self.recomb_structs
         self.total_charges = []
@@ -761,6 +761,10 @@ class Fragment_Recombination:
         for charge in self.total_charges:
             f.write(str(charge)+"\n")
         f.close()
+
+        for i in range(len(self.opt_mol_graphs),len(self.total_mol_graphs)):
+            self.total_mol_graphs[i].molecule._charge = self.total_charges[i]
+        dumpfn(self.total_mol_graphs, sdf_name + '.json')
 
         self.all_reactions = []
         self.new_recomb_dict = {}
