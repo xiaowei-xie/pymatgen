@@ -660,7 +660,8 @@ class FixedCompositionNetwork:
                 else:
                     products_dict[item] = 1
             all_possible_product_lowest_n_new.append(products_dict)
-
+        dumpfn(all_possible_product_lowest_n_new, 'all_possible_product_lowest_n_new.json')
+        dumpfn(all_possible_product_energies_lowest_n, 'all_possible_product_energies_lowest_n.json')
         return all_possible_product_lowest_n_new, all_possible_product_energies_lowest_n
 
     def _trace_one_level_upwards(self, possible_products, starting_mols, allowed_num_mols=5, energy_thresh=0.0):
@@ -1187,8 +1188,10 @@ class FixedCompositionNetwork:
 
         starting_mols, crude_energy_thresh = self.find_starting_mols_and_crude_energy_thresh(starting_mol_graphs, starting_charges, starting_num_electrons)
         starting_mols_list = [starting_mols]
-        all_possible_products = loadfn('all_possible_products.json')
-        all_possible_product_energies = loadfn('all_possible_product_energies.json')
+        all_possible_products, all_possible_product_energies = \
+            self.find_all_product_composition_from_target(target_composition, target_charge, crude_energy_thresh)
+        #all_possible_products = loadfn('all_possible_products.json')
+        #all_possible_product_energies = loadfn('all_possible_product_energies.json')
         # all_possible_products, all_possible_product_energies = \
         #     self.find_all_product_composition_from_target(target_composition, target_charge, crude_energy_thresh)
         all_possible_product_lowest_n, all_possible_product_energies_lowest_n = \
