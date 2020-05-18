@@ -171,7 +171,7 @@ class FixedCompositionNetwork:
                     two_Li_F_bonds = False
                     for i, site in enumerate(fragment.molecule):
                         if site.specie.name == "Li":
-                            if len(fragment.get_connected_sites(i)) == 2 and all(site.specie.name == 'F' for site in fragment.get_connected_sites(0)):
+                            if len(fragment.get_connected_sites(i)) == 2 and all(site.site.specie.name == 'F' for site in fragment.get_connected_sites(0)):
                                 two_Li_F_bonds = True
 
                     if is_connected_after_removing_li and not two_Li_F_bonds:
