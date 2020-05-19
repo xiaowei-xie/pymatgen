@@ -337,7 +337,7 @@ class FixedCompositionNetwork:
             for i, entry in enumerate(self.target_entries):
                 for j, mol_graph in enumerate(self.total_mol_graphs_no_opt):
                     if "mol_graph" in entry:
-                        mol_entry = MoleculeEntry(molecule=Molecule.from_dict(entry["molecule"]),
+                        mol_entry = MoleculeEntry(molecule=entry["molecule"],
                                                   energy=entry["energy_Ha"],
                                                   mol_doc={"mol_graph": MoleculeGraph.from_dict(entry["mol_graph"]),
                                                            "enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],

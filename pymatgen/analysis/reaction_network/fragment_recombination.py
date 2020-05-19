@@ -110,7 +110,7 @@ class Fragment_Recombination:
             for i, entry in enumerate(self.target_entries):
                 for j, mol_graph in enumerate(self.mol_graphs):
                     if "mol_graph" in entry:
-                        mol_entry = MoleculeEntry(molecule=Molecule.from_dict(entry["molecule"]),
+                        mol_entry = MoleculeEntry(molecule=entry["molecule"],
                                                   energy=entry["energy_Ha"],
                                                   mol_doc={"mol_graph": MoleculeGraph.from_dict(entry["mol_graph"]),
                                                            "enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
@@ -126,7 +126,7 @@ class Fragment_Recombination:
                                     info_dict[j][total_charge]["index"] = i
                     else:
                         if "entropy_cal/molK" in entry.keys() and "enthalpy_kcal/mol" in entry.keys() and "task_id" in entry.keys():
-                            mol_entry = MoleculeEntry(molecule=Molecule.from_dict(entry["molecule"]),
+                            mol_entry = MoleculeEntry(molecule=entry["molecule"],
                                                       energy=entry["energy_Ha"],
                                                       mol_doc={"enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
                                                                "entropy_cal/molK": entry["entropy_cal/molK"],
@@ -157,7 +157,7 @@ class Fragment_Recombination:
                                                                "entropy_cal/molK": entry["entropy_cal/molK"],
                                                                "task_id": entry["task_id"]})
                         elif "entropy_cal/molK" in entry.keys() and "enthalpy_kcal/mol" in entry.keys() and "task_id" in entry.keys():
-                            mol_entry = MoleculeEntry(molecule=Molecule.from_dict(entry["molecule"]),
+                            mol_entry = MoleculeEntry(molecule=entry["molecule"],
                                                       energy=entry["energy_Ha"],
                                                       mol_doc={"enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
                                                                "entropy_cal/molK": entry["entropy_cal/molK"],
@@ -174,14 +174,14 @@ class Fragment_Recombination:
                         print('index:', index)
                         entry = self.target_entries[index]
                         if "mol_graph" in entry:
-                            mol_entry = MoleculeEntry(molecule=Molecule.from_dict(entry["molecule"]),
+                            mol_entry = MoleculeEntry(molecule=entry["molecule"],
                                                       energy=entry["energy_Ha"],
                                                       mol_doc={"mol_graph": MoleculeGraph.from_dict(entry["mol_graph"]),
                                                                "enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
                                                                "entropy_cal/molK": entry["entropy_cal/molK"],
                                                                "task_id": entry["task_id"]})
                         elif "entropy_cal/molK" in entry.keys() and "enthalpy_kcal/mol" in entry.keys() and "task_id" in entry.keys():
-                            mol_entry = MoleculeEntry(molecule=Molecule.from_dict(entry["molecule"]),
+                            mol_entry = MoleculeEntry(molecule=entry["molecule"],
                                                       energy=entry["energy_Ha"],
                                                       mol_doc={"enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
                                                                "entropy_cal/molK": entry["entropy_cal/molK"],
