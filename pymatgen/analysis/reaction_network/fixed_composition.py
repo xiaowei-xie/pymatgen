@@ -1170,7 +1170,7 @@ class FixedCompositionNetwork:
 
     def whole_workflow_load_file(self,target_composition, target_charge, starting_mol_graphs, starting_charges, starting_num_electrons,
                        allowed_num_mols=5, energy_thresh=0.0, graph_file_name='reaction_network',
-                       entries_file_name='valid'):
+                       entries_file_name='valid',path=''):
         '''
         Have to run self.query_database beforehand and save the entries.
         :param target_composition:
@@ -1179,11 +1179,11 @@ class FixedCompositionNetwork:
         :return:
         '''
 
-        self.fragmentation_dict_new = loadfn('fragmentation_dict_new.json')
-        self.recomb_dict_no_opt = loadfn('recomb_dict_no_opt.json')
-        self.opt_entries = loadfn('opt_entries.json')
-        self.opt_species_w_charge = loadfn('opt_species_w_charge.json')
-        self.total_mol_graphs_no_opt = loadfn('total_mol_graphs_no_opt.json')
+        self.fragmentation_dict_new = loadfn(path+'fragmentation_dict_new.json')
+        self.recomb_dict_no_opt = loadfn(path+'recomb_dict_no_opt.json')
+        self.opt_entries = loadfn(path+'opt_entries.json')
+        self.opt_species_w_charge = loadfn(path+'opt_species_w_charge.json')
+        self.total_mol_graphs_no_opt = loadfn(path+'total_mol_graphs_no_opt.json')
 
         # clean up some dicts b/c loadfn will make the keys into strings
         self.fragmentation_dict_new_2 = {}
