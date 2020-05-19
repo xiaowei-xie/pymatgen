@@ -91,6 +91,20 @@ class Fragment_Recombination:
                                 if free_energy < info_dict[j][total_charge]["free_energy"]:
                                     info_dict[j][total_charge]["free_energy"] = free_energy
                                     info_dict[j][total_charge]["index"] = i
+                    else:
+                        mol_entry = MoleculeEntry(molecule=entry["molecule"],
+                                                  energy=entry["energy_Ha"],
+                                                  mol_doc={"enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
+                                                           "entropy_cal/molK": entry["entropy_cal/molK"],
+                                                           "task_id": entry["task_id"]})
+                        if mol_entry.molecule.composition.alphabetical_formula == mol_graph.molecule.composition.alphabetical_formula:
+                            mol_graph_in_db = mol_entry.mol_graph
+                            total_charge = mol_entry.charge
+                            if mol_graph_in_db.isomorphic_to(mol_graph):
+                                free_energy = mol_entry.free_energy
+                                if free_energy < info_dict[j][total_charge]["free_energy"]:
+                                    info_dict[j][total_charge]["free_energy"] = free_energy
+                                    info_dict[j][total_charge]["index"] = i
         else:
             for i, entry in enumerate(self.target_entries):
                 for j, mol_graph in enumerate(self.mol_graphs):
@@ -99,6 +113,20 @@ class Fragment_Recombination:
                                                   energy=entry["energy_Ha"],
                                                   mol_doc={"mol_graph": MoleculeGraph.from_dict(entry["mol_graph"]),
                                                            "enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
+                                                           "entropy_cal/molK": entry["entropy_cal/molK"],
+                                                           "task_id": entry["task_id"]})
+                        if mol_entry.molecule.composition.alphabetical_formula == mol_graph.molecule.composition.alphabetical_formula:
+                            mol_graph_in_db = mol_entry.mol_graph
+                            total_charge = mol_entry.charge
+                            if mol_graph_in_db.isomorphic_to(mol_graph):
+                                free_energy = mol_entry.free_energy
+                                if free_energy < info_dict[j][total_charge]["free_energy"]:
+                                    info_dict[j][total_charge]["free_energy"] = free_energy
+                                    info_dict[j][total_charge]["index"] = i
+                    else:
+                        mol_entry = MoleculeEntry(molecule=Molecule.from_dict(entry["molecule"]),
+                                                  energy=entry["energy_Ha"],
+                                                  mol_doc={"enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
                                                            "entropy_cal/molK": entry["entropy_cal/molK"],
                                                            "task_id": entry["task_id"]})
                         if mol_entry.molecule.composition.alphabetical_formula == mol_graph.molecule.composition.alphabetical_formula:

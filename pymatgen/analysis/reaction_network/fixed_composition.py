@@ -317,6 +317,21 @@ class FixedCompositionNetwork:
                                 if free_energy < info_dict[j][total_charge]["free_energy"]:
                                     info_dict[j][total_charge]["free_energy"] = free_energy
                                     info_dict[j][total_charge]["index"] = i
+                    else:
+                        mol_entry = MoleculeEntry(molecule=entry["molecule"],
+                                                  energy=entry["energy_Ha"],
+                                                  mol_doc={"enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
+                                                           "entropy_cal/molK": entry["entropy_cal/molK"],
+                                                           "task_id": entry["task_id"]})
+                        if mol_entry.molecule.composition.alphabetical_formula == mol_graph.molecule.composition.alphabetical_formula:
+                            mol_graph_in_db = mol_entry.mol_graph
+                            total_charge = mol_entry.charge
+                            if mol_graph_in_db.isomorphic_to(mol_graph):
+                                free_energy = mol_entry.free_energy
+                                if free_energy < info_dict[j][total_charge]["free_energy"]:
+                                    info_dict[j][total_charge]["free_energy"] = free_energy
+                                    info_dict[j][total_charge]["index"] = i
+
         else:
             for i, entry in enumerate(self.target_entries):
                 for j, mol_graph in enumerate(self.total_mol_graphs_no_opt):
@@ -325,6 +340,20 @@ class FixedCompositionNetwork:
                                                   energy=entry["energy_Ha"],
                                                   mol_doc={"mol_graph": MoleculeGraph.from_dict(entry["mol_graph"]),
                                                            "enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
+                                                           "entropy_cal/molK": entry["entropy_cal/molK"],
+                                                           "task_id": entry["task_id"]})
+                        if mol_entry.molecule.composition.alphabetical_formula == mol_graph.molecule.composition.alphabetical_formula:
+                            mol_graph_in_db = mol_entry.mol_graph
+                            total_charge = mol_entry.charge
+                            if mol_graph_in_db.isomorphic_to(mol_graph):
+                                free_energy = mol_entry.free_energy
+                                if free_energy < info_dict[j][total_charge]["free_energy"]:
+                                    info_dict[j][total_charge]["free_energy"] = free_energy
+                                    info_dict[j][total_charge]["index"] = i
+                    else:
+                        mol_entry = MoleculeEntry(molecule=entry["molecule"],
+                                                  energy=entry["energy_Ha"],
+                                                  mol_doc={"enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
                                                            "entropy_cal/molK": entry["entropy_cal/molK"],
                                                            "task_id": entry["task_id"]})
                         if mol_entry.molecule.composition.alphabetical_formula == mol_graph.molecule.composition.alphabetical_formula:
@@ -1221,6 +1250,57 @@ class FixedCompositionNetwork:
         self.generate_entries(self.new_pathway_nodes,entries_file_name)
 
         return
+
+    def whole_workflow_load_file_2(self,target_composition, target_charge, starting_mol_graphs, starting_charges, starting_num_electrons,
+                       allowed_num_mols=5, energy_thresh=0.0, load_entries_name='smd_target_entries', graph_file_name='reaction_network',
+                       entries_file_name='valid',path=''):
+        '''
+        Have to run self.query_database beforehand and save the entries.
+        :param target_composition:
+        :param target_charge:
+        :param crude_energy_thresh:
+        :return:
+        '''
+
+        self.fragmentation_dict_new = loadfn(path+'fragmentation_dict_new.json')
+        self.recomb_dict_no_opt = loadfn(path+'recomb_dict_no_opt.json')
+        self.total_mol_graphs_no_opt = loadfn(path+'total_mol_graphs_no_opt.json')
+
+        # clean up some dicts b/c loadfn will make the keys into strings
+        self.fragmentation_dict_new_2 = {}
+        for key in self.fragmentation_dict_new:
+            self.fragmentation_dict_new_2[int(key)] = self.fragmentation_dict_new[key]
+        self.fragmentation_dict_new = copy.deepcopy(self.fragmentation_dict_new_2)
+        del self.fragmentation_dict_new_2
+
+
+        print('working on creating stoichiometry table!')
+        self.generate_stoichiometry_table()
+        print('creating stoichiometry table done!')
+
+        print('working on getting optimized structures!')
+        self.get_optimized_structures(load_entries=True, entries_name=load_entries_name)
+        print('getting optimized structures done!')
+
+        starting_mols, crude_energy_thresh = self.find_starting_mols_and_crude_energy_thresh(starting_mol_graphs, starting_charges, starting_num_electrons)
+        starting_mols_list = [starting_mols]
+        all_possible_products, all_possible_product_energies = \
+            self.find_all_product_composition_from_target(target_composition, target_charge, crude_energy_thresh)
+        #all_possible_products = loadfn('all_possible_products.json')
+        #all_possible_product_energies = loadfn('all_possible_product_energies.json')
+        # all_possible_products, all_possible_product_energies = \
+        #     self.find_all_product_composition_from_target(target_composition, target_charge, crude_energy_thresh)
+        all_possible_product_lowest_n, all_possible_product_energies_lowest_n = \
+            self.find_n_lowest_product_composition(all_possible_products, all_possible_product_energies)
+        pathway_nodes_final, pathway_edges_final, node_energies = \
+            self.map_all_possible_pathways(all_possible_product_lowest_n, starting_mols, allowed_num_mols, energy_thresh)
+        self.new_pathway_nodes, self.new_pathway_edges, self.new_energies = self.transform_nodes_and_edges(pathway_nodes_final, pathway_edges_final, starting_mols_list, node_energies)
+        self.visualize_reaction_network(self.new_pathway_nodes, self.new_pathway_edges, self.new_energies, graph_file_name)
+        self.generate_entries(self.new_pathway_nodes,entries_file_name)
+
+        return
+
+
 
 if __name__ == "__main__":
     LiEC_neutral = Molecule.from_file('/Users/xiaoweixie/PycharmProjects/electrolyte/fragmentation/LiEC_neutral.xyz')
