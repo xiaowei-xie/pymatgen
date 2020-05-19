@@ -311,9 +311,10 @@ class ReactionNetwork(MSONable):
                                             for ind in product_nodes:
                                                 entries1.append(self.entries_list[ind])
                                             reactions_to_add.append([entries0,entries1])
-        for to_add in reactions_to_add:
-            print(len(to_add[0]),len(to_add[1]))
-            self.add_reaction(to_add[0],to_add[1],"concerted",0)
+        print('number of concerted reactions:', len(reactions_to_add))
+        # for to_add in reactions_to_add:
+        #     print(len(to_add[0]),len(to_add[1]))
+        #     self.add_reaction(to_add[0],to_add[1],"concerted",0)
 
 
     def find_concerted_candidates(self,name):
@@ -987,9 +988,9 @@ class ReactionNetwork(MSONable):
                                     if reactant_name + ',' + product_name not in self.graph.nodes:
                                         reactions_to_add.append([entries0, entries1])
         print('numbers of reactions to add:',len(reactions_to_add))
-        # for to_add in reactions_to_add:
-        #     print(len(to_add[0]),len(to_add[1]))
-        #     self.add_reaction(to_add[0],to_add[1],"concerted")
+        for to_add in reactions_to_add:
+            print(len(to_add[0]),len(to_add[1]))
+            self.add_reaction(to_add[0],to_add[1],"concerted")
 
     def add_concerted_reactions_from_list(self, read_file=False, file_name=None, break1_form1=False, allowed_charge_change=0):
         # Add concerted reactions from self.multiprocess_equal function
