@@ -1693,6 +1693,101 @@ class ReactionNetwork(MSONable):
             dumpfn(self.min_cost, 'min_cost.json', default=lambda o: o.as_dict)
         return PRs
 
+    def solve_prerequisites_no_target(self, starts: List[int], weight: str, max_iter=20, save=False,
+                            filename=None):  # -> Tuple[Union[Dict[Union[int, Any], dict], Any], Any]:
+        """
+            A method to solve the all the prerequisites found in ReactionNetwork.graph. By solving all PRs, it gives
+            information on whether 1. if a path exist from any of the starts to all other molecule nodes, 2. if so what
+            is the min cost to reach that node from any of the start, 3. if there is no path from any of the starts to a
+            any of the molecule node, 4. for molecule nodes where the path exist, characterize the in the form of ReactionPath
+        :param starts: List(molecular nodes), list of molecular nodes of type int found in the ReactionNetwork.graph
+        :param weight: "softplus" or "exponent", type of cost function to use when calculating edge weights
+        :param max_iter: maximum number of iterations to try to solve all the PRs
+        :return: PRs: PR_paths: dict that defines a path from each node to a start,
+                of the form {int(node1): {int(start1}: {ReactionPath object}, int(start2): {ReactionPath object}}, int(node2):...}
+        :return: min_cost: dict with minimum cost from path start to a node, of from {node: float},
+                if no path exist, value is "no_path", if path is unsolved yet, value is "unsolved_path"
+        :return: graph: ReactionNetwork.graph of type nx.DiGraph with updated edge weights based on solved PRs
+        """
+        PRs = {}
+        old_solved_PRs = []
+        new_solved_PRs = ["placeholder"]
+        old_attrs = {}
+        new_attrs = {}
+        self.weight = weight
+        self.num_starts = len(starts)
+
+        if len(self.graph.nodes) == 0:
+            self.build()
+        orig_graph = copy.deepcopy(self.graph)
+
+        for start in starts:
+            PRs[start] = {}
+
+        for PR in PRs:
+            for start in starts:
+                if start == PR:
+                    PRs[PR][start] = ReactionPath.characterize_path([start], weight, self.min_cost, self.graph)
+                else:
+                    PRs[PR][start] = ReactionPath(None)
+
+            old_solved_PRs.append(PR)
+            self.min_cost[PR] = PRs[PR][PR].cost
+        for node in self.graph.nodes():
+            if self.graph.nodes[node]["bipartite"] == 0: #and node != target:
+                if node not in PRs:
+                    PRs[node] = {}
+
+        ii = 0
+
+        while (len(new_solved_PRs) > 0 or old_attrs != new_attrs) and ii < max_iter:
+            min_cost = {}
+            cost_from_start = {}
+            self.unsolved_PRs = {} # modified by XX. Added a unsolved_PR dict to keep track of unsolved.
+            for PR in PRs:
+                cost_from_start[PR] = {}
+                min_cost[PR] = 10000000000000000.0
+                for start in PRs[PR]:
+                    if PRs[PR][start].path == None:
+                        cost_from_start[PR][start] = "no_path"
+                    else:
+                        cost_from_start[PR][start] = PRs[PR][start].cost
+                        if PRs[PR][start].cost < min_cost[PR]:
+                            min_cost[PR] = PRs[PR][start].cost
+                for start in starts:
+                    if start not in cost_from_start[PR]:
+                        cost_from_start[PR][start] = "unsolved"
+
+            PRs, cost_from_start, min_cost = self.find_path_cost_no_target(starts, weight, old_solved_PRs,
+                                                                 cost_from_start, min_cost, PRs)
+            solved_PRs = copy.deepcopy(old_solved_PRs)
+            solved_PRs, new_solved_PRs, cost_from_start = self.identify_solved_PRs(PRs, solved_PRs, cost_from_start)
+
+            print(ii, len(solved_PRs), len(new_solved_PRs), len(self.unsolved_PRs))
+            # modified by XX. Printing (1) iteration index,
+            # (2) number of total solved entries till this iteration, (3) number of newly solved entries at this iteration,
+            # (4) number of unsolved entries. (2) and (4) should add up to the number of total unique entries.
+
+            attrs = self.update_edge_weights(min_cost, orig_graph)
+
+            self.min_cost = copy.deepcopy(min_cost)
+            old_solved_PRs = copy.deepcopy(solved_PRs)
+            old_attrs = copy.deepcopy(new_attrs)
+            new_attrs = copy.deepcopy(attrs)
+
+            ii += 1
+
+        self.final_PR_check(PRs)
+        if save:
+            if filename is None:
+                print("Provide filename to save the PRs, for now saving as PRs.json")
+                filename = "PRs.json"
+            dumpfn(PRs, filename, default=lambda o: o.as_dict)
+            dumpfn(self.unsolved_PRs, 'unsolved_PRs.json',default=lambda o: o.as_dict)
+            dumpfn(json_graph.adjacency_data(self.graph),'RN_graph.json')
+            dumpfn(self.min_cost, 'min_cost.json', default=lambda o: o.as_dict)
+        return PRs
+
     def find_path_cost(self, starts, target, weight, old_solved_PRs, cost_from_start, min_cost, PRs):
         """
             A method to characterize the path to all the PRs. Characterize by determining if the path exist or not, and
@@ -1738,6 +1833,68 @@ class ReactionNetwork(MSONable):
                                 source=hash(start),
                                 target=hash(node),
                                 ignore_nodes=self.find_or_remove_bad_nodes([node, target]+self.not_reachable_nodes),
+                                weight=self.weight)
+                        except nx.exception.NetworkXNoPath:
+                            PRs[node][start] = ReactionPath(None)
+                            path_exists = False
+                            cost_from_start[node][start] = "no_path"
+                        if path_exists:
+                            path_class = ReactionPath.characterize_path(dij_path, weight, self.min_cost, self.graph,
+                                                                        old_solved_PRs)
+                            cost_from_start[node][start] = path_class.cost
+                            if len(path_class.unsolved_prereqs) == 0:
+                                PRs[node][start] = path_class
+                            else:
+                                self.unsolved_PRs[node][start] = path_class  # modified by XX. If unsolved, still add the path to the unsolved dict to keep a record.
+                            if path_class.cost < min_cost[node]:
+                                min_cost[node] = path_class.cost
+
+        return PRs, cost_from_start, min_cost
+
+    def find_path_cost_no_target(self, starts, weight, old_solved_PRs, cost_from_start, min_cost, PRs):
+        """
+            A method to characterize the path to all the PRs. Characterize by determining if the path exist or not, and
+            if so, is it a minimum cost path, and if so set PRs[node][start] = ReactionPath(path)
+        :param starts: List(molecular nodes), list of molecular nodes of type int found in the ReactionNetwork.graph
+        :param weight: "softplus" or "exponent", type of cost function to use when calculating edge weights
+        :param old_solved_PRs: list of PRs (molecular nodes of type int) that are already solved
+        :param cost_from_start: dict of type {node1: {start1: float, start2: float}, node2: {...}}
+        :param min_cost: dict with minimum cost from path start to a node, of from {node: float},
+                if no path exist, value is "no_path", if path is unsolved yet, value is "unsolved_path"
+        :param PRs: dict that defines a path from each node to a start, of the form {int(node1):
+                {int(start1}: {ReactionPath object}, int(start2): {ReactionPath object}}, int(node2):...}
+        :return: PRs: updated PRs based on new PRs solved
+        :return: cost_from_start: updated cost_from_start based on new PRs solved
+        :return: min_cost: updated min_cost based on new PRs solved
+        """
+        ## Below modified by XX. Keep a record of entries cannot be reached from starting materials.
+        # When doing dijkstra algorithm, we need to remove those nodes.
+        self.not_reachable_nodes = []
+        for PR in PRs:
+            reachable = False
+            if all(start in PRs[PR].keys() for start in starts):
+                for start in starts:
+                    if PRs[PR][start].path != None:
+                        reachable = True
+            else:
+                reachable = True
+            if not reachable:
+                self.not_reachable_nodes.append(PR)
+        print('not reachable nodes:', self.not_reachable_nodes)
+        ## XX modification ends
+        self.num_starts = len(starts)
+        for node in self.graph.nodes():
+            if self.graph.nodes[node]["bipartite"] == 0 and node not in old_solved_PRs: #and node != target:
+                self.unsolved_PRs[node] = {}  # modified by XX. Added a dict to keep track of unsolved cases.
+                for start in starts:
+                    if start not in PRs[node]:
+                        path_exists = True
+                        try:
+                            length, dij_path = nx.algorithms.simple_paths._bidirectional_dijkstra(
+                                self.graph,
+                                source=hash(start),
+                                target=hash(node),
+                                ignore_nodes=self.find_or_remove_bad_nodes([node]+self.not_reachable_nodes),
                                 weight=self.weight)
                         except nx.exception.NetworkXNoPath:
                             PRs[node][start] = ReactionPath(None)
