@@ -318,19 +318,20 @@ class FixedCompositionNetwork:
                                     info_dict[j][total_charge]["free_energy"] = free_energy
                                     info_dict[j][total_charge]["index"] = i
                     else:
-                        mol_entry = MoleculeEntry(molecule=entry["molecule"],
-                                                  energy=entry["energy_Ha"],
-                                                  mol_doc={"enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
-                                                           "entropy_cal/molK": entry["entropy_cal/molK"],
-                                                           "task_id": entry["task_id"]})
-                        if mol_entry.molecule.composition.alphabetical_formula == mol_graph.molecule.composition.alphabetical_formula:
-                            mol_graph_in_db = mol_entry.mol_graph
-                            total_charge = mol_entry.charge
-                            if mol_graph_in_db.isomorphic_to(mol_graph):
-                                free_energy = mol_entry.free_energy
-                                if free_energy < info_dict[j][total_charge]["free_energy"]:
-                                    info_dict[j][total_charge]["free_energy"] = free_energy
-                                    info_dict[j][total_charge]["index"] = i
+                        if "entropy_cal/molK" in entry.keys() and "enthalpy_kcal/mol" in entry.keys() and "task_id" in entry.keys():
+                            mol_entry = MoleculeEntry(molecule=entry["molecule"],
+                                                      energy=entry["energy_Ha"],
+                                                      mol_doc={"enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
+                                                               "entropy_cal/molK": entry["entropy_cal/molK"],
+                                                               "task_id": entry["task_id"]})
+                            if mol_entry.molecule.composition.alphabetical_formula == mol_graph.molecule.composition.alphabetical_formula:
+                                mol_graph_in_db = mol_entry.mol_graph
+                                total_charge = mol_entry.charge
+                                if mol_graph_in_db.isomorphic_to(mol_graph):
+                                    free_energy = mol_entry.free_energy
+                                    if free_energy < info_dict[j][total_charge]["free_energy"]:
+                                        info_dict[j][total_charge]["free_energy"] = free_energy
+                                        info_dict[j][total_charge]["index"] = i
 
         else:
             for i, entry in enumerate(self.target_entries):
@@ -351,19 +352,20 @@ class FixedCompositionNetwork:
                                     info_dict[j][total_charge]["free_energy"] = free_energy
                                     info_dict[j][total_charge]["index"] = i
                     else:
-                        mol_entry = MoleculeEntry(molecule=entry["molecule"],
-                                                  energy=entry["energy_Ha"],
-                                                  mol_doc={"enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
-                                                           "entropy_cal/molK": entry["entropy_cal/molK"],
-                                                           "task_id": entry["task_id"]})
-                        if mol_entry.molecule.composition.alphabetical_formula == mol_graph.molecule.composition.alphabetical_formula:
-                            mol_graph_in_db = mol_entry.mol_graph
-                            total_charge = mol_entry.charge
-                            if mol_graph_in_db.isomorphic_to(mol_graph):
-                                free_energy = mol_entry.free_energy
-                                if free_energy < info_dict[j][total_charge]["free_energy"]:
-                                    info_dict[j][total_charge]["free_energy"] = free_energy
-                                    info_dict[j][total_charge]["index"] = i
+                        if "entropy_cal/molK" in entry.keys() and "enthalpy_kcal/mol" in entry.keys() and "task_id" in entry.keys():
+                            mol_entry = MoleculeEntry(molecule=entry["molecule"],
+                                                      energy=entry["energy_Ha"],
+                                                      mol_doc={"enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
+                                                               "entropy_cal/molK": entry["entropy_cal/molK"],
+                                                               "task_id": entry["task_id"]})
+                            if mol_entry.molecule.composition.alphabetical_formula == mol_graph.molecule.composition.alphabetical_formula:
+                                mol_graph_in_db = mol_entry.mol_graph
+                                total_charge = mol_entry.charge
+                                if mol_graph_in_db.isomorphic_to(mol_graph):
+                                    free_energy = mol_entry.free_energy
+                                    if free_energy < info_dict[j][total_charge]["free_energy"]:
+                                        info_dict[j][total_charge]["free_energy"] = free_energy
+                                        info_dict[j][total_charge]["index"] = i
         total_charges = [1,0,-1]
         self.free_energy_dict = {}
         # keys of self.free_energy_dict correspond to indices in self.opt_mol_graphs
