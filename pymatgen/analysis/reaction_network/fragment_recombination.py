@@ -148,12 +148,19 @@ class Fragment_Recombination:
                     if info_dict[key][charge]["index"] != None:
                         index = info_dict[key][charge]["index"]
                         entry = self.target_entries[index]
-                        mol_entry = MoleculeEntry(molecule=entry["molecule"],
-                                                  energy=entry["energy_Ha"],
-                                                  mol_doc={"mol_graph": entry["mol_graph"],
-                                                           "enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
-                                                           "entropy_cal/molK": entry["entropy_cal/molK"],
-                                                           "task_id": entry["task_id"]})
+                        if "mol_graph" in entry:
+                            mol_entry = MoleculeEntry(molecule=entry["molecule"],
+                                                      energy=entry["energy_Ha"],
+                                                      mol_doc={"mol_graph": entry["mol_graph"],
+                                                               "enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
+                                                               "entropy_cal/molK": entry["entropy_cal/molK"],
+                                                               "task_id": entry["task_id"]})
+                        elif "entropy_cal/molK" in entry.keys() and "enthalpy_kcal/mol" in entry.keys() and "task_id" in entry.keys():
+                            mol_entry = MoleculeEntry(molecule=Molecule.from_dict(entry["molecule"]),
+                                                      energy=entry["energy_Ha"],
+                                                      mol_doc={"enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
+                                                               "entropy_cal/molK": entry["entropy_cal/molK"],
+                                                               "task_id": entry["task_id"]})
                         opt_mol_graph = mol_entry.mol_graph
                         self.free_energy_dict[len(self.opt_mol_graphs)] = mol_entry.free_energy
                         self.opt_to_orig_keys[len(self.opt_mol_graphs)] = key
@@ -164,12 +171,20 @@ class Fragment_Recombination:
                     if info_dict[key][charge]["index"] != None:
                         index = info_dict[key][charge]["index"]
                         entry = self.target_entries[index]
-                        mol_entry = MoleculeEntry(molecule=Molecule.from_dict(entry["molecule"]),
-                                                  energy=entry["energy_Ha"],
-                                                  mol_doc={"mol_graph": MoleculeGraph.from_dict(entry["mol_graph"]),
-                                                           "enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
-                                                           "entropy_cal/molK": entry["entropy_cal/molK"],
-                                                           "task_id": entry["task_id"]})
+                        if "mol_graph" in entry:
+                            mol_entry = MoleculeEntry(molecule=Molecule.from_dict(entry["molecule"]),
+                                                      energy=entry["energy_Ha"],
+                                                      mol_doc={"mol_graph": MoleculeGraph.from_dict(entry["mol_graph"]),
+                                                               "enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
+                                                               "entropy_cal/molK": entry["entropy_cal/molK"],
+                                                               "task_id": entry["task_id"]})
+                        elif "entropy_cal/molK" in entry.keys() and "enthalpy_kcal/mol" in entry.keys() and "task_id" in entry.keys():
+                            mol_entry = MoleculeEntry(molecule=Molecule.from_dict(entry["molecule"]),
+                                                      energy=entry["energy_Ha"],
+                                                      mol_doc={"enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
+                                                               "entropy_cal/molK": entry["entropy_cal/molK"],
+                                                               "task_id": entry["task_id"]})
+
                         opt_mol_graph = mol_entry.mol_graph
                         self.free_energy_dict[len(self.opt_mol_graphs)] = mol_entry.free_energy
                         self.opt_to_orig_keys[len(self.opt_mol_graphs)] = key
