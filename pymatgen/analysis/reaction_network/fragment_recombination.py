@@ -144,8 +144,9 @@ class Fragment_Recombination:
                         self.free_energy_dict[len(self.opt_mol_graphs)] = mol_entry.free_energy
                         self.opt_to_orig_keys[len(self.opt_mol_graphs)] = key
                         self.opt_mol_graphs.append(opt_mol_graph)
-        dumpfn(self.free_energy_dict, energy_dict_name+".json")
-        dumpfn(self.opt_to_orig_keys, opt_to_orig_dict_name + ".json")
+        #dumpfn(self.free_energy_dict, energy_dict_name+".json")
+        #dumpfn(self.opt_to_orig_keys, opt_to_orig_dict_name + ".json")
+        dumpfn(self.opt_mol_graphs, 'opt_mol_graphs.json')
         return
 
     def remove_Li_bonds(self):
@@ -764,6 +765,7 @@ class Fragment_Recombination:
 
         for i in range(len(self.opt_mol_graphs),len(self.total_mol_graphs)):
             self.total_mol_graphs[i].molecule._charge = self.total_charges[i]
+            self.total_mol_graphs[i].molecule._spin_multiplicity = None
         dumpfn(self.total_mol_graphs, sdf_name + '.json')
 
         self.all_reactions = []
