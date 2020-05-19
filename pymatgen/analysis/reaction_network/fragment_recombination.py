@@ -147,6 +147,7 @@ class Fragment_Recombination:
                 for charge in total_charges:
                     if info_dict[key][charge]["index"] != None:
                         index = info_dict[key][charge]["index"]
+                        print('index:',index)
                         entry = self.target_entries[index]
                         if "mol_graph" in entry:
                             mol_entry = MoleculeEntry(molecule=entry["molecule"],
@@ -170,6 +171,7 @@ class Fragment_Recombination:
                 for charge in total_charges:
                     if info_dict[key][charge]["index"] != None:
                         index = info_dict[key][charge]["index"]
+                        print('index:', index)
                         entry = self.target_entries[index]
                         if "mol_graph" in entry:
                             mol_entry = MoleculeEntry(molecule=Molecule.from_dict(entry["molecule"]),
