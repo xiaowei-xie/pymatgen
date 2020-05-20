@@ -2172,20 +2172,24 @@ class ReactionNetwork(MSONable):
                 self.min_cost[int(key)] = min_cost[key]
 
         print("Finding paths...")
-        all_paths = []
+        all_paths = {}
         for PR in PR_paths:
+            all_paths[PR] = []
             if PR in starts:
                 continue
             for start in starts:
                 ind = 0
-                for path in self.valid_shortest_simple_paths(start, PR):
-                    if ind == num_paths:
-                        break
-                    else:
-                        ind += 1
-                        path_dict_class2 = ReactionPath.characterize_path_final(path, self.weight, self.min_cost,
-                                                                                self.graph, PR_paths)
-                        heapq.heappush(my_heapq, (path_dict_class2.cost, next(c), path_dict_class2))
+                try:
+                    for path in self.valid_shortest_simple_paths(start, PR):
+                        if ind == num_paths:
+                            break
+                        else:
+                            ind += 1
+                            path_dict_class2 = ReactionPath.characterize_path_final(path, self.weight, self.min_cost,
+                                                                                    self.graph, PR_paths)
+                            heapq.heappush(my_heapq, (path_dict_class2.cost, next(c), path_dict_class2))
+                except:
+                    pass
 
             while len(paths) < num_paths and my_heapq:
                 # Check if any byproduct could yield a prereq cheaper than from starting molecule(s)?
@@ -2193,7 +2197,7 @@ class ReactionNetwork(MSONable):
                 print(len(paths), cost_HP, len(my_heapq), path_dict_HP_class.path_dict)
                 paths.append(
                     path_dict_HP_class.path_dict)  ### ideally just append the class, but for now dict for easy printing
-            all_paths.append(paths)
+            all_paths[PR].append(paths)
             #print(PR_paths)
             print(paths)
         dumpfn(all_paths,'all_path.json')
