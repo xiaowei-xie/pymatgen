@@ -2174,6 +2174,8 @@ class ReactionNetwork(MSONable):
         print("Finding paths...")
         all_paths = []
         for PR in PR_paths:
+            if PR in starts:
+                continue
             for start in starts:
                 ind = 0
                 for path in self.valid_shortest_simple_paths(start, PR):
