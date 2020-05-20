@@ -2157,7 +2157,7 @@ class ReactionNetwork(MSONable):
         else:
             solved_PRs_path = loadfn(path+'PRs.json')
             min_cost = loadfn(path+'min_cost.json')
-            self.graph = loadfn(path+'RN_graph.json')
+            self.graph = json_graph.adjacency_graph(loadfn(path+'RN_graph.json'))
             PR_paths = {}
 
             for key in solved_PRs_path:
