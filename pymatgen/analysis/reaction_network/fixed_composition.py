@@ -339,10 +339,11 @@ class FixedCompositionNetwork:
                     if "mol_graph" in entry:
                         mol_entry = MoleculeEntry(molecule=entry["molecule"],
                                                   energy=entry["energy_Ha"],
-                                                  mol_doc={"mol_graph": MoleculeGraph.from_dict(entry["mol_graph"]),
+                                                  mol_doc={"mol_graph": entry["mol_graph"],
                                                            "enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
                                                            "entropy_cal/molK": entry["entropy_cal/molK"],
                                                            "task_id": entry["task_id"]})
+
                         if mol_entry.molecule.composition.alphabetical_formula == mol_graph.molecule.composition.alphabetical_formula:
                             mol_graph_in_db = mol_entry.mol_graph
                             total_charge = mol_entry.charge
@@ -376,12 +377,19 @@ class FixedCompositionNetwork:
                     if info_dict[key][charge]["index"] != None:
                         index = info_dict[key][charge]["index"]
                         entry = self.target_entries[index]
-                        mol_entry = MoleculeEntry(molecule=entry["molecule"],
-                                                  energy=entry["energy_Ha"],
-                                                  mol_doc={"mol_graph": entry["mol_graph"],
-                                                           "enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
-                                                           "entropy_cal/molK": entry["entropy_cal/molK"],
-                                                           "task_id": entry["task_id"]})
+                        if "mol_graph" in entry:
+                            mol_entry = MoleculeEntry(molecule=entry["molecule"],
+                                                      energy=entry["energy_Ha"],
+                                                      mol_doc={"mol_graph": entry["mol_graph"],
+                                                               "enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
+                                                               "entropy_cal/molK": entry["entropy_cal/molK"],
+                                                               "task_id": entry["task_id"]})
+                        elif "entropy_cal/molK" in entry.keys() and "enthalpy_kcal/mol" in entry.keys() and "task_id" in entry.keys():
+                            mol_entry = MoleculeEntry(molecule=entry["molecule"],
+                                                      energy=entry["energy_Ha"],
+                                                      mol_doc={"enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
+                                                               "entropy_cal/molK": entry["entropy_cal/molK"],
+                                                               "task_id": entry["task_id"]})
 
                         self.opt_entries[key][charge] = mol_entry
                         self.opt_species_w_charge.append(str(key)+'_'+str(charge))
@@ -392,12 +400,19 @@ class FixedCompositionNetwork:
                     if info_dict[key][charge]["index"] != None:
                         index = info_dict[key][charge]["index"]
                         entry = self.target_entries[index]
-                        mol_entry = MoleculeEntry(molecule=Molecule.from_dict(entry["molecule"]),
-                                                  energy=entry["energy_Ha"],
-                                                  mol_doc={"mol_graph": MoleculeGraph.from_dict(entry["mol_graph"]),
-                                                           "enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
-                                                           "entropy_cal/molK": entry["entropy_cal/molK"],
-                                                           "task_id": entry["task_id"]})
+                        if "mol_graph" in entry:
+                            mol_entry = MoleculeEntry(molecule=entry["molecule"],
+                                                      energy=entry["energy_Ha"],
+                                                      mol_doc={"mol_graph": MoleculeGraph.from_dict(entry["mol_graph"]),
+                                                               "enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
+                                                               "entropy_cal/molK": entry["entropy_cal/molK"],
+                                                               "task_id": entry["task_id"]})
+                        elif "entropy_cal/molK" in entry.keys() and "enthalpy_kcal/mol" in entry.keys() and "task_id" in entry.keys():
+                            mol_entry = MoleculeEntry(molecule=entry["molecule"],
+                                                      energy=entry["energy_Ha"],
+                                                      mol_doc={"enthalpy_kcal/mol": entry["enthalpy_kcal/mol"],
+                                                               "entropy_cal/molK": entry["entropy_cal/molK"],
+                                                               "task_id": entry["task_id"]})
 
                         self.opt_entries[key][charge] = mol_entry
                         self.opt_species_w_charge.append(str(key) + '_' + str(charge))
