@@ -2148,16 +2148,18 @@ class ReactionNetwork(MSONable):
         paths = []
         c = itertools.count()
         my_heapq = []
-        print("Solving prerequisites...")
         if not load_file:
             self.min_cost = {}
             self.graph = self.build()
+            print("Solving prerequisites...")
             PR_paths = self.solve_prerequisites_no_target(starts, weight)
 
         else:
+            print("Loading files...")
             solved_PRs_path = loadfn(path+'PRs.json')
             min_cost = loadfn(path+'min_cost.json')
             self.graph = json_graph.adjacency_graph(loadfn(path+'RN_graph.json'))
+            assert len(self.graph.nodes) != 0
             PR_paths = {}
 
             for key in solved_PRs_path:
