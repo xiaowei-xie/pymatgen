@@ -2074,7 +2074,7 @@ class ReactionNetwork(MSONable):
         if solved_PRs_path is None:
             self.min_cost = {}
             self.graph = self.build()
-            PR_paths = self.solve_prerequisites(starts, target, weight)
+            PR_paths = self.solve_prerequisites(starts, target, weight, save=True)
 
         else:
             PR_paths = {}
@@ -2124,11 +2124,10 @@ class ReactionNetwork(MSONable):
 
         return PR_paths, paths
 
-    def find_paths_for_all(self, starts, target, weight, num_paths=10, load_file=True, path=''):  # -> ??
+    def find_paths_for_all(self, starts, weight, num_paths=10, load_file=True, path=''):  # -> ??
         """
             A method to find the shorted path from given starts to all the nodes in the graph
         :param starts: starts: List(molecular nodes), list of molecular nodes of type int found in the ReactionNetwork.graph
-        :param target: a single molecular node of type int found in the ReactionNetwork.graph
         :param weight: "softplus" or "exponent", type of cost function to use when calculating edge weights
         :param num_paths: Number (of type int) of paths to find. Defaults to 10.
         :param solved_PRs_path: dict that defines a path from each node to a start,
@@ -2153,7 +2152,7 @@ class ReactionNetwork(MSONable):
         if not load_file:
             self.min_cost = {}
             self.graph = self.build()
-            PR_paths = self.solve_prerequisites(starts, target, weight)
+            PR_paths = self.solve_prerequisites_no_target(starts, weight)
 
         else:
             solved_PRs_path = loadfn(path+'PRs.json')
@@ -2194,7 +2193,7 @@ class ReactionNetwork(MSONable):
             #print(PR_paths)
             print(paths)
         dumpfn(all_paths,'all_path.json')
-            
+
         return
 
 if __name__ == "__main__":
