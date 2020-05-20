@@ -2191,6 +2191,7 @@ class ReactionNetwork(MSONable):
 
         print(PR_paths)
         print(paths)
+        dumpfn(paths,'LEDC_path.json')
 
         return PR_paths, paths
 
