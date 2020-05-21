@@ -1080,12 +1080,13 @@ class FixedCompositionNetwork:
         dumpfn(node_energies, 'node_energies.json')
         return pathway_nodes_final, pathway_edges_final, node_energies
 
-    def transform_nodes_and_edges(self, pathway_nodes, pathway_edges, starting_mols_list, node_energies):
+    def transform_nodes_and_edges(self, pathway_nodes, pathway_edges, starting_mols_list, node_energies, starting_num_electrons_list):
         '''
 
         :param pathway_nodes: List[species_dict], species_dict = {'0_1': 2, '1_0': 2, 'e_-1': 2}
         :param pathway_edges:
         :param starting_mols_list: a list of starting mols. e.g.[['0_1','1_0']].
+        :param starting_num_electrons_list: a list of number of electrons(int) cooresponding to starting_mols_list.
             Usually this should just be a list of one element(starting_mols).
             However, if there are specific nodes(composition) treat as the starting composition of the graph, we can change this.
 
@@ -1095,12 +1096,19 @@ class FixedCompositionNetwork:
         starting_nodes = []
         for i in range(len(starting_mols_list)):
             mols = starting_mols_list[i]
+            num_electrons = starting_num_electrons_list[i]
             mols_dict = {}
             for item in mols:
                 if item in mols_dict.keys():
                     mols_dict[item] += 1
                 else:
                     mols_dict[item] = 1
+            if num_electrons != 0:
+                for j in range(num_electrons):
+                    if j == 0:
+                        mols_dict['e_-1'] = 1
+                    else:
+                        mols_dict['e_-1'] += 1
             starting_nodes.append(mols_dict)
 
         self.number_to_nodes_dict = {}
@@ -1301,6 +1309,7 @@ class FixedCompositionNetwork:
 
         starting_mols, crude_energy_thresh = self.find_starting_mols_and_crude_energy_thresh(starting_mol_graphs, starting_charges, starting_num_electrons)
         starting_mols_list = [starting_mols]
+        starting_num_electrons_list = [starting_num_electrons]
         all_possible_products, all_possible_product_energies = \
             self.find_all_product_composition_from_target(target_composition, target_charge, crude_energy_thresh)
         #all_possible_products = loadfn('all_possible_products.json')
@@ -1311,7 +1320,7 @@ class FixedCompositionNetwork:
             self.find_n_lowest_product_composition(all_possible_products, all_possible_product_energies)
         pathway_nodes_final, pathway_edges_final, node_energies = \
             self.map_all_possible_pathways(all_possible_product_lowest_n, starting_mols, allowed_num_mols, energy_thresh)
-        self.new_pathway_nodes, self.new_pathway_edges, self.new_energies = self.transform_nodes_and_edges(pathway_nodes_final, pathway_edges_final, starting_mols_list, node_energies)
+        self.new_pathway_nodes, self.new_pathway_edges, self.new_energies = self.transform_nodes_and_edges(pathway_nodes_final, pathway_edges_final, starting_mols_list, node_energies,starting_num_electrons_list)
         self.visualize_reaction_network(self.new_pathway_nodes, self.new_pathway_edges, self.new_energies, graph_file_name)
         self.generate_entries(self.new_pathway_nodes,entries_file_name)
 
