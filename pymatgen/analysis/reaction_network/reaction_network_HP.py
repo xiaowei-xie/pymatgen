@@ -2172,24 +2172,25 @@ class ReactionNetwork(MSONable):
                 self.min_cost[int(key)] = min_cost[key]
 
         print("Finding paths...")
-        all_paths = {}
+        self.all_paths = {}
         for PR in PR_paths:
-            all_paths[PR] = []
+            print('PR:',PR)
+            self.all_paths[PR] = []
             if PR in starts:
                 continue
             for start in starts:
                 ind = 0
-                try:
-                    for path in self.valid_shortest_simple_paths(start, PR):
-                        if ind == num_paths:
-                            break
-                        else:
-                            ind += 1
-                            path_dict_class2 = ReactionPath.characterize_path_final(path, self.weight, self.min_cost,
-                                                                                    self.graph, PR_paths)
-                            heapq.heappush(my_heapq, (path_dict_class2.cost, next(c), path_dict_class2))
-                except:
-                    pass
+                #try:
+                for path in self.valid_shortest_simple_paths(start, PR):
+                    if ind == num_paths:
+                        break
+                    else:
+                        ind += 1
+                        path_dict_class2 = ReactionPath.characterize_path_final(path, self.weight, self.min_cost,
+                                                                                self.graph, PR_paths)
+                        heapq.heappush(my_heapq, (path_dict_class2.cost, next(c), path_dict_class2))
+                # except:
+                #     pass
 
             while len(paths) < num_paths and my_heapq:
                 # Check if any byproduct could yield a prereq cheaper than from starting molecule(s)?
@@ -2197,12 +2198,102 @@ class ReactionNetwork(MSONable):
                 print(len(paths), cost_HP, len(my_heapq), path_dict_HP_class.path_dict)
                 paths.append(
                     path_dict_HP_class.path_dict)  ### ideally just append the class, but for now dict for easy printing
-            all_paths[PR].append(paths)
+            self.all_paths[PR].append(paths)
             #print(PR_paths)
             print(paths)
-        dumpfn(all_paths,'all_path.json')
+        dumpfn(self.all_paths,'all_path.json')
 
         return
+
+    def load_files(self,path=''):
+
+        print("Loading files...")
+        solved_PRs_path = loadfn(path+'PRs.json')
+        min_cost = loadfn(path+'min_cost.json')
+        self.graph = json_graph.adjacency_graph(loadfn(path+'RN_graph.json'))
+        assert len(self.graph.nodes) != 0
+        self.PR_paths = {}
+
+        for key in solved_PRs_path:
+            self.PR_paths[int(key)] = {}
+            for start in solved_PRs_path[key]:
+                self.PR_paths[int(key)][int(start)] = copy.deepcopy(solved_PRs_path[key][start])
+
+        self.min_cost = {}
+        for key in min_cost:
+            self.min_cost[int(key)] = min_cost[key]
+
+        return
+
+    def find_paths_XX(self, starts, target, weight, num_paths=10):  # -> ??
+        """
+            A method to find the shorted path from given starts to all the nodes in the graph
+        :param starts: starts: List(molecular nodes), list of molecular nodes of type int found in the ReactionNetwork.graph
+        :param weight: "softplus" or "exponent", type of cost function to use when calculating edge weights
+        :param num_paths: Number (of type int) of paths to find. Defaults to 10.
+        :param solved_PRs_path: dict that defines a path from each node to a start,
+                of the form {int(node1): {int(start1}: {ReactionPath object}, int(start2): {ReactionPath object}}, int(node2):...}
+                if None, method will solve PRs
+        :param solved_min_cost: dict with minimum cost from path start to a node, of from {node: float},
+                if no path exist, value is "no_path", if path is unsolved yet, value is "unsolved_path",
+                of None, method will solve for min_cost
+        :param updated_graph: nx.DiGraph with udpated edge weights based on the solved PRs, if none, method will solve for PRs and update graph accordingly
+        :param save: if True method will save PRs paths, min cost and updated graph after all the PRs are solved,
+                    if False, method will not save anything (default)
+        :return: PR_paths: solved dict of PRs
+        :return: paths: list of paths (number of paths based on the value of num_paths)
+        """
+
+        self.weight = weight
+        self.num_starts = len(starts)
+        paths = []
+        c = itertools.count()
+        my_heapq = []
+        print("Finding paths...")
+
+        for start in starts:
+            ind = 0
+            try:
+                for path in self.valid_shortest_simple_paths(start, target):
+                    if ind == num_paths:
+                        break
+                    else:
+                        ind += 1
+                        path_dict_class2 = ReactionPath.characterize_path_final(path, self.weight, self.min_cost,
+                                                                                self.graph, self.PR_paths)
+                        heapq.heappush(my_heapq, (path_dict_class2.cost, next(c), path_dict_class2))
+            except:
+                pass
+
+        while len(paths) < num_paths and my_heapq:
+            # Check if any byproduct could yield a prereq cheaper than from starting molecule(s)?
+            (cost_HP, _x, path_dict_HP_class) = heapq.heappop(my_heapq)
+            print(len(paths), cost_HP, len(my_heapq), path_dict_HP_class.path_dict)
+            paths.append(
+                path_dict_HP_class.path_dict)  ### ideally just append the class, but for now dict for easy printing
+        #print(PR_paths)
+        print(paths)
+
+        return paths
+
+    def find_paths_XX_all(self, starts, weight, num_paths=1,path=''):
+
+        self.all_paths = {}
+        self.load_files(path)
+        for PR in self.PR_paths:
+            self.all_paths[PR] = []
+            if PR in starts:
+                continue
+            else:
+                paths = self.find_paths_XX(starts, PR, weight, num_paths)
+                self.all_paths[PR].append(paths)
+
+        dumpfn(self.all_paths, 'all_paths.json')
+
+        return
+
+
+
 
 if __name__ == "__main__":
     prod_entries = []
