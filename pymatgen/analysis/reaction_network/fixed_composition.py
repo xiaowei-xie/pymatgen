@@ -1260,6 +1260,7 @@ class FixedCompositionNetwork:
 
         starting_mols, crude_energy_thresh = self.find_starting_mols_and_crude_energy_thresh(starting_mol_graphs, starting_charges, starting_num_electrons)
         starting_mols_list = [starting_mols]
+        starting_num_electrons_list = [starting_num_electrons]
         all_possible_products, all_possible_product_energies = \
             self.find_all_product_composition_from_target(target_composition, target_charge, crude_energy_thresh)
         #all_possible_products = loadfn('all_possible_products.json')
@@ -1270,7 +1271,7 @@ class FixedCompositionNetwork:
             self.find_n_lowest_product_composition(all_possible_products, all_possible_product_energies)
         pathway_nodes_final, pathway_edges_final, node_energies = \
             self.map_all_possible_pathways(all_possible_product_lowest_n, starting_mols, allowed_num_mols, energy_thresh)
-        self.new_pathway_nodes, self.new_pathway_edges, self.new_energies = self.transform_nodes_and_edges(pathway_nodes_final, pathway_edges_final, starting_mols_list, node_energies)
+        self.new_pathway_nodes, self.new_pathway_edges, self.new_energies = self.transform_nodes_and_edges(pathway_nodes_final, pathway_edges_final, starting_mols_list, node_energies,starting_num_electrons_list)
         self.visualize_reaction_network(self.new_pathway_nodes, self.new_pathway_edges, self.new_energies, graph_file_name)
         self.generate_entries(self.new_pathway_nodes,entries_file_name)
 
