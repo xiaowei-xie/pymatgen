@@ -2304,12 +2304,14 @@ class ReactionNetwork(MSONable):
         self.all_paths = loadfn(path+'all_paths.json')
 
         for PR in self.all_paths:
-            print(self.all_paths[PR])
-            print(self.all_paths[PR])
-            overall_free_energy_change = self.all_paths[PR][0][0]['overall_free_energy_change']
-            if overall_free_energy_change > thresh:
+            if self.all_paths[PR] == []:
                 filtered_PRs.append(int(PR))
                 filtered_entries_list.append(self.entries_list[int(PR)])
+            elif self.all_paths[PR] != [[]]:
+                overall_free_energy_change = self.all_paths[PR][0][0]['overall_free_energy_change']
+                if overall_free_energy_change > thresh:
+                    filtered_PRs.append(int(PR))
+                    filtered_entries_list.append(self.entries_list[int(PR)])
 
 
         dumpfn(filtered_entries_list, 'filtered_entries_list.json')
