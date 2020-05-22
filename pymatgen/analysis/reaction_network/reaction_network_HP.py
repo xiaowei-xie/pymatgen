@@ -2292,7 +2292,27 @@ class ReactionNetwork(MSONable):
 
         return
 
+    def get_species_from_path(self, path='', thresh=0.0):
+        '''
+        Get all the entries from path finding to all species in the network.
+        :param path: path to the 'all_paths.json' file
+        :param thresh: A fugde factor for free energy
+        :return:
+        '''
+        filtered_entries_list = []
+        filtered_PRs = []
+        self.all_paths = loadfn(path+'all_paths.json')
+        for PR in self.all_paths:
+            overall_free_energy_change = self.all_paths[PR][0][0]['overall_free_energy_change']
+            if overall_free_energy_change > thresh:
+                filtered_PRs.append(int(PR))
+                filtered_entries_list.append(self.entries_list[int(PR)])
 
+        dumpfn(filtered_entries_list, 'filtered_entries_list.json')
+        dumpfn(filtered_PRs, 'filtered_PRs.json')
+        print('Number of species remaining:',len(filtered_PRs))
+
+        return
 
 
 if __name__ == "__main__":
