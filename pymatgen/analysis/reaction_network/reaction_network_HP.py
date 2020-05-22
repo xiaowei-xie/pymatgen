@@ -2254,17 +2254,18 @@ class ReactionNetwork(MSONable):
 
         for start in starts:
             ind = 0
-            try:
-                for path in self.valid_shortest_simple_paths(start, target):
-                    if ind == num_paths:
-                        break
-                    else:
-                        ind += 1
-                        path_dict_class2 = ReactionPath.characterize_path_final(path, self.weight, self.min_cost,
-                                                                                self.graph, self.PR_paths)
-                        heapq.heappush(my_heapq, (path_dict_class2.cost, next(c), path_dict_class2))
-            except:
-                pass
+            # try:
+            print('start:',start)
+            for path in self.valid_shortest_simple_paths(start, target):
+                if ind == num_paths:
+                    break
+                else:
+                    ind += 1
+                    path_dict_class2 = ReactionPath.characterize_path_final(path, self.weight, self.min_cost,
+                                                                            self.graph, self.PR_paths)
+                    heapq.heappush(my_heapq, (path_dict_class2.cost, next(c), path_dict_class2))
+            # except:
+            #     pass
 
         while len(paths) < num_paths and my_heapq:
             # Check if any byproduct could yield a prereq cheaper than from starting molecule(s)?
@@ -2282,6 +2283,7 @@ class ReactionNetwork(MSONable):
         self.all_paths = {}
         self.load_files(path)
         for PR in self.PR_paths:
+            print('PR:',PR)
             self.all_paths[PR] = []
             if PR in starts:
                 continue
@@ -2313,6 +2315,45 @@ class ReactionNetwork(MSONable):
                 if overall_free_energy_change > thresh:
                     filtered_PRs.append(int(PR))
                     filtered_entries_list.append(self.entries_list[int(PR)])
+
+        if not os.path.isdir('filtered_mols'):
+            os.mkdir('filtered_mols')
+
+        for i, entry in enumerate(filtered_entries_list):
+            mol = entry.molecule
+            mol.to('xyz','filtered_mols/'+str(i)+'.xyz')
+        dumpfn(filtered_entries_list, 'filtered_entries_list.json')
+        dumpfn(filtered_PRs, 'filtered_PRs.json')
+        print('Number of species remaining:',len(filtered_PRs))
+
+        return
+
+    def get_species_direct_from_PR(self, weight, path='', thresh=0.0):
+        '''
+        Get all the entries from path finding to all species in the network.
+        :param path: path to the 'all_paths.json' file
+        :param thresh: A fugde factor for free energy
+        :return:
+        '''
+        filtered_entries_list = []
+        filtered_PRs = []
+        self.load_files(path)
+
+        for PR in self.PR_paths:
+            print('PR:',PR)
+            min_free_energy_change = 1e8
+            for start in self.PR_paths[PR]:
+                rxn_path = self.PR_paths[PR][start]
+                new_rxn_path = rxn_path.characterize_path_final(rxn_path.path,weight, self.min_cost, self.graph, self.PR_paths)
+                print(new_rxn_path.full_path)
+                #if len(list(set(new_rxn_path.solved_prereqs))) != len(list(set(new_rxn_path.all_prereqs))):
+                    #print(PR, start)
+                overall_free_energy_change = new_rxn_path.overall_free_energy_change
+                if overall_free_energy_change <= min_free_energy_change:
+                    min_free_energy_change = overall_free_energy_change
+            if min_free_energy_change < thresh:
+                filtered_PRs.append(int(PR))
+                filtered_entries_list.append(self.entries_list[int(PR)])
 
         if not os.path.isdir('filtered_mols'):
             os.mkdir('filtered_mols')
