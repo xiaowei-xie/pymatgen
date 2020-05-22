@@ -839,13 +839,13 @@ class FixedCompositionNetwork:
         # merge species dict
         energy_standard = np.sum([self.opt_entries[int(key.split('_')[0])][int(key.split('_')[1])].free_energy for key in starting_mols if key!='e_-1'])
         if 'e_-1' in starting_mols:
-            energy_standard += self.electron_free_energy * starting_mols['e_-1']
+            energy_standard += self.electron_free_energy * starting_mols.count('e_-1')
         possible_pathways_before_final = []
         for i in range(len(parents_list)):
             energy_reference = np.sum(
                 [self.opt_entries[int(key.split('_')[0])][int(key.split('_')[1])].free_energy * possible_products[i][key] for key in possible_products[i] if key!='e_-1'])
             if 'e_-1' in possible_products[i]:
-                energy_reference += self.electron_free_energy * possible_products[i]['e_-1']
+                energy_reference += self.electron_free_energy * possible_products[i].count('e_-1')
             possible_pathways_dummy = []
             parents = parents_list[i]  # [[{1},{2}],  [{3},{4}],  [{5},{6},{7}],  [{8},{9},{10},{11}]]
             num_parents = len(parents)
