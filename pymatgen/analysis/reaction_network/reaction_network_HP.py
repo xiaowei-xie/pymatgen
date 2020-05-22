@@ -31,6 +31,7 @@ from pymatgen.entries.mol_entry import MoleculeEntry
 from pymatgen.core.composition import CompositionError
 from typing import List, Dict, Tuple, Generator
 from pymatgen.analysis.reaction_network.extract_reactions import *
+import os
 
 MappingDict = Dict[str, Dict[int, Dict[int, List[MoleculeEntry]]]]
 Mapping_Energy_Dict = Dict[str, float]
@@ -2313,7 +2314,12 @@ class ReactionNetwork(MSONable):
                     filtered_PRs.append(int(PR))
                     filtered_entries_list.append(self.entries_list[int(PR)])
 
+        if not os.path.isdir('filtered_mols'):
+            os.mkdir('filtered_mols')
 
+        for i, entry in enumerate(filtered_entries_list):
+            mol = entry.molecule
+            mol.to('filtered_mols/'+str(i)+'.xyz')
         dumpfn(filtered_entries_list, 'filtered_entries_list.json')
         dumpfn(filtered_PRs, 'filtered_PRs.json')
         print('Number of species remaining:',len(filtered_PRs))
