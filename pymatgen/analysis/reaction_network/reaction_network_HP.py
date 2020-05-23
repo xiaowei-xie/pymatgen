@@ -2367,6 +2367,26 @@ class ReactionNetwork(MSONable):
 
         return
 
+    def get_LEDC_LEMC_cost(self,LEDC_ind, LEMC_ind, weight):
+        print("Getting LEDC/LEMC full path!")
+        print('LEDC ind:', LEDC_ind)
+        for start in self.PR_paths[LEDC_ind]:
+            print('start:',start)
+            rxn_path = self.PR_paths[LEDC_ind][start]
+            new_rxn_path = rxn_path.characterize_path_final(rxn_path.path, weight, self.min_cost, self.graph,
+                                                            self.PR_paths)
+            print('LEDC full path from' + str(start) +':',new_rxn_path.full_path)
+        print('LEMC ind:', LEDC_ind)
+        for start in self.PR_paths[LEMC_ind]:
+            print('start:',start)
+            rxn_path = self.PR_paths[LEMC_ind][start]
+            new_rxn_path = rxn_path.characterize_path_final(rxn_path.path, weight, self.min_cost, self.graph,
+                                                            self.PR_paths)
+            print('LEMC full path from' + str(start) +':',new_rxn_path.full_path)
+
+        return
+
+
 
 if __name__ == "__main__":
     prod_entries = []
