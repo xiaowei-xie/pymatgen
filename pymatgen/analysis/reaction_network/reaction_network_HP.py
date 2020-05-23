@@ -2375,6 +2375,7 @@ class ReactionNetwork(MSONable):
             rxn_path = self.PR_paths[LEDC_ind][start]
             new_rxn_path = rxn_path.characterize_path_final(rxn_path.path, weight, self.min_cost, self.graph,
                                                             self.PR_paths)
+            print('LEDC free energy change from'+ str(start) +':',new_rxn_path.overall_free_energy_change)
             print('LEDC full path from' + str(start) +':',new_rxn_path.full_path)
         print('LEMC ind:', LEDC_ind)
         for start in self.PR_paths[LEMC_ind]:
@@ -2383,6 +2384,7 @@ class ReactionNetwork(MSONable):
             new_rxn_path = rxn_path.characterize_path_final(rxn_path.path, weight, self.min_cost, self.graph,
                                                             self.PR_paths)
             print('LEMC full path from' + str(start) +':',new_rxn_path.full_path)
+            print('LEMC free energy change from' + str(start) + ':', new_rxn_path.overall_free_energy_change)
 
         return
 
