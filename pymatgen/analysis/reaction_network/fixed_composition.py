@@ -1272,8 +1272,9 @@ class FixedCompositionNetwork:
         pathway_nodes_final, pathway_edges_final, node_energies = \
             self.map_all_possible_pathways(all_possible_product_lowest_n, starting_mols, allowed_num_mols, energy_thresh)
         self.new_pathway_nodes, self.new_pathway_edges, self.new_energies = self.transform_nodes_and_edges(pathway_nodes_final, pathway_edges_final, starting_mols_list, node_energies,starting_num_electrons_list)
+        self.generate_entries(self.new_pathway_nodes, entries_file_name)
         self.visualize_reaction_network(self.new_pathway_nodes, self.new_pathway_edges, self.new_energies, graph_file_name)
-        self.generate_entries(self.new_pathway_nodes,entries_file_name)
+
 
         return
 
@@ -1322,8 +1323,8 @@ class FixedCompositionNetwork:
         pathway_nodes_final, pathway_edges_final, node_energies = \
             self.map_all_possible_pathways(all_possible_product_lowest_n, starting_mols, allowed_num_mols, energy_thresh)
         self.new_pathway_nodes, self.new_pathway_edges, self.new_energies = self.transform_nodes_and_edges(pathway_nodes_final, pathway_edges_final, starting_mols_list, node_energies,starting_num_electrons_list)
+        self.generate_entries(self.new_pathway_nodes, entries_file_name)
         self.visualize_reaction_network(self.new_pathway_nodes, self.new_pathway_edges, self.new_energies, graph_file_name)
-        self.generate_entries(self.new_pathway_nodes,entries_file_name)
 
         return
 
@@ -1381,8 +1382,8 @@ class FixedCompositionNetwork:
         pathway_nodes_final, pathway_edges_final, node_energies = \
             self.map_all_possible_pathways(all_possible_product_lowest_n, starting_mols, allowed_num_mols, energy_thresh)
         self.new_pathway_nodes, self.new_pathway_edges, self.new_energies = self.transform_nodes_and_edges(pathway_nodes_final, pathway_edges_final, starting_mols_list, node_energies,starting_num_electrons_list)
+        self.generate_entries(self.new_pathway_nodes, entries_file_name)
         self.visualize_reaction_network(self.new_pathway_nodes, self.new_pathway_edges, self.new_energies, graph_file_name)
-        self.generate_entries(self.new_pathway_nodes,entries_file_name)
 
         return
 
