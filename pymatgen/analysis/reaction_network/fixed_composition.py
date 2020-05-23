@@ -1327,6 +1327,65 @@ class FixedCompositionNetwork:
 
         return
 
+    def whole_workflow_load_file_3(self,target_composition, target_charge, starting_mol_graphs, starting_charges, starting_num_electrons,
+                       allowed_num_mols=5, energy_thresh=0.0, load_entries_name='smd_target_entries', graph_file_name='reaction_network',
+                       entries_file_name='valid',path=''):
+        '''
+        Have to run self.query_database beforehand and save the entries.
+        :param target_composition:
+        :param target_charge:
+        :param crude_energy_thresh:
+        :return:
+        '''
+
+        self.fragmentation_dict_new = loadfn(path+'fragmentation_dict_new.json')
+        self.recomb_dict_no_opt = loadfn(path+'recomb_dict_no_opt.json')
+        self.opt_entries = loadfn(path+'opt_entries.json')
+        self.opt_species_w_charge = loadfn(path+'opt_species_w_charge.json')
+        self.total_mol_graphs_no_opt = loadfn(path+'total_mol_graphs_no_opt.json')
+
+        # clean up some dicts b/c loadfn will make the keys into strings
+        self.fragmentation_dict_new_2 = {}
+        for key in self.fragmentation_dict_new:
+            self.fragmentation_dict_new_2[int(key)] = self.fragmentation_dict_new[key]
+        self.fragmentation_dict_new = copy.deepcopy(self.fragmentation_dict_new_2)
+        del self.fragmentation_dict_new_2
+
+        self.opt_entries_new = {}
+        for key in self.opt_entries:
+            self.opt_entries_new[int(key)] = {}
+            for key1 in self.opt_entries[key]:
+                self.opt_entries_new[int(key)][int(key1)] = self.opt_entries[key][key1]
+        self.opt_entries = copy.deepcopy(self.opt_entries_new)
+        del self.opt_entries_new
+
+        print('working on creating stoichiometry table!')
+        self.generate_stoichiometry_table()
+        print('creating stoichiometry table done!')
+
+        #starting_mols, crude_energy_thresh = self.find_starting_mols_and_crude_energy_thresh(starting_mol_graphs, starting_charges, starting_num_electrons)
+        starting_mols = loadfn('starting_mols.json')
+        crude_energy_thresh = loadfn('crude_energy_thresh.json')
+        starting_mols_list = [starting_mols]
+        starting_num_electrons_list = [starting_num_electrons]
+        # all_possible_products, all_possible_product_energies = \
+        #     self.find_all_product_composition_from_target(target_composition, target_charge, crude_energy_thresh)
+        all_possible_products = loadfn('all_possible_products.json')
+        all_possible_product_energies = loadfn('all_possible_product_energies.json')
+        # all_possible_products, all_possible_product_energies = \
+        #     self.find_all_product_composition_from_target(target_composition, target_charge, crude_energy_thresh)
+        # all_possible_product_lowest_n, all_possible_product_energies_lowest_n = \
+        #     self.find_n_lowest_product_composition(all_possible_products, all_possible_product_energies)
+        all_possible_product_lowest_n = loadfn('all_possible_product_lowest_n_new.json')
+        all_possible_product_energies_lowest_n = loadfn('all_possible_product_energies_lowest_n.json')
+        pathway_nodes_final, pathway_edges_final, node_energies = \
+            self.map_all_possible_pathways(all_possible_product_lowest_n, starting_mols, allowed_num_mols, energy_thresh)
+        self.new_pathway_nodes, self.new_pathway_edges, self.new_energies = self.transform_nodes_and_edges(pathway_nodes_final, pathway_edges_final, starting_mols_list, node_energies,starting_num_electrons_list)
+        self.visualize_reaction_network(self.new_pathway_nodes, self.new_pathway_edges, self.new_energies, graph_file_name)
+        self.generate_entries(self.new_pathway_nodes,entries_file_name)
+
+        return
+
 
 
 if __name__ == "__main__":
