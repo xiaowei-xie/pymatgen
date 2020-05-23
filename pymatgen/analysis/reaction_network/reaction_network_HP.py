@@ -2360,7 +2360,7 @@ class ReactionNetwork(MSONable):
 
         for i, entry in enumerate(filtered_entries_list):
             mol = entry.molecule
-            mol.to('xyz','filtered_mols/'+str(i)+'.xyz')
+            mol.to('xyz','filtered_mols/'+str(filtered_PRs[i])+'.xyz')
         dumpfn(filtered_entries_list, 'filtered_entries_list.json')
         dumpfn(filtered_PRs, 'filtered_PRs.json')
         print('Number of species remaining:',len(filtered_PRs))
