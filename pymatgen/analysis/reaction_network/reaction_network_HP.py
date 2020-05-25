@@ -2388,6 +2388,29 @@ class ReactionNetwork(MSONable):
 
         return
 
+    def get_cost_for_inds(self,inds, weight):
+        overall_free_energy_charges = {}
+        full_paths = {}
+        for i, ind in enumerate(inds):
+            overall_free_energy_charges[ind] = {}
+            full_paths[ind] = {}
+            if ind == None:
+                overall_free_energy_charges[ind] = None
+                full_paths[ind] = None
+            else:
+                for start in self.PR_paths[ind]:
+                    print('start:', start)
+                    overall_free_energy_charges[ind][start] = {}
+                    rxn_path = self.PR_paths[ind][start]
+                    new_rxn_path = rxn_path.characterize_path_final(rxn_path.path, weight, self.min_cost, self.graph,
+                                                                    self.PR_paths)
+                    overall_free_energy_charges[ind][start] = new_rxn_path.overall_free_energy_change
+                    full_paths[ind][start] = new_rxn_path.full_path
+        dumpfn(overall_free_energy_charges, 'overall_free_energy_changes_for_inds.json')
+        dumpfn(full_paths, 'full_paths_for_inds.json')
+
+        return
+
 
 
 if __name__ == "__main__":
