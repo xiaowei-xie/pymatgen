@@ -2328,7 +2328,7 @@ class ReactionNetwork(MSONable):
 
         return
 
-    def get_species_direct_from_PR(self, weight, path='', thresh=0.0):
+    def get_species_direct_from_PR(self, starts, weight, path='', thresh=0.0):
         '''
         Get all the entries from path finding to all species in the network.
         :param path: path to the 'all_paths.json' file
@@ -2354,6 +2354,10 @@ class ReactionNetwork(MSONable):
             if min_free_energy_change < thresh:
                 filtered_PRs.append(int(PR))
                 filtered_entries_list.append(self.entries_list[int(PR)])
+
+        for start in starts:
+            filtered_entries_list.append(self.entries_list[start])
+            filtered_PRs.append(start)
 
         if not os.path.isdir('filtered_mols'):
             os.mkdir('filtered_mols')
