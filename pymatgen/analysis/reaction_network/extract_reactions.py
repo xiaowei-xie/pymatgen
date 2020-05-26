@@ -1080,7 +1080,7 @@ class FindConcertedReactions:
                     if [reac, prod] not in valid_reactions:
                         valid_reactions.append([reac, prod])
         #output = "valid_reactions-{}".format(pathos.helpers.mp.currentProcess().getPid())
-        output = "valid_reactions"
+        output = "valid_reactions_break2_form2"
         with open(output, 'a+') as f:
             for rxn in valid_reactions:
                 f.write(str(rxn)+'\n')
@@ -1161,7 +1161,7 @@ class FindConcertedReactions:
                 if identify_reactions_AB_CD_break1_form1(mol_graphs1, mol_graphs2):
                     if [reac, prod] not in valid_reactions:
                         valid_reactions.append([reac, prod])
-        output = "valid_reactions"
+        output = "valid_reactions_break1_form1"
         #output = "valid_reactions-{}".format(pathos.helpers.mp.currentProcess().getPid())
         with open(output, 'a+') as f:
             for rxn in valid_reactions:
