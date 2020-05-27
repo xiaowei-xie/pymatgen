@@ -312,9 +312,10 @@ class ReactionNetwork(MSONable):
                                                 entries1.append(self.entries_list[ind])
                                             reactions_to_add.append([entries0,entries1])
         print('number of concerted reactions:', len(reactions_to_add))
-        # for to_add in reactions_to_add:
-        #     print(len(to_add[0]),len(to_add[1]))
-        #     self.add_reaction(to_add[0],to_add[1],"concerted",0)
+        for i,to_add in enumerate(reactions_to_add):
+            print("On concerted reaction number:",i)
+            print(len(to_add[0]),len(to_add[1]))
+            self.add_reaction(to_add[0],to_add[1],"concerted",0)
 
 
     def find_concerted_candidates(self,name):
