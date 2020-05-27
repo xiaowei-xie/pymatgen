@@ -446,6 +446,15 @@ class FixedCompositionNetwork:
         FR.to_xyz(FR.total_mol_graphs, recomb_path='recomb_mols')
         return
 
+    def recombination_for_BDE_prediction_from_mol_entries(self,entries_name="../../smd_target_entries"):
+        self.fragmentation()
+        FR = Fragment_Recombination(self.unique_fragments_new)
+        FR.get_optimized_structures_from_mol_entries(entries_name=entries_name)
+        FR.recombine_between_mol_graphs_through_schrodinger()
+        FR.generate_files_for_BDE_prediction()
+        FR.to_xyz(FR.total_mol_graphs, recomb_path='recomb_mols')
+        return
+
 
     def to_xyz(self, mol_graphs, path='recomb_mols'):
         if not os.path.isdir(path):
