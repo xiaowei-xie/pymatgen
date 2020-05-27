@@ -870,10 +870,7 @@ class FixedCompositionNetwork:
                         possible_pathways_dummy.append(merge_species_dict)
             possible_pathways_before_final.append(possible_pathways_dummy)
 
-        possible_pathways_dummy = []
-        for i in range(len(possible_pathways_before_final)):
-            pathways = possible_pathways_before_final[i]
-            possible_pathways_dummy += pathways
+        possible_pathways_dummy = copy.deepcopy(possible_pathways_before_final)
         possible_pathways_final = []
         for i in range(len(possible_pathways_dummy)):
             if (possible_pathways_dummy[i] not in possible_pathways_final) and (
@@ -1050,16 +1047,21 @@ class FixedCompositionNetwork:
         possible_products_new = copy.deepcopy(possible_products)
         pathway_edges = []
         possible_pathways_upwards_final = [{}]
+        iter = 0
         while possible_pathways_upwards_final != []:
+            iter += 1
+            print('iteration:', iter)
             possible_pathways_upwards, possible_pathways_upwards_final = \
                 self._trace_one_level_upwards(possible_products_new,starting_mols,allowed_num_mols)
+            print('length of possible_pathways_upwards:',len(possible_pathways_upwards))
+            print('length of possible_pathways_upwards final:',len(possible_pathways_upwards_final))
             pathway_nodes += possible_pathways_upwards_final
             for i in range(len(possible_pathways_upwards)):
                 for j in range(len(possible_pathways_upwards[i])):
                     pathway_edges.append((possible_pathways_upwards[i][j],possible_products_new[i]))
 
             possible_products_new = possible_pathways_upwards_final
-
+        print('mapping done!')
         # take the set of all nodes
         pathway_nodes_final = []
         for i,node in enumerate(pathway_nodes):
