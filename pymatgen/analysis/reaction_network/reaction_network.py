@@ -2079,6 +2079,20 @@ class ReactionNetwork(MSONable):
                 for start in starts:
                     if start not in self.cost_from_start[PR]:
                         self.cost_from_start[PR][start] = "unsolved"
+
+            self.not_reachable_nodes = []
+            for PR in PRs:
+                reachable = False
+                if all(start in PRs[PR].keys() for start in starts):
+                    for start in starts:
+                        if PRs[PR][start].path != None:
+                            reachable = True
+                else:
+                    reachable = True
+                if not reachable:
+                    self.not_reachable_nodes.append(PR)
+            print('not reachable nodes:', self.not_reachable_nodes)
+
             for node in self.graph.nodes():
                 if self.graph.nodes[node]["bipartite"] == 0 and node not in self.old_solved_PRs and node != target:
                     self.unsolved_PRs[node] = {}
@@ -2090,7 +2104,7 @@ class ReactionNetwork(MSONable):
                                     self.graph,
                                     source=hash(start),
                                     target=hash(node),
-                                    ignore_nodes=self.find_or_remove_bad_nodes([target,node]),
+                                    ignore_nodes=self.find_or_remove_bad_nodes([target,node]+self.not_reachable_nodes),
                                     weight=weight)
                             except nx.exception.NetworkXNoPath:
                                 PRs[node][start] = "no_path"
@@ -2177,19 +2191,19 @@ class ReactionNetwork(MSONable):
             old_attrs = copy.deepcopy(new_attrs)
             new_attrs = copy.deepcopy(attrs)
 
-        # for PR in PRs:
-        #     path_found = False
-        #     if PRs[PR] != {}:
-        #         for start in PRs[PR]:
-        #             if PRs[PR][start] != "no_path":
-        #                 path_found = True
-        #                 path_dict = self.characterize_path(PRs[PR][start]["path"],weight,PRs,True)
-        #                 if abs(path_dict["cost"]-path_dict["pure_cost"])>0.0001:
-        #                     print("WARNING: cost mismatch for PR",PR,path_dict["cost"],path_dict["pure_cost"],path_dict["full_path"])
-        #         if not path_found:
-        #             print("No path found from any start to PR",PR)
-        #     else:
-        #         print("Unsolvable path from any start to PR",PR)
+        for PR in PRs:
+            path_found = False
+            if PRs[PR] != {}:
+                for start in PRs[PR]:
+                    if PRs[PR][start] != "no_path":
+                        path_found = True
+                        path_dict = self.characterize_path(PRs[PR][start]["path"],weight,PRs,True)
+                        if abs(path_dict["cost"]-path_dict["pure_cost"])>0.0001:
+                            print("WARNING: cost mismatch for PR",PR,path_dict["cost"],path_dict["pure_cost"],path_dict["full_path"])
+                if not path_found:
+                    print("No path found from any start to PR",PR)
+            else:
+                print("Unsolvable path from any start to PR",PR)
         #print(self.min_cost)
         # print(len(self.min_cost.keys()))
         # for i in range(75):
@@ -2246,6 +2260,20 @@ class ReactionNetwork(MSONable):
                 for start in starts:
                     if start not in self.cost_from_start[PR]:
                         self.cost_from_start[PR][start] = "unsolved"
+
+            self.not_reachable_nodes = []
+            for PR in PRs:
+                reachable = False
+                if all(start in PRs[PR].keys() for start in starts):
+                    for start in starts:
+                        if PRs[PR][start].path != None:
+                            reachable = True
+                else:
+                    reachable = True
+                if not reachable:
+                    self.not_reachable_nodes.append(PR)
+            print('not reachable nodes:', self.not_reachable_nodes)
+
             for node in self.graph.nodes():
                 if self.graph.nodes[node]["bipartite"] == 0 and node not in self.old_solved_PRs:
                     self.unsolved_PRs[node] = {}  # modified by XX. Added a dict to keep track of unsolved cases.
@@ -2257,7 +2285,7 @@ class ReactionNetwork(MSONable):
                                     self.graph,
                                     source=hash(start),
                                     target=hash(node),
-                                    ignore_nodes=self.find_or_remove_bad_nodes([node]),
+                                    ignore_nodes=self.find_or_remove_bad_nodes([node]+self.not_reachable_nodes),
                                     weight=weight)
                             except nx.exception.NetworkXNoPath:
                                 PRs[node][start] = "no_path"
@@ -2342,19 +2370,19 @@ class ReactionNetwork(MSONable):
             old_attrs = copy.deepcopy(new_attrs)
             new_attrs = copy.deepcopy(attrs)
 
-        # for PR in PRs:
-        #     path_found = False
-        #     if PRs[PR] != {}:
-        #         for start in PRs[PR]:
-        #             if PRs[PR][start] != "no_path":
-        #                 path_found = True
-        #                 path_dict = self.characterize_path(PRs[PR][start]["path"],weight,PRs,True)
-        #                 if abs(path_dict["cost"]-path_dict["pure_cost"])>0.0001:
-        #                     print("WARNING: cost mismatch for PR",PR,path_dict["cost"],path_dict["pure_cost"],path_dict["full_path"])
-        #         if not path_found:
-        #             print("No path found from any start to PR",PR)
-        #     else:
-        #         print("Unsolvable path from any start to PR",PR)
+        for PR in PRs:
+            path_found = False
+            if PRs[PR] != {}:
+                for start in PRs[PR]:
+                    if PRs[PR][start] != "no_path":
+                        path_found = True
+                        path_dict = self.characterize_path(PRs[PR][start]["path"],weight,PRs,True)
+                        if abs(path_dict["cost"]-path_dict["pure_cost"])>0.0001:
+                            print("WARNING: cost mismatch for PR",PR,path_dict["cost"],path_dict["pure_cost"],path_dict["full_path"])
+                if not path_found:
+                    print("No path found from any start to PR",PR)
+            else:
+                print("Unsolvable path from any start to PR",PR)
         #print(self.min_cost)
         # print(len(self.min_cost.keys()))
         # for i in range(75):
@@ -2418,7 +2446,7 @@ class ReactionNetwork(MSONable):
                     PR_paths[int(key)][int(start)] = copy.deepcopy(solved_PRs_path[key][start])
         else:
             print("Solving prerequisites...")
-            PR_paths = self.solve_prerequisites_wo_target(starts,weight)
+            PR_paths = self.solve_prerequisites_wo_target(starts,weight,save=True, name=name)
 
         print("Finding paths...")
         for start in starts:
