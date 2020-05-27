@@ -870,7 +870,10 @@ class FixedCompositionNetwork:
                         possible_pathways_dummy.append(merge_species_dict)
             possible_pathways_before_final.append(possible_pathways_dummy)
 
-        possible_pathways_dummy = copy.deepcopy(possible_pathways_before_final)
+        possible_pathways_dummy = []
+        for i in range(len(possible_pathways_before_final)):
+            pathways = possible_pathways_before_final[i]
+            possible_pathways_dummy += pathways
         possible_pathways_final = []
         for i in range(len(possible_pathways_dummy)):
             if (possible_pathways_dummy[i] not in possible_pathways_final) and (
