@@ -53,9 +53,7 @@ class Fragment_Recombination:
             dumpfn(self.target_entries,entries_name+".json")
         return
 
-    def get_optimized_structures(self,energy_dict_name='free_energy_dict',
-                                 opt_to_orig_dict_name='opt_to_orig_index_dict',
-                                 load_entries=False, entries_name="smd_target_entries"):
+    def get_optimized_structures(self,load_entries=False, entries_name="smd_target_entries"):
         '''
         For getting optimized structures that are isomorphic to provided mol graphs in the mongodb database.
         Need to call this before recombination.
@@ -193,6 +191,55 @@ class Fragment_Recombination:
                         self.opt_mol_graphs.append(opt_mol_graph)
         #dumpfn(self.free_energy_dict, energy_dict_name+".json")
         #dumpfn(self.opt_to_orig_keys, opt_to_orig_dict_name + ".json")
+        dumpfn(self.opt_mol_graphs, 'opt_mol_graphs.json')
+        return
+
+    def get_optimized_structures_from_mol_entries(self,entries_name="smd_target_entries"):
+        '''
+        For getting optimized structures that are isomorphic to provided mol graphs in the mongodb database.
+        Need to call this before recombination.
+        If not load entries, must run self.query_database first. entries_name variable should be the same as that in self.query_database.
+        :return: self.opt_mol_graphs
+        '''
+        # Make a dict that provides the map between optimized structures in self.opt_mol_graphs and
+        # original mol graphs in self.mol_graphs. {opt_mol_graph index: mol_graph index}.
+        self.opt_to_orig_keys = {}
+        self.opt_mol_graphs = []
+        info_dict = {}
+        for i in range(len(self.mol_graphs)):
+            info_dict[i] = {}
+            info_dict[i][1] = {"index":None, "free_energy":1e8}
+            info_dict[i][-1] = {"index": None, "free_energy": 1e8}
+            info_dict[i][0] = {"index": None, "free_energy": 1e8}
+
+        self.target_entries = loadfn(entries_name+".json")
+        for i, mol_entry in enumerate(self.target_entries):
+            for j, mol_graph in enumerate(self.mol_graphs):
+                if mol_entry.molecule.composition.alphabetical_formula == mol_graph.molecule.composition.alphabetical_formula:
+                    mol_graph_in_db = mol_entry.mol_graph
+                    total_charge = mol_entry.charge
+                    if mol_graph_in_db.isomorphic_to(mol_graph):
+                        free_energy = mol_entry.free_energy
+                        if free_energy < info_dict[j][total_charge]["free_energy"]:
+                            info_dict[j][total_charge]["free_energy"] = free_energy
+                            info_dict[j][total_charge]["index"] = i
+
+
+        total_charges = [1,0,-1]
+        self.free_energy_dict = {}
+        # keys of self.free_energy_dict correspond to indices in self.opt_mol_graphs
+
+        for key in info_dict.keys():
+            for charge in total_charges:
+                if info_dict[key][charge]["index"] != None:
+                    index = info_dict[key][charge]["index"]
+                    print('index:',index)
+                    mol_entry = self.target_entries[index]
+                    opt_mol_graph = mol_entry.mol_graph
+                    self.free_energy_dict[len(self.opt_mol_graphs)] = mol_entry.free_energy
+                    self.opt_to_orig_keys[len(self.opt_mol_graphs)] = key
+                    self.opt_mol_graphs.append(opt_mol_graph)
+
         dumpfn(self.opt_mol_graphs, 'opt_mol_graphs.json')
         return
 
