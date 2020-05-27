@@ -1264,10 +1264,8 @@ class FindConcertedReactions:
                  reactants and products are separated by "_".
                  The number correspond to the index of a mol_graph in self.entries_list.
         '''
-        if not restart:
-            self.find_concerted_candidates()
-        else:
-            self.concerted_rxns_to_determine= loadfn('concerted_candidates.json')
+
+        self.find_concerted_candidates()
         self.find_concerted_multiprocess(num_processors, reaction_type, restart=restart)
         print("Summarizing concerted reactions!")
         self.final_concerted_reactions = []
