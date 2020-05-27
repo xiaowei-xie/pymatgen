@@ -2085,7 +2085,7 @@ class ReactionNetwork(MSONable):
                 reachable = False
                 if all(start in PRs[PR].keys() for start in starts):
                     for start in starts:
-                        if PRs[PR][start].path != None:
+                        if PRs[PR][start] != "no_path":
                             reachable = True
                 else:
                     reachable = True
@@ -2266,7 +2266,7 @@ class ReactionNetwork(MSONable):
                 reachable = False
                 if all(start in PRs[PR].keys() for start in starts):
                     for start in starts:
-                        if PRs[PR][start].path != None:
+                        if PRs[PR][start] != "no_path":
                             reachable = True
                 else:
                     reachable = True
