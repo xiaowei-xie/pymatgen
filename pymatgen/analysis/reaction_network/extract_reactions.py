@@ -1004,7 +1004,7 @@ class FindConcertedReactions:
 
         return
 
-    def find_concerted_break2_form2(self, index):
+    def find_concerted_break2_form2(self, args):
         '''
         Determine whether one reaction in self.concerted_rxns_to_determine is a <=2 bond break, <=2 bond formation concerted reaction.
         Note that if a reaction is elementary (in class "RedoxReaction", "IntramolSingleBondChangeReaction", "IntermolecularReaction",
@@ -1015,6 +1015,7 @@ class FindConcertedReactions:
                  reactants and products are separated by "_".
                  The number correspond to the index of a mol_graph in self.unique_mol_graphs_new.
         '''
+        index, restart = args[0],args[1]
         print('current index:', index)
         valid_reactions = []
 
@@ -1023,6 +1024,11 @@ class FindConcertedReactions:
 
         print('reactant:', reac)
         print('product:', prod)
+        if restart and [reac, prod] in self.loaded_valid_reactions:
+            valid_reactions.append([reac, prod])
+            print('found!')
+            return valid_reactions
+
         split_reac = reac.split('_')
         split_prod = prod.split('_')
         if (len(split_reac) == 1 and len(split_prod) == 1):
@@ -1086,7 +1092,7 @@ class FindConcertedReactions:
                 f.write(str(rxn)+'\n')
         return valid_reactions
 
-    def find_concerted_break1_form1(self, index):
+    def find_concerted_break1_form1(self, args):
         '''
         Determine whether one reaction in self.concerted_rxns_to_determine is a <=1 bond break, <=1 bond formation concerted reaction.
         Note that if a reaction is elementary (in class "RedoxReaction", "IntramolSingleBondChangeReaction", "IntermolecularReaction",
@@ -1097,7 +1103,9 @@ class FindConcertedReactions:
                  reactants and products are separated by "_".
                  The number correspond to the index of a mol_graph in self.unique_mol_graphs_new.
         '''
+        index, restart = args[0],args[1]
         print('current index:',index)
+
         valid_reactions = []
 
         reac = self.concerted_rxns_to_determine[index][0]
@@ -1105,6 +1113,10 @@ class FindConcertedReactions:
 
         print('reactant:', reac)
         print('product:', prod)
+        if restart and [reac, prod] in self.loaded_valid_reactions:
+            valid_reactions.append([reac, prod])
+            print('found!')
+            return valid_reactions
         split_reac = reac.split('_')
         split_prod = prod.split('_')
         if (len(split_reac) == 1 and len(split_prod) == 1):
@@ -1168,7 +1180,7 @@ class FindConcertedReactions:
                 f.write(str(rxn)+'\n')
         return valid_reactions
 
-    def find_concerted_multiprocess(self, num_processors, reaction_type="break2_form2"):
+    def find_concerted_multiprocess(self, num_processors, reaction_type="break2_form2", restart=False):
         '''
         Use multiprocessing to determine concerted reactions in parallel.
         Args:
@@ -1178,6 +1190,17 @@ class FindConcertedReactions:
                  reactants and products are separated by "_".
                  The number correspond to the index of a mol_graph in self.unique_mol_graphs_new.
         '''
+        if restart:
+            self.loaded_valid_reactions = []
+            file_to_load = "valid_reactions_" + reaction_type
+            f = open(file_to_load, "r")
+            contents = f.readlines()
+            f.close()
+            self.loaded_valid_reactions = []
+            for i,content in enumerate(contents):
+                new_content = content.replace('\n', '').replace("'", "").strip('][').split(', ')
+                self.loaded_valid_reactions.append(new_content)
+
         print("Finding concerted reactions!")
         if reaction_type == "break2_form2":
             func = self.find_concerted_break2_form2
@@ -1185,9 +1208,10 @@ class FindConcertedReactions:
         elif reaction_type == "break1_form1":
             func = self.find_concerted_break1_form1
             print("Reaction type: break1 form1")
+
         from pathos.multiprocessing import ProcessingPool as Pool
         nums = list(np.arange(len(self.concerted_rxns_to_determine)))
-        args = [(i) for i in nums]
+        args = [(i, restart) for i in nums]
         pool = Pool(num_processors)
         results = pool.map(func, args)
         self.valid_reactions = []
@@ -1226,7 +1250,7 @@ class FindConcertedReactions:
         #dumpfn(self.valid_reactions, name + "_valid_concerted_rxns.json")
         return
 
-    def get_final_concerted_reactions(self, name, num_processors, reaction_type="break2_form2"):
+    def get_final_concerted_reactions(self, name, num_processors, reaction_type="break2_form2", restart=False):
         '''
         This is for getting the final set of concerted reactions: entry index corresponds to the index in self.entries_list.
         Args:
@@ -1240,8 +1264,12 @@ class FindConcertedReactions:
                  reactants and products are separated by "_".
                  The number correspond to the index of a mol_graph in self.entries_list.
         '''
-        self.find_concerted_candidates()
-        self.find_concerted_multiprocess(num_processors, reaction_type)
+        if not restart:
+            self.find_concerted_candidates()
+            self.find_concerted_multiprocess(num_processors, reaction_type)
+        else:
+            self.concerted_rxns_to_determine= loadfn('concerted_candidates.json')
+
         print("Summarizing concerted reactions!")
         self.final_concerted_reactions = []
         for i in range(len(self.valid_reactions)):
@@ -1306,7 +1334,6 @@ class FindConcertedReactions:
                                 self.final_concerted_reactions.append([reactant_name,product_name])
         dumpfn(self.final_concerted_reactions, name+'_concerted_rxns.json')
         return self.final_concerted_reactions
-
 
 if __name__ == '__main__':
     mol = Molecule.from_file('/Users/xiaowei_xie/PycharmProjects/electrolyte/recombination_final_2/LiEC_LPF6_water_recomb_mols/175.xyz')

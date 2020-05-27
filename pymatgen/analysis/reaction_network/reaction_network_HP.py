@@ -1032,7 +1032,7 @@ class ConcertedReaction(Reaction):
             return graph_rep_2_2(self)
 
     @classmethod
-    def generate(cls, entries_list: [MoleculeEntry], name="nothing", read_file=True, num_processors=16, reaction_type="break2_form2", allowed_charge_change=0) -> List[Reaction]:
+    def generate(cls, entries_list: [MoleculeEntry], name="nothing", read_file=True, num_processors=16, reaction_type="break2_form2", allowed_charge_change=0, restart=False) -> List[Reaction]:
 
         """
            A method to generate all the possible concerted reactions from given entries_list.
@@ -1047,6 +1047,8 @@ class ConcertedReaction(Reaction):
               :param reaction_type: Can choose from "break2_form2" and "break1_form1"
               :param allowed_charge_change: How many charge changes are allowed in a concerted reaction.
                           If zero, sum(reactant total charges) = sun(product total charges). If n(non-zero), allow n-electron redox reactions.
+              :param restart (bool): whether load already determined concerted reactions or not. If a job was killed prematurely for
+                             this function, restart can be called to save the effort.
               :return list of IntermolecularReaction class objects
         """
         if read_file:
@@ -1054,7 +1056,7 @@ class ConcertedReaction(Reaction):
         else:
             from pymatgen.analysis.reaction_network.extract_reactions import FindConcertedReactions
             FCR = FindConcertedReactions(entries_list, name)
-            all_concerted_reactions = FCR.get_final_concerted_reactions(name, num_processors, reaction_type)
+            all_concerted_reactions = FCR.get_final_concerted_reactions(name, num_processors, reaction_type, restart=restart)
 
         reactions = []
         for reaction in all_concerted_reactions:
@@ -1503,14 +1505,14 @@ class ReactionNetwork(MSONable):
 
         return self.graph
 
-    def build_concerted_reactions(self, name="nothing", read_file=True, num_processors=16, reaction_type="break2_form2", allowed_charge_change=0) -> nx.DiGraph:
+    def build_concerted_reactions(self, name="nothing", read_file=True, num_processors=16, reaction_type="break2_form2", allowed_charge_change=0, restart=False) -> nx.DiGraph:
         """
             A method to refine the reaction network graph by adding concerted reactions.
             This has to be called after self.build, since concerted reactions also include elementary reactions.
             If a concerted reaction is already labeled as one of the elementary reaction types, then it will be removed.
         :return: nx.DiGraph
         """
-        self.concerted_reactions = [ConcertedReaction.generate(self.entries_list,name, read_file, num_processors, reaction_type, allowed_charge_change)]
+        self.concerted_reactions = [ConcertedReaction.generate(self.entries_list,name, read_file, num_processors, reaction_type, allowed_charge_change, restart)]
         self.concerted_reactions = [i for i in self.concerted_reactions if i]
         self.concerted_reactions = list(itertools.chain.from_iterable(self.concerted_reactions))
 
