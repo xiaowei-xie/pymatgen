@@ -1266,10 +1266,9 @@ class FindConcertedReactions:
         '''
         if not restart:
             self.find_concerted_candidates()
-            self.find_concerted_multiprocess(num_processors, reaction_type)
         else:
             self.concerted_rxns_to_determine= loadfn('concerted_candidates.json')
-
+        self.find_concerted_multiprocess(num_processors, reaction_type, restart=restart)
         print("Summarizing concerted reactions!")
         self.final_concerted_reactions = []
         for i in range(len(self.valid_reactions)):
