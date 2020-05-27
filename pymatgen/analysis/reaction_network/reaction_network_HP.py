@@ -2394,7 +2394,8 @@ class ReactionNetwork(MSONable):
 
         return
 
-    def get_cost_for_inds(self,inds, weight):
+    def get_cost_for_inds(self,inds, weight,path=''):
+        self.load_files(path)
         overall_free_energy_charges = {}
         full_paths = {}
         for i, ind in enumerate(inds):
