@@ -2394,6 +2394,8 @@ class ReactionNetwork(MSONable):
 
         for PR in self.PR_paths:
             print('PR:',PR)
+            if PR in starts:
+                continue
             min_free_energy_change = 1e8
             for start in self.PR_paths[PR]:
                 rxn_path = self.PR_paths[PR][start]
