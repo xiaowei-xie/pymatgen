@@ -2406,12 +2406,13 @@ class ReactionNetwork(MSONable):
                 if overall_free_energy_change <= min_free_energy_change:
                     min_free_energy_change = overall_free_energy_change
                     path_to_parse = new_rxn_path.full_path
-                    for item in path_to_parse:
-                        if isinstance(item, str):
-                            reactants, products = item.split(',')[0].split('+'), item.split(',')[1].split('+')
-                            reactants = [i.replace('PR_','') for i in reactants]
-                            relevant_species = list(set(reactants+products))
-                            assert str(PR) in relevant_species
+                    if path_to_parse != None:
+                        for item in path_to_parse:
+                            if isinstance(item, str):
+                                reactants, products = item.split(',')[0].split('+'), item.split(',')[1].split('+')
+                                reactants = [i.replace('PR_','') for i in reactants]
+                                relevant_species = list(set(reactants+products))
+                                assert str(PR) in relevant_species
 
             if min_free_energy_change < thresh and not(any(int(specie) in self.unsolved_PRs for specie in relevant_species)):
                 for item in relevant_species:
