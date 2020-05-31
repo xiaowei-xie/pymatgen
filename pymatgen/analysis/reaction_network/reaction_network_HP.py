@@ -2421,8 +2421,10 @@ class ReactionNetwork(MSONable):
             if min_free_energy_change < thresh and not(any(int(specie) in self.unsolved_PRs for specie in relevant_species)):
                 for item in relevant_species:
                     filtered_species.append(int(item))
-                    filtered_entries_list.append(self.entries_list[int(item)])
-
+                    #filtered_entries_list.append(self.entries_list[int(item)])
+        filtered_species = list(set(filtered_species))
+        for item in filtered_species:
+            filtered_entries_list.append(self.entries_list[int(item)])
         for start in starts:
             if start not in filtered_species:
                 filtered_entries_list.append(self.entries_list[start])
