@@ -2412,6 +2412,7 @@ class ReactionNetwork(MSONable):
                                 reactants, products = item.split(',')[0].split('+'), item.split(',')[1].split('+')
                                 reactants = [i.replace('PR_','') for i in reactants]
                                 relevant_species = list(set(reactants+products))
+                                print(relevant_species)
                                 assert str(PR) in relevant_species
 
             if min_free_energy_change < thresh and not(any(int(specie) in self.unsolved_PRs for specie in relevant_species)):
