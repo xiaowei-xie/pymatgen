@@ -2076,7 +2076,7 @@ class ReactionNetwork(MSONable):
         print("Solving prerequisites...")
         if solved_PRs_path is None:
             self.min_cost = {}
-            self.graph = self.build()
+            #self.graph = self.build() modified by XX
             PR_paths = self.solve_prerequisites(starts, target, weight, save=True)
 
         else:
@@ -2095,8 +2095,8 @@ class ReactionNetwork(MSONable):
                     elif self.min_cost[int(key)] > PR_paths[key][start].cost:
                         self.min_cost[int(key)] = PR_paths[key][start].cost
 
-            self.build()
-            self.build_PR_record()
+            #self.build() modified by XX
+            #self.build_PR_record() modified by XX
             self.weight = weight
             for PR in self.PR_record:
                 for rxn_node in self.PR_record[PR]:
@@ -2214,13 +2214,20 @@ class ReactionNetwork(MSONable):
         solved_PRs_path = loadfn(path+'PRs.json')
         min_cost = loadfn(path+'min_cost.json')
         self.graph = json_graph.adjacency_graph(loadfn(path+'RN_graph.json'))
+        unsolved_PRs = loadfn(path+'unsolved_PRs.json')
         assert len(self.graph.nodes) != 0
         self.PR_paths = {}
+        self.unsolved_PRs = {}
 
         for key in solved_PRs_path:
             self.PR_paths[int(key)] = {}
             for start in solved_PRs_path[key]:
                 self.PR_paths[int(key)][int(start)] = copy.deepcopy(solved_PRs_path[key][start])
+
+        for key in unsolved_PRs:
+            self.unsolved_PRs[int(key)] = {}
+            for start in unsolved_PRs[key]:
+                self.unsolved_PRs[int(key)][int(start)] = copy.deepcopy(unsolved_PRs[key][start])
 
         self.min_cost = {}
         for key in min_cost:
@@ -2373,6 +2380,61 @@ class ReactionNetwork(MSONable):
 
         return
 
+    def get_species_direct_from_PR_w_intermediates(self, starts, weight, path='', thresh=0.0,name=''):
+        '''
+        Get all the entries from path finding to all species in the network.
+        Select the species accessible with deltaG < -thresh pathways and include all intermediates along the way.
+        :param path: path to the 'all_paths.json' file
+        :param thresh: A fugde factor for free energy
+        :return:
+        '''
+        filtered_entries_list = []
+        filtered_species = []
+        self.load_files(path)
+
+        for PR in self.PR_paths:
+            print('PR:',PR)
+            min_free_energy_change = 1e8
+            relevant_species = []
+            for start in self.PR_paths[PR]:
+                rxn_path = self.PR_paths[PR][start]
+                new_rxn_path = rxn_path.characterize_path_final(rxn_path.path,weight, self.min_cost, self.graph, self.PR_paths)
+                print(new_rxn_path.full_path)
+                #if len(list(set(new_rxn_path.solved_prereqs))) != len(list(set(new_rxn_path.all_prereqs))):
+                    #print(PR, start)
+                overall_free_energy_change = new_rxn_path.overall_free_energy_change
+                if overall_free_energy_change <= min_free_energy_change:
+                    min_free_energy_change = overall_free_energy_change
+                    path_to_parse = new_rxn_path.full_path
+                    for item in path_to_parse:
+                        if isinstance(item, str):
+                            reactants, products = item.split(',')[0].split('+'), item.split(',')[1].split('+')
+                            reactants = [i.replace('PR_','') for i in reactants]
+                            relevant_species = list(set(reactants+products))
+                            assert str(PR) in relevant_species
+
+            if min_free_energy_change < thresh and not(any(int(specie) in self.unsolved_PRs for specie in relevant_species)):
+                for item in relevant_species:
+                    filtered_species.append(int(item))
+                    filtered_entries_list.append(self.entries_list[int(item)])
+
+        for start in starts:
+            if start not in filtered_species:
+                filtered_entries_list.append(self.entries_list[start])
+                filtered_species.append(start)
+
+        if not os.path.isdir(name+'filtered_mols'):
+            os.mkdir(name+'filtered_mols')
+
+        for i, entry in enumerate(filtered_entries_list):
+            mol = entry.molecule
+            mol.to('xyz',name+'filtered_mols/'+str(filtered_species[i])+'.xyz')
+        dumpfn(filtered_entries_list, name+'filtered_entries_list.json')
+        dumpfn(filtered_species, name+'filtered_species.json')
+        print('Number of species remaining:',len(filtered_species))
+
+        return
+
     def get_LEDC_LEMC_cost(self,LEDC_ind, LEMC_ind, weight):
         print("Getting LEDC/LEMC full path!")
         print('LEDC ind:', LEDC_ind)
@@ -2418,7 +2480,22 @@ class ReactionNetwork(MSONable):
 
         return
 
+    def remove_node(self,node_ind):
+        '''
+        Remove a species from self.graph. Also remove all the reaction nodes with that species. Used for removing Li0.
+        :return:
+        '''
+        self.graph.remove_node(node_ind)
+        nodes = list(self.graph.nodes)
+        for node in nodes:
+            if self.graph.nodes[node]["bipartite"] == 1:
+                reactants = node.split(',')[0].split('+')
+                reactants = [reac.replace('PR_','') for reac in reactants]
+                products =  node.split(',')[1].split('+')
+                if str(node_ind) in reactants or str(node_ind) in products:
+                    self.graph.remove_node(node)
 
+        return
 
 if __name__ == "__main__":
     prod_entries = []
