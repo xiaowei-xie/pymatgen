@@ -1793,6 +1793,7 @@ class ReactionNetwork(MSONable):
         self.concerted_reactions = list(itertools.chain.from_iterable(self.concerted_reactions))
 
         for r in self.concerted_reactions:
+            r.electron_free_energy = self.electron_free_energy
             self.add_reaction(r.graph_representation())
 
         self.PR_record = self.build_PR_record()
@@ -1897,6 +1898,7 @@ class ReactionNetwork(MSONable):
             cost_from_start = {}
             for PR in PRs:
                 cost_from_start[PR] = {}
+                self.unsolved_PRs = {} # modified by XX. Added a unsolved_PR dict to keep track of unsolved.
                 min_cost[PR] = 10000000000000000.0
                 self.PR_byproducts[PR] = {}
                 for start in PRs[PR]:
@@ -1916,7 +1918,10 @@ class ReactionNetwork(MSONable):
             solved_PRs = copy.deepcopy(old_solved_PRs)
             solved_PRs, new_solved_PRs, cost_from_start = self.identify_solved_PRs(PRs, solved_PRs, cost_from_start)
 
-            print(ii, len(old_solved_PRs), len(new_solved_PRs))
+            print(ii, len(solved_PRs), len(new_solved_PRs), len(self.unsolved_PRs))
+            # modified by XX. Printing (1) iteration index,
+            # (2) number of total solved entries till this iteration, (3) number of newly solved entries at this iteration,
+            # (4) number of unsolved entries. (2) and (4) should add up to the number of total unique entries.
 
             attrs = self.update_edge_weights(min_cost, orig_graph)
 
@@ -1934,6 +1939,9 @@ class ReactionNetwork(MSONable):
                 print("Provide filename to save the PRs, for now saving as PRs.json")
                 filename = "PRs.json"
             dumpfn(PRs, filename, default=lambda o: o.as_dict)
+            dumpfn(self.unsolved_PRs, 'unsolved_PRs.json',default=lambda o: o.as_dict)
+            dumpfn(json_graph.adjacency_data(self.graph),'RN_graph.json')
+            dumpfn(self.min_cost, 'min_cost.json', default=lambda o: o.as_dict)
         print('not reachable nodes:', len(self.not_reachable_nodes),self.not_reachable_nodes)
         return PRs, old_solved_PRs
 
@@ -2025,6 +2033,7 @@ class ReactionNetwork(MSONable):
 
         for node in self.graph.nodes():
             if self.graph.nodes[node]["bipartite"] == 0:
+                self.unsolved_PRs[node] = {}  # modified by XX. Added a dict to keep track of unsolved cases.
                 if node not in self.reachable_nodes:
                     self.not_reachable_nodes.append(node)
 
@@ -2082,6 +2091,8 @@ class ReactionNetwork(MSONable):
 
                         if len(path_class.unsolved_prereqs) == 0:
                             PRs[node][start] = path_class
+                        else:
+                            self.unsolved_PRs[node][start] = path_class  # modified by XX. If unsolved, still add the path to the unsolved dict to keep a record.
                         if path_class.cost < min_cost[node]:
                             min_cost[node] = path_class.cost
                             self.PR_byproducts[node]["byproducts"] = path_class.byproducts
@@ -2161,6 +2172,7 @@ class ReactionNetwork(MSONable):
                 if len(PRs[PR].keys()) == self.num_starts:
                     solved_PRs.append(PR)
                     new_solved_PRs.append(PR)
+                    self.unsolved_PRs.pop(PR, None)  # modified by XX. Removing key from unsolved dict if it's solved.
                 else:
                     best_start_so_far = [None, 10000000000000000.0]
                     for start in PRs[PR]:
@@ -2185,6 +2197,7 @@ class ReactionNetwork(MSONable):
 
                             solved_PRs.append(PR)
                             new_solved_PRs.append(PR)
+                            self.unsolved_PRs.pop(PR,None)  # modified by XX. Removing key from unsolved dict if it's solved.
 
 
         return solved_PRs, new_solved_PRs, cost_from_start
