@@ -381,6 +381,7 @@ def graph_rep_1_1(reaction: Reaction) -> nx.DiGraph:
     graph = nx.DiGraph()
     node_name_A = str(reactant_0.parameters["ind"]) + "," + str(product_0.parameters["ind"])
     node_name_B = str(product_0.parameters["ind"]) + "," + str(reactant_0.parameters["ind"])
+    print(node_name_A, node_name_B)
     rxn_type_A = reaction.reaction_type()["rxn_type_A"]
     rxn_type_B = reaction.reaction_type()["rxn_type_B"]
     energy_A = reaction.energy()["energy_A"]
@@ -1615,10 +1616,11 @@ class ReactionNetwork(MSONable):
 
         print(len(self.entries_list), "unique entries")
         for ii, entry in enumerate(self.entries_list):
-            if "ind" in entry.parameters.keys():
-                pass
-            else:
-                entry.parameters["ind"] = ii
+            # modified by XX
+            # if "ind" in entry.parameters.keys():
+            #     pass
+            # else:
+            entry.parameters["ind"] = ii
 
         self.entries_list = sorted(self.entries_list, key=lambda x: x.parameters["ind"])
 
@@ -1755,8 +1757,8 @@ class ReactionNetwork(MSONable):
         PR_record = {}
         dumpfn(json_graph.adjacency_data(self.graph),'RN_graph_before_build.json')
         for node in self.graph.nodes():
-            print('node:', node)
-            print('keys:', self.graph.nodes[node].keys())
+            # print('node:', node)
+            # print('keys:', self.graph.nodes[node].keys())
             if self.graph.nodes[node]["bipartite"] == 0:
                 PR_record[node] = []
         for node in self.graph.nodes():
