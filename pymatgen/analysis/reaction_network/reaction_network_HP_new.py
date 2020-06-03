@@ -1893,7 +1893,7 @@ class ReactionNetwork(MSONable):
         ii = 0
 
         while (len(new_solved_PRs) > 0 or old_attrs != new_attrs) and ii < max_iter:
-
+            print('solving prerequisites iteration:', str(ii))
             min_cost = {}
             cost_from_start = {}
             for PR in PRs:
