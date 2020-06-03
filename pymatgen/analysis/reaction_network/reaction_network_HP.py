@@ -1755,6 +1755,8 @@ class ReactionNetwork(MSONable):
         PR_record = {}
         for node in self.graph.nodes():
             if self.graph.nodes[node]["bipartite"] == 0:
+                print('node:',node)
+                print('keys:',self.graph.nodes[node].keys())
                 PR_record[node] = []
         for node in self.graph.nodes():
             if self.graph.nodes[node]["bipartite"] == 1:
