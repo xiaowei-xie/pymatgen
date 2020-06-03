@@ -1753,6 +1753,7 @@ class ReactionNetwork(MSONable):
         :return: a dict of the form {int(node1): [all the reaction nodes with PR of node1, ex "2+PR_node1, 3"]}
         """
         PR_record = {}
+        dumpfn(json_graph.adjacency_data(self.graph),'RN_graph_before_build.json')
         for node in self.graph.nodes():
             print('node:', node)
             print('keys:', self.graph.nodes[node].keys())
