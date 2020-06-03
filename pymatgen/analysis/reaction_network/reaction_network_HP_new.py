@@ -1250,7 +1250,7 @@ class ConcertedReaction_fromgraph(Reaction):
                                             for ind in product_nodes:
                                                 entries1.append(entries_list[ind])
                                             reactions.append(cls(entries0,entries1))
-
+        print('Number of concerted reactions:', len(reactions))
         return reactions
 
     def reaction_type(self) -> Mapping_ReactionType_Dict:
