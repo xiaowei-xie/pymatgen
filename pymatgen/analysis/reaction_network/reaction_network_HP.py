@@ -1925,6 +1925,9 @@ class ReactionNetwork(MSONable):
                 two_reac_name0 = str(reactant_0.parameters["ind"]) + "+PR_" + str(reactant_1.parameters["ind"])
                 node_name = two_reac_name0 + "," + two_prod_name
 
+            elif (len(r.reactants) == 3 and len(r.products) == 2) or (len(r.reactants) == 2 and len(r.products) == 3):
+                node_name = None
+
             if node_name not in self.graph.nodes:
                 self.add_reaction(r.graph_representation())
 
@@ -1932,6 +1935,7 @@ class ReactionNetwork(MSONable):
         self.Reactant_record = self.build_reactant_record()
 
         return self.graph
+
 
     def build_concerted_reactions_from_graph(self) -> nx.DiGraph:
         """
