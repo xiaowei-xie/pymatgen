@@ -1248,9 +1248,15 @@ class FindConcertedReactions:
                         if k <= j:
                             continue
                         else:
-                            if (len(reac.split('_')) == 2 and len(prod.split('_')) == 3) or \
-                                    (len(reac.split('_')) == 3 and len(prod.split('_')) == 2):
-                                self.concerted_rxns_to_determine.append([reac, prod])
+                            split_reac = reac.split('_')
+                            split_prod = prod.split('_')
+                            if (len(split_reac) == 2 and len(split_prod) == 3) or (len(split_reac) == 3 and len(split_prod) == 2):
+                                if len(split_reac) == 2 and len(split_prod) == 3:
+                                    split_reac, split_prod = split_prod, split_reac
+                                if (split_prod[0] in split_reac) or (split_prod[1] in split_reac):
+                                    continue
+                                else:
+                                    self.concerted_rxns_to_determine.append([reac, prod])
 
         print('number of ABC_DE concerted candidates:', len(self.concerted_rxns_to_determine))
         dumpfn(self.concerted_rxns_to_determine, 'concerted_candidates_ABC_DE.json')
