@@ -113,6 +113,213 @@ class Reaction(MSONable, metaclass=ABCMeta):
 # 				and value of the new weight in new/delta cost
 # # 		"""
 
+def graph_rep_3_2(reaction: Reaction) -> nx.DiGraph:
+    """
+    A method to convert a reaction type object into graph representation. Reaction much be of type 3 reactants -> 2
+    products
+    Args:
+       :param reaction: (any of the reaction class object, ex. RedoxReaction, IntramolSingleBondChangeReaction, Concerted)
+    """
+
+    if len(reaction.reactants) != 3 or len(reaction.products) != 2:
+        raise ValueError("Must provide reaction with 3 reactants and 2 products for graph_rep_3_2")
+
+    reactant_0 = reaction.reactants[0]
+    reactant_1 = reaction.reactants[1]
+    reactant_2 = reaction.reactants[2]
+    product_0 = reaction.products[0]
+    product_1 = reaction.products[1]
+    graph = nx.DiGraph()
+
+    if product_0.parameters["ind"] <= product_1.parameters["ind"]:
+        two_prod_name = str(product_0.parameters["ind"]) + "+" + str(product_1.parameters["ind"])
+        two_prod_name_entry_ids = str(product_0.entry_id) + "+" + str(product_1.entry_id)
+    else:
+        two_prod_name = str(product_1.parameters["ind"]) + "+" + str(product_0.parameters["ind"])
+        two_prod_name_entry_ids = str(product_1.entry_id) + "+" + str(product_0.entry_id)
+
+    reactants_ind_list = np.array([reactant_0.parameters["ind"],reactant_1.parameters["ind"],reactant_2.parameters["ind"]])
+    reactant_inds = np.argsort(reactants_ind_list)
+    reactants_ind_list = np.sort(reactants_ind_list)
+
+    reactants_name = str(reactants_ind_list[0]) + "+" + str(reactants_ind_list[1]) + "+" + str(reactants_ind_list[2])
+    reactants_name_entry_ids = str(reactants_ind_list[reactant_inds[0]]) + "+" + str(reactants_ind_list[reactant_inds[1]]) + "+" + str(reactants_ind_list[reactant_inds[2]])
+
+    two_prod_name0 = str(product_0.parameters["ind"]) + "+PR_" + str(product_1.parameters["ind"])
+    two_prod_name1 = str(product_1.parameters["ind"]) + "+PR_" + str(product_0.parameters["ind"])
+
+    if reactant_1.parameters["ind"] <= reactant_2.parameters["ind"]:
+        three_reac_name0 = str(reactant_0.parameters["ind"]) + "+PR_" + str(reactant_1.parameters["ind"]) + "+PR_" + str(reactant_2.parameters["ind"])
+        three_reac_entry_ids0 = str(reactant_0.entry_id) + "+PR_" + str(reactant_1.entry_id) + "+PR_" + str(reactant_2.entry_id)
+    else:
+        three_reac_name0 = str(reactant_0.parameters["ind"]) + "+PR_" + str(reactant_2.parameters["ind"]) + "+PR_" + str(reactant_1.parameters["ind"])
+        three_reac_entry_ids0 = str(reactant_0.entry_id) + "+PR_" + str(reactant_2.entry_id) + "+PR_" + str(reactant_1.entry_id)
+    if reactant_0.parameters["ind"] <= reactant_2.parameters["ind"]:
+        three_reac_name1 = str(reactant_1.parameters["ind"]) + "+PR_" + str(reactant_0.parameters["ind"]) + "+PR_" + str(reactant_2.parameters["ind"])
+        three_reac_entry_ids1 = str(reactant_1.entry_id) + "+PR_" + str(reactant_0.entry_id) + "+PR_" + str(reactant_2.entry_id)
+    else:
+        three_reac_name1 = str(reactant_1.parameters["ind"]) + "+PR_" + str(reactant_2.parameters["ind"]) + "+PR_" + str(reactant_0.parameters["ind"])
+        three_reac_entry_ids1 = str(reactant_1.entry_id) + "+PR_" + str(reactant_2.entry_id) + "+PR_" + str(reactant_0.entry_id)
+    if reactant_0.parameters["ind"] <= reactant_1.parameters["ind"]:
+        three_reac_name2 = str(reactant_2.parameters["ind"]) + "+PR_" + str(reactant_0.parameters["ind"]) + "+PR_" + str(reactant_1.parameters["ind"])
+        three_reac_entry_ids2 = str(reactant_2.entry_id) + "+PR_" + str(reactant_0.entry_id) + "+PR_" + str(reactant_1.entry_id)
+    else:
+        three_reac_name2 = str(reactant_2.parameters["ind"]) + "+PR_" + str(reactant_1.parameters["ind"]) + "+PR_" + str(reactant_0.parameters["ind"])
+        three_reac_entry_ids2 = str(reactant_2.entry_id) + "+PR_" + str(reactant_1.entry_id) + "+PR_" + str(reactant_0.entry_id)
+
+
+    node_name_A0 = three_reac_name0 + "," + two_prod_name
+    node_name_A1 = three_reac_name1 + "," + two_prod_name
+    node_name_A2 = three_reac_name2 + "," + two_prod_name
+    node_name_B0 = two_prod_name0 + "," + reactants_name
+    node_name_B1 = two_prod_name1 + "," + reactants_name
+
+    two_prod_entry_ids0 = str(product_0.entry_id) + "+PR_" + str(product_1.entry_id)
+    two_prod_entry_ids1 = str(product_1.entry_id) + "+PR_" + str(product_0.entry_id)
+
+    entry_ids_name_A0 = three_reac_entry_ids0 + "," + two_prod_name_entry_ids
+    entry_ids_name_A1 = three_reac_entry_ids1 + "," + two_prod_name_entry_ids
+    entry_ids_name_A2 = three_reac_entry_ids2 + "," + two_prod_name_entry_ids
+    entry_ids_name_B0 = two_prod_entry_ids0 + "," + reactants_name_entry_ids
+    entry_ids_name_B1 = two_prod_entry_ids1 + "," + reactants_name_entry_ids
+
+    rxn_type_A = reaction.reaction_type()["rxn_type_A"]
+    rxn_type_B = reaction.reaction_type()["rxn_type_B"]
+    energy_A = reaction.energy()["energy_A"]
+    energy_B = reaction.energy()["energy_B"]
+    free_energy_A = reaction.free_energy()["free_energy_A"]
+    free_energy_B = reaction.free_energy()["free_energy_B"]
+
+    graph.add_node(node_name_A0, rxn_type=rxn_type_A, bipartite=1, energy=energy_A, free_energy=free_energy_A,
+                   entry_ids=entry_ids_name_A0)
+
+    graph.add_edge(reactant_0.parameters["ind"],
+                   node_name_A0,
+                   softplus=ReactionNetwork.softplus(free_energy_A),
+                   exponent=ReactionNetwork.exponent(free_energy_A),
+                   weight=1.0
+                   )
+
+    graph.add_edge(node_name_A0,
+                   product_0.parameters["ind"],
+                   softplus=0.0,
+                   exponent=0.0,
+                   weight=1.0
+                   )
+    graph.add_edge(node_name_A0,
+                   product_1.parameters["ind"],
+                   softplus=0.0,
+                   exponent=0.0,
+                   weight=1.0
+                   )
+
+    graph.add_node(node_name_A1, rxn_type=rxn_type_A, bipartite=1, energy=energy_A, free_energy=free_energy_A,
+                   entry_ids=entry_ids_name_A1)
+
+    graph.add_edge(reactant_1.parameters["ind"],
+                   node_name_A1,
+                   softplus=ReactionNetwork.softplus(free_energy_A),
+                   exponent=ReactionNetwork.exponent(free_energy_A),
+                   weight=1.0
+                   )
+
+    graph.add_edge(node_name_A1,
+                   product_0.parameters["ind"],
+                   softplus=0.0,
+                   exponent=0.0,
+                   weight=1.0
+                   )
+    graph.add_edge(node_name_A1,
+                   product_1.parameters["ind"],
+                   softplus=0.0,
+                   exponent=0.0,
+                   weight=1.0
+                   )
+
+    graph.add_node(node_name_A2, rxn_type=rxn_type_A, bipartite=1, energy=energy_A, free_energy=free_energy_A,
+                   entry_ids=entry_ids_name_A2)
+
+    graph.add_edge(reactant_2.parameters["ind"],
+                   node_name_A2,
+                   softplus=ReactionNetwork.softplus(free_energy_A),
+                   exponent=ReactionNetwork.exponent(free_energy_A),
+                   weight=1.0
+                   )
+
+    graph.add_edge(node_name_A1,
+                   product_0.parameters["ind"],
+                   softplus=0.0,
+                   exponent=0.0,
+                   weight=1.0
+                   )
+    graph.add_edge(node_name_A1,
+                   product_1.parameters["ind"],
+                   softplus=0.0,
+                   exponent=0.0,
+                   weight=1.0
+                   )
+
+    graph.add_node(node_name_B0, rxn_type=rxn_type_B, bipartite=1, energy=energy_B, free_energy=free_energy_B,
+                   entry_ids=entry_ids_name_B0)
+
+    graph.add_edge(product_0.parameters["ind"],
+                   node_name_B0,
+                   softplus=ReactionNetwork.softplus(free_energy_B),
+                   exponent=ReactionNetwork.exponent(free_energy_B),
+                   weight=1.0
+                   )
+
+    graph.add_edge(node_name_B0,
+                   reactant_0.parameters["ind"],
+                   softplus=0.0,
+                   exponent=0.0,
+                   weight=1.0
+                   )
+    graph.add_edge(node_name_B0,
+                   reactant_1.parameters["ind"],
+                   softplus=0.0,
+                   exponent=0.0,
+                   weight=1.0
+                   )
+    graph.add_edge(node_name_B0,
+                   reactant_2.parameters["ind"],
+                   softplus=0.0,
+                   exponent=0.0,
+                   weight=1.0
+                   )
+
+    graph.add_node(node_name_B1, rxn_type=rxn_type_B, bipartite=1, energy=energy_B, free_energy=free_energy_B,
+                   entry_ids=entry_ids_name_B1)
+
+    graph.add_edge(product_1.parameters["ind"],
+                   node_name_B1,
+                   softplus=ReactionNetwork.softplus(free_energy_B),
+                   exponent=ReactionNetwork.exponent(free_energy_B),
+                   weight=1.0
+                   )
+
+    graph.add_edge(node_name_B1,
+                   reactant_0.parameters["ind"],
+                   softplus=0.0,
+                   exponent=0.0,
+                   weight=1.0
+                   )
+    graph.add_edge(node_name_B1,
+                   reactant_1.parameters["ind"],
+                   softplus=0.0,
+                   exponent=0.0,
+                   weight=1.0
+                   )
+    graph.add_edge(node_name_B1,
+                   reactant_2.parameters["ind"],
+                   softplus=0.0,
+                   exponent=0.0,
+                   weight=1.0
+                   )
+
+    return graph
+
+
 def graph_rep_2_2(reaction: Reaction) -> nx.DiGraph:
     """
     A method to convert a reaction type object into graph representation. Reaction much be of type 2 reactants -> 2
@@ -1031,6 +1238,11 @@ class ConcertedReaction(Reaction):
             return graph_rep_1_2(self)
         elif len(self.reactants) == len(self.products) == 2:
             return graph_rep_2_2(self)
+        elif len(self.reactants) == 2 and len(self.products) == 3:
+            self.reactants, self.products = self.products, self.reactants
+            return graph_rep_3_2(self)
+        elif len(self.reactants) == 3 and len(self.products) == 2:
+            return graph_rep_3_2(self)
 
     @classmethod
     def generate(cls, entries_list: [MoleculeEntry], name="nothing", read_file=True, num_processors=16, reaction_type="break2_form2", allowed_charge_change=0, restart=False) -> List[Reaction]:
@@ -1053,7 +1265,7 @@ class ConcertedReaction(Reaction):
               :return list of IntermolecularReaction class objects
         """
         if read_file:
-            all_concerted_reactions = loadfn(name+'_concerted_rxns.json')
+            all_concerted_reactions = loadfn(name + '_concerted_rxns_'+reaction_type+'.json')
         else:
             from pymatgen.analysis.reaction_network.extract_reactions import FindConcertedReactions
             FCR = FindConcertedReactions(entries_list, name)
@@ -2231,7 +2443,7 @@ class ReactionNetwork(MSONable):
         valid_graph = self.find_or_remove_bad_nodes(bad_nodes, remove_nodes=True)
         return nx.shortest_simple_paths(valid_graph, hash(start), hash(target), weight=self.weight)
 
-    def find_paths(self, starts, target, weight, num_paths=10, solved_PRs_path=None):  # -> ??
+    def find_paths(self, starts, target, weight, num_paths=10, load_path=None):  # -> ??
         """
             A method to find the shorted path from given starts to a target
         :param starts: starts: List(molecular nodes), list of molecular nodes of type int found in the ReactionNetwork.graph
@@ -2257,35 +2469,27 @@ class ReactionNetwork(MSONable):
         c = itertools.count()
         my_heapq = []
         print("Solving prerequisites...")
-        if solved_PRs_path is None:
+        if load_path is None:
             self.min_cost = {}
             #self.graph = self.build() modified by XX
-            PR_paths = self.solve_prerequisites(starts, target, weight, save=True)
+            PR_paths = self.solve_prerequisites_no_target(starts, weight, save=True)
 
         else:
+            print("Loading prerequisites...")
+            solved_PRs_path = loadfn(load_path + 'PRs.json')
+            solved_min_cost = loadfn(load_path + 'min_cost.json')
+            updated_graph = loadfn(load_path + 'RN_graph.json')
+            self.graph = json_graph.adjacency_graph(updated_graph)
+            self.min_cost = {}
+            for key in solved_min_cost:
+                self.min_cost[int(key)] = float(solved_min_cost[key])
+
             PR_paths = {}
             for key in solved_PRs_path:
                 PR_paths[int(key)] = {}
                 for start in solved_PRs_path[key]:
                     PR_paths[int(key)][int(start)] = copy.deepcopy(solved_PRs_path[key][start])
 
-            self.min_cost = {}
-            for key in PR_paths:
-                self.min_cost[int(key)] = None
-                for start in PR_paths[key]:
-                    if self.min_cost[int(key)] is None:
-                        self.min_cost[int(key)] = PR_paths[key][start].cost
-                    elif self.min_cost[int(key)] > PR_paths[key][start].cost:
-                        self.min_cost[int(key)] = PR_paths[key][start].cost
-
-            #self.build() modified by XX
-            #self.build_PR_record() modified by XX
-            self.weight = weight
-            for PR in self.PR_record:
-                for rxn_node in self.PR_record[PR]:
-                    non_PR_reactant_node = int(rxn_node.split(",")[0].split("+PR_")[0])
-                    self.graph[non_PR_reactant_node][rxn_node][self.weight] = self.graph[non_PR_reactant_node][rxn_node][
-                                                                              self.weight] + self.min_cost[PR]
         print("Finding paths...")
         for start in starts:
             ind = 0
