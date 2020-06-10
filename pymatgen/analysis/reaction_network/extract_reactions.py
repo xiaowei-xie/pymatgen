@@ -460,7 +460,7 @@ def identify_reactions_AB_C(mol_graphs1, mol_graphs2):
             for item_C in frags_C_two_step:
                     if check_same_mol_graphs(item_A + item_B, item_C):
                         is_reactions_AB_C = True
-                        print('AB each once!')
+                        print('AB each once!',flush=True)
                         return is_reactions_AB_C
 
     # A or B break twice, the other intact, C break twice
@@ -471,14 +471,14 @@ def identify_reactions_AB_C(mol_graphs1, mol_graphs2):
             for item_C in frags_C_two_step:
                     if check_same_mol_graphs(item_A + [B], item_C):
                         is_reactions_AB_C = True
-                        print('AC twice, B intact!')
+                        print('AC twice, B intact!',flush=True)
                         return is_reactions_AB_C
 
     for item_B in frags_B_two_step:
             for item_C in frags_C_two_step:
                     if check_same_mol_graphs([A] + item_B, item_C):
                         is_reactions_AB_C = True
-                        print('BC twice, A intact!')
+                        print('BC twice, A intact!',flush=True)
                         return is_reactions_AB_C
 
     return is_reactions_AB_C
@@ -506,7 +506,7 @@ def identify_reactions_AB_C_break1_form1(mol_graphs1, mol_graphs2):
         for item_C in frags_C_one_step:
             if check_same_mol_graphs(item_A + [B], item_C):
                 is_reactions_AB_C = True
-                print('A once, C once!')
+                print('A once, C once!',flush=True)
                 return is_reactions_AB_C
 
     # B C break once
@@ -514,7 +514,7 @@ def identify_reactions_AB_C_break1_form1(mol_graphs1, mol_graphs2):
         for item_C in frags_C_one_step:
             if check_same_mol_graphs(item_B + [A], item_C):
                 is_reactions_AB_C = True
-                print('B once, C once!')
+                print('B once, C once!',flush=True)
                 return is_reactions_AB_C
 
     return is_reactions_AB_C
@@ -561,7 +561,7 @@ def identify_reactions_AB_C_record(mol_graphs1, mol_graphs2, nums1, nums2, one_b
             for item_C in frags_C_two_step:
                     if check_same_mol_graphs(item_A + item_B, item_C):
                         is_reactions_AB_C = True
-                        print('AB each once!')
+                        print('AB each once!',flush=True)
                         return str(is_reactions_AB_C), one_bond_dict, two_bond_dict
 
     # A or B break twice, the other intact, C break twice
@@ -581,14 +581,14 @@ def identify_reactions_AB_C_record(mol_graphs1, mol_graphs2, nums1, nums2, one_b
             for item_C in frags_C_two_step:
                     if check_same_mol_graphs(item_A + [B], item_C):
                         is_reactions_AB_C = True
-                        print('AC twice, B intact!')
+                        print('AC twice, B intact!',flush=True)
                         return str(is_reactions_AB_C), one_bond_dict, two_bond_dict
 
     for item_B in frags_B_two_step:
             for item_C in frags_C_two_step:
                     if check_same_mol_graphs([A] + item_B, item_C):
                         is_reactions_AB_C = True
-                        print('BC twice, A intact!')
+                        print('BC twice, A intact!',flush=True)
                         return str(is_reactions_AB_C), one_bond_dict, two_bond_dict
 
     return str(is_reactions_AB_C), one_bond_dict, two_bond_dict
@@ -621,7 +621,7 @@ def identify_reactions_AB_C_record_one_bond_breakage(mol_graphs1, mol_graphs2, n
     for item_C in frags_C_one_step:
         if check_same_mol_graphs([A] + B, item_C):
             is_reactions_AB_C = True
-            print('AB each once!')
+            print('AB each once!',flush=True)
     return str(is_reactions_AB_C), one_bond_dict
 
 
@@ -653,7 +653,7 @@ def identify_reactions_AB_CD(mol_graphs1, mol_graphs2):
                 for item_D in frags_D_one_step:
                     if check_same_mol_graphs(item_A + item_B, item_C + item_D) == True:
                         is_reactions_AB_CD = True
-                        print('ABCD each once!')
+                        print('ABCD each once!',flush=True)
                         return is_reactions_AB_CD
 
     frags_A_two_step = break_two_bonds_in_one_mol(A)
@@ -667,7 +667,7 @@ def identify_reactions_AB_CD(mol_graphs1, mol_graphs2):
             for item_D in frags_D_one_step:
                 if check_same_mol_graphs(item_A + [B], item_C + item_D):
                     is_reactions_AB_CD = True
-                    print('break A twice, CD once!')
+                    print('break A twice, CD once!',flush=True)
                     return is_reactions_AB_CD
 
     for item_B in frags_B_two_step:
@@ -675,7 +675,7 @@ def identify_reactions_AB_CD(mol_graphs1, mol_graphs2):
             for item_D in frags_D_one_step:
                 if check_same_mol_graphs([A] + item_B, item_C + item_D):
                     is_reactions_AB_CD = True
-                    print('break B twice, CD once!')
+                    print('break B twice, CD once!',flush=True)
                     return is_reactions_AB_CD
 
     for item_C in frags_C_two_step:
@@ -683,7 +683,7 @@ def identify_reactions_AB_CD(mol_graphs1, mol_graphs2):
             for item_B in frags_B_one_step:
                 if check_same_mol_graphs(item_A + item_B, item_C + [D]):
                     is_reactions_AB_CD = True
-                    print('break C twice, AB once!')
+                    print('break C twice, AB once!',flush=True)
                     return is_reactions_AB_CD
 
     for item_D in frags_D_two_step:
@@ -691,7 +691,7 @@ def identify_reactions_AB_CD(mol_graphs1, mol_graphs2):
             for item_B in frags_B_one_step:
                 if check_same_mol_graphs(item_A + item_B, [C] + item_D):
                     is_reactions_AB_CD = True
-                    print('break D twice, AB once!')
+                    print('break D twice, AB once!',flush=True)
                     return is_reactions_AB_CD
 
     # break two mol two steps (scenario 3)
@@ -699,28 +699,28 @@ def identify_reactions_AB_CD(mol_graphs1, mol_graphs2):
         for item_C in frags_C_two_step:
             if check_same_mol_graphs(item_A + [B], item_C + [D]):
                 is_reactions_AB_CD = True
-                print('break AC twice, BD intact')
+                print('break AC twice, BD intact',flush=True)
                 return is_reactions_AB_CD
 
     for item_A in frags_A_two_step:
         for item_D in frags_D_two_step:
             if check_same_mol_graphs(item_A + [B], [C] + item_D):
                 is_reactions_AB_CD = True
-                print('break AD twice, BC intact')
+                print('break AD twice, BC intact',flush=True)
                 return is_reactions_AB_CD
 
     for item_B in frags_B_two_step:
         for item_C in frags_C_two_step:
             if check_same_mol_graphs([A] + item_B, item_C + [D]):
                 is_reactions_AB_CD = True
-                print('break BC twice, AD intact')
+                print('break BC twice, AD intact',flush=True)
                 return is_reactions_AB_CD
 
     for item_B in frags_B_two_step:
         for item_D in frags_D_two_step:
             if check_same_mol_graphs([A] + item_B, [C] + item_D):
                 is_reactions_AB_CD = True
-                print('break AC twice, BD intact')
+                print('break AC twice, BD intact',flush=True)
                 return is_reactions_AB_CD
 
     return is_reactions_AB_CD
@@ -772,7 +772,7 @@ def identify_reactions_ABC_DE(mol_graphs1, mol_graphs2):
                 for item_E in frags_E_one_step:
                     if check_same_mol_graphs([A] + item_B + item_C, item_D + item_E) == True:
                         is_reactions_ABC_DE = True
-                        print('BCDE each once!')
+                        print('BCDE each once!',flush=True)
                         return is_reactions_ABC_DE
 
     frags_B_two_step = break_two_bonds_in_one_mol(B)
@@ -786,7 +786,7 @@ def identify_reactions_ABC_DE(mol_graphs1, mol_graphs2):
             for item_E in frags_E_one_step:
                 if check_same_mol_graphs(item_B + [A,C], item_D + item_E):
                     is_reactions_ABC_DE = True
-                    print('break B twice, DE once!')
+                    print('break B twice, DE once!',flush=True)
                     return is_reactions_ABC_DE
 
     for item_C in frags_C_two_step:
@@ -794,7 +794,7 @@ def identify_reactions_ABC_DE(mol_graphs1, mol_graphs2):
             for item_E in frags_E_one_step:
                 if check_same_mol_graphs([A,B] + item_C, item_D + item_E):
                     is_reactions_ABC_DE = True
-                    print('break C twice, DE once!')
+                    print('break C twice, DE once!',flush=True)
                     return is_reactions_ABC_DE
 
     for item_D in frags_D_two_step:
@@ -802,7 +802,7 @@ def identify_reactions_ABC_DE(mol_graphs1, mol_graphs2):
             for item_C in frags_C_one_step:
                 if check_same_mol_graphs([A] + item_B + item_C, item_D + [E]):
                     is_reactions_ABC_DE = True
-                    print('break D twice, BC once!')
+                    print('break D twice, BC once!',flush=True)
                     return is_reactions_ABC_DE
 
     for item_E in frags_E_two_step:
@@ -810,7 +810,7 @@ def identify_reactions_ABC_DE(mol_graphs1, mol_graphs2):
             for item_C in frags_C_one_step:
                 if check_same_mol_graphs([A] + item_B + item_C, [D] + item_E):
                     is_reactions_ABC_DE = True
-                    print('break E twice, BC once!')
+                    print('break E twice, BC once!',flush=True)
                     return is_reactions_ABC_DE
 
     # break two mol two steps (scenario 3)
@@ -818,28 +818,28 @@ def identify_reactions_ABC_DE(mol_graphs1, mol_graphs2):
         for item_D in frags_D_two_step:
             if check_same_mol_graphs(item_B + [A,C], item_D + [E]):
                 is_reactions_ABC_DE = True
-                print('break BD twice, ACE intact')
+                print('break BD twice, ACE intact',flush=True)
                 return is_reactions_ABC_DE
 
     for item_B in frags_B_two_step:
         for item_E in frags_E_two_step:
             if check_same_mol_graphs(item_B + [A,C], [D] + item_E):
                 is_reactions_ABC_DE = True
-                print('break BE twice, ACD intact')
+                print('break BE twice, ACD intact',flush=True)
                 return is_reactions_ABC_DE
 
     for item_C in frags_C_two_step:
         for item_D in frags_D_two_step:
             if check_same_mol_graphs([A,B] + item_C, item_D + [E]):
                 is_reactions_ABC_DE = True
-                print('break CD twice, ABE intact')
+                print('break CD twice, ABE intact',flush=True)
                 return is_reactions_ABC_DE
 
     for item_C in frags_C_two_step:
         for item_E in frags_E_two_step:
             if check_same_mol_graphs([A,B] + item_C, [D] + item_E):
                 is_reactions_ABC_DE = True
-                print('break CE twice, ABD intact')
+                print('break CE twice, ABD intact',flush=True)
                 return is_reactions_ABC_DE
 
     return is_reactions_ABC_DE
@@ -871,7 +871,7 @@ def identify_reactions_AB_CD_break1_form1(mol_graphs1, mol_graphs2):
         for item_C in frags_C_one_step:
             if check_same_mol_graphs(item_A + [B], item_C + [D]):
                 is_reactions_AB_CD = True
-                print('A once, C once!')
+                print('A once, C once!',flush=True)
                 return is_reactions_AB_CD
 
     # A D break once
@@ -879,7 +879,7 @@ def identify_reactions_AB_CD_break1_form1(mol_graphs1, mol_graphs2):
         for item_D in frags_D_one_step:
             if check_same_mol_graphs(item_A + [B], [C] + item_D):
                 is_reactions_AB_CD = True
-                print('A once, D once!')
+                print('A once, D once!',flush=True)
                 return is_reactions_AB_CD
 
     # B C break once
@@ -887,7 +887,7 @@ def identify_reactions_AB_CD_break1_form1(mol_graphs1, mol_graphs2):
         for item_C in frags_C_one_step:
             if check_same_mol_graphs(item_B + [A], item_C + [D]):
                 is_reactions_AB_CD = True
-                print('B once, C once!')
+                print('B once, C once!',flush=True)
                 return is_reactions_AB_CD
 
     # B D break once
@@ -895,7 +895,7 @@ def identify_reactions_AB_CD_break1_form1(mol_graphs1, mol_graphs2):
         for item_D in frags_D_one_step:
             if check_same_mol_graphs(item_B + [A], [C] + item_D):
                 is_reactions_AB_CD = True
-                print('B once, D once!')
+                print('B once, D once!',flush=True)
                 return is_reactions_AB_CD
 
     return is_reactions_AB_CD
@@ -952,7 +952,7 @@ def identify_reactions_AB_CD_record(mol_graphs1, mol_graphs2, nums1, nums2, one_
                 for item_D in frags_D_one_step:
                     if check_same_mol_graphs(item_A + item_B, item_C + item_D) == True:
                         is_reactions_AB_CD = True
-                        print('ABCD each once!')
+                        print('ABCD each once!', flush=True)
                         return str(is_reactions_AB_CD),one_bond_dict, two_bond_dict
     
     if num_A in two_bond_dict.keys():
@@ -985,7 +985,7 @@ def identify_reactions_AB_CD_record(mol_graphs1, mol_graphs2, nums1, nums2, one_
             for item_D in frags_D_one_step:
                 if check_same_mol_graphs(item_A + [B], item_C + item_D):
                     is_reactions_AB_CD = True
-                    print('break A twice, CD once!')
+                    print('break A twice, CD once!',flush=True)
                     return str(is_reactions_AB_CD),one_bond_dict, two_bond_dict
 
     for item_B in frags_B_two_step:
@@ -993,7 +993,7 @@ def identify_reactions_AB_CD_record(mol_graphs1, mol_graphs2, nums1, nums2, one_
             for item_D in frags_D_one_step:
                 if check_same_mol_graphs([A] + item_B, item_C + item_D):
                     is_reactions_AB_CD = True
-                    print('break B twice, CD once!')
+                    print('break B twice, CD once!', flush=True)
                     return str(is_reactions_AB_CD), one_bond_dict, two_bond_dict
 
     for item_C in frags_C_two_step:
@@ -1001,7 +1001,7 @@ def identify_reactions_AB_CD_record(mol_graphs1, mol_graphs2, nums1, nums2, one_
             for item_B in frags_B_one_step:
                 if check_same_mol_graphs(item_A + item_B, item_C + [D]):
                     is_reactions_AB_CD = True
-                    print('break C twice, AB once!')
+                    print('break C twice, AB once!', flush=True)
                     return str(is_reactions_AB_CD), one_bond_dict, two_bond_dict
 
     for item_D in frags_D_two_step:
@@ -1009,7 +1009,7 @@ def identify_reactions_AB_CD_record(mol_graphs1, mol_graphs2, nums1, nums2, one_
             for item_B in frags_B_one_step:
                 if check_same_mol_graphs(item_A + item_B, [C] + item_D):
                     is_reactions_AB_CD = True
-                    print('break D twice, AB once!')
+                    print('break D twice, AB once!', flush=True)
                     return str(is_reactions_AB_CD), one_bond_dict, two_bond_dict
 
     # break two mol two steps (scenario 3)
@@ -1017,28 +1017,28 @@ def identify_reactions_AB_CD_record(mol_graphs1, mol_graphs2, nums1, nums2, one_
         for item_C in frags_C_two_step:
             if check_same_mol_graphs(item_A + [B], item_C + [D]):
                 is_reactions_AB_CD = True
-                print('break AC twice, BD intact')
+                print('break AC twice, BD intact', flush=True)
                 return str(is_reactions_AB_CD), one_bond_dict, two_bond_dict
 
     for item_A in frags_A_two_step:
         for item_D in frags_D_two_step:
             if check_same_mol_graphs(item_A + [B], [C] + item_D):
                 is_reactions_AB_CD = True
-                print('break AD twice, BC intact')
+                print('break AD twice, BC intact', flush=True)
                 return str(is_reactions_AB_CD), one_bond_dict, two_bond_dict
 
     for item_B in frags_B_two_step:
         for item_C in frags_C_two_step:
             if check_same_mol_graphs([A] + item_B, item_C + [D]):
                 is_reactions_AB_CD = True
-                print('break BC twice, AD intact')
+                print('break BC twice, AD intact', flush=True)
                 return str(is_reactions_AB_CD), one_bond_dict, two_bond_dict
 
     for item_B in frags_B_two_step:
         for item_D in frags_D_two_step:
             if check_same_mol_graphs([A] + item_B, [C] + item_D):
                 is_reactions_AB_CD = True
-                print('break AC twice, BD intact')
+                print('break AC twice, BD intact', flush=True)
                 return str(is_reactions_AB_CD), one_bond_dict, two_bond_dict
 
     return str(is_reactions_AB_CD), one_bond_dict, two_bond_dict
@@ -1096,7 +1096,7 @@ def identify_reactions_AB_CD_record_one_bond_each(mol_graphs1, mol_graphs2, nums
                 for item_D in frags_D_one_step:
                     if check_same_mol_graphs(item_A + item_B, item_C + item_D) == True:
                         is_reactions_AB_CD = True
-                        print('ABCD each once!')
+                        print('ABCD each once!', flush=True)
                         return str(is_reactions_AB_CD), one_bond_dict
 
     return str(is_reactions_AB_CD), one_bond_dict
@@ -1124,7 +1124,7 @@ class FindConcertedReactions:
                  reactants and products are separated by "_".
                  The number correspond to the index of a mol_graph in self.unique_mol_graphs_new.
         '''
-        print("Finding concerted reaction candidates!")
+        print("Finding concerted reaction candidates!", flush=True)
         self.unique_mol_graphs_new = []
         # For duplicate mol graphs, create a map between later species with former ones
         # Only determine once for each unique mol_graph.
@@ -1190,7 +1190,7 @@ class FindConcertedReactions:
                         else:
                             self.concerted_rxns_to_determine.append([reac, prod])
 
-        print('number of concerted candidates:',len(self.concerted_rxns_to_determine))
+        print('number of concerted candidates:',len(self.concerted_rxns_to_determine), flush=True)
         dumpfn(self.concerted_rxns_to_determine, 'concerted_candidates.json')
 
         return
@@ -1207,7 +1207,7 @@ class FindConcertedReactions:
                  reactants and products are separated by "_".
                  The number correspond to the index of a mol_graph in self.unique_mol_graphs_new.
         '''
-        print("Finding concerted reaction candidates!")
+        print("Finding concerted reaction candidates!", flush=True)
         self.unique_mol_graphs_new = []
         # For duplicate mol graphs, create a map between later species with former ones
         # Only determine once for each unique mol_graph.
@@ -1258,7 +1258,7 @@ class FindConcertedReactions:
                                 else:
                                     self.concerted_rxns_to_determine.append([reac, prod])
 
-        print('number of ABC_DE concerted candidates:', len(self.concerted_rxns_to_determine))
+        print('number of ABC_DE concerted candidates:', len(self.concerted_rxns_to_determine), flush=True)
         dumpfn(self.concerted_rxns_to_determine, 'concerted_candidates_ABC_DE.json')
 
         return
@@ -1275,24 +1275,24 @@ class FindConcertedReactions:
                  The number correspond to the index of a mol_graph in self.unique_mol_graphs_new.
         '''
         index, restart = args[0],args[1]
-        print('current index:', index)
+        print('current index:', index, flush=True)
         valid_reactions = []
 
         reac = self.concerted_rxns_to_determine[index][0]
         prod = self.concerted_rxns_to_determine[index][1]
 
-        print('reactant:', reac)
-        print('product:', prod)
+        print('reactant:', reac, flush=True)
+        print('product:', prod, flush=True)
         if restart and [reac, prod] in self.loaded_valid_reactions:
             valid_reactions.append([reac, prod])
-            print('found!')
+            print('found!', flush=True)
             output = "valid_reactions_break2_form2"
             with open(output, 'a+') as f:
                 rxn = [reac, prod]
                 f.write(str(rxn)+'\n')
             return valid_reactions
         if restart and [reac, prod] in self.loaded_invalid_reactions:
-            print('found!')
+            print('found!', flush=True)
             output_not_concerted = "invalid_reactions_break2_form2"
             with open(output_not_concerted, 'a+') as f:
                 rxn = [reac, prod]
@@ -1386,24 +1386,24 @@ class FindConcertedReactions:
                  The number correspond to the index of a mol_graph in self.unique_mol_graphs_new.
         '''
         index, restart = args[0],args[1]
-        print('current index:', index)
+        print('current index:', index, flush=True)
         valid_reactions = []
 
         reac = self.concerted_rxns_to_determine[index][0]
         prod = self.concerted_rxns_to_determine[index][1]
 
-        print('reactant:', reac)
-        print('product:', prod)
+        print('reactant:', reac, flush=True)
+        print('product:', prod, flush=True)
         if restart and [reac, prod] in self.loaded_valid_reactions:
             valid_reactions.append([reac, prod])
-            print('found!')
+            print('found!', flush=True)
             output = "valid_reactions_break2_form2_ABC_DE"
             with open(output, 'a+') as f:
                 rxn = [reac, prod]
                 f.write(str(rxn)+'\n')
             return valid_reactions
         if restart and [reac, prod] in self.loaded_invalid_reactions:
-            print('found!')
+            print('found!', flush=True)
             output_not_concerted = "invalid_reactions_break2_form2_ABC_DE"
             with open(output_not_concerted, 'a+') as f:
                 rxn = [reac, prod]
@@ -1455,24 +1455,24 @@ class FindConcertedReactions:
                  The number correspond to the index of a mol_graph in self.unique_mol_graphs_new.
         '''
         index, restart = args[0],args[1]
-        print('current index:',index)
+        print('current index:',index, flush=True)
 
         valid_reactions = []
         reac = self.concerted_rxns_to_determine[index][0]
         prod = self.concerted_rxns_to_determine[index][1]
 
-        print('reactant:', reac)
-        print('product:', prod)
+        print('reactant:', reac, flush=True)
+        print('product:', prod, flush=True)
         if restart and [reac, prod] in self.loaded_valid_reactions:
             valid_reactions.append([reac, prod])
-            print('found!')
+            print('found!', flush=True)
             output = "valid_reactions_break1_form1"
             with open(output, 'a+') as f:
                 rxn = [reac, prod]
                 f.write(str(rxn)+'\n')
             return valid_reactions
         if restart and [reac, prod] in self.loaded_invalid_reactions:
-            print('found!')
+            print('found!',flush=True)
             output_not_concerted = "invalid_reactions_break1_form1"
             with open(output_not_concerted, 'a+') as f:
                 rxn = [reac, prod]
@@ -1575,6 +1575,7 @@ class FindConcertedReactions:
             self.loaded_valid_reactions = []
             for i,content in enumerate(contents):
                 new_content = content.replace('\n', '').replace("'", "").strip('][').split(', ')
+                print('new_content:',new_content, flush=True)
                 self.loaded_valid_reactions.append(new_content)
                 self.concerted_rxns_to_determine.remove(new_content)
 
@@ -1583,19 +1584,20 @@ class FindConcertedReactions:
             f.close()
             for i,content in enumerate(contents):
                 new_content = content.replace('\n', '').replace("'", "").strip('][').split(', ')
+                print('new_content:',new_content, flush=True)
                 self.loaded_invalid_reactions.append(new_content)
                 self.concerted_rxns_to_determine.remove(new_content)
 
         print("Finding concerted reactions!")
         if reaction_type == "break2_form2":
             func = self.find_concerted_break2_form2
-            print("Reaction type: break2 form2")
+            print("Reaction type: break2 form2", flush=True)
         elif reaction_type == "break1_form1":
             func = self.find_concerted_break1_form1
-            print("Reaction type: break1 form1")
+            print("Reaction type: break1 form1",flush=True)
         elif reaction_type == "break2_form2_ABC_DE":
             func = self.find_concerted_break2_form2_ABC_DE
-            print("Reaction type: break2 form2 ABC_DE")
+            print("Reaction type: break2 form2 ABC_DE",flush=True)
 
 
         from pathos.multiprocessing import ProcessingPool as Pool
@@ -1622,13 +1624,13 @@ class FindConcertedReactions:
                  reactants and products are separated by "_".
                  The number correspond to the index of a mol_graph in self.unique_mol_graphs_new.
         '''
-        print("Finding concerted reactions!")
+        print("Finding concerted reactions!",flush=True)
         if reaction_type == "break2_form2":
             func = self.find_concerted_break2_form2
-            print("Reaction type: break2 form2")
+            print("Reaction type: break2 form2",flush=True)
         elif reaction_type == "break1_form1":
             func = self.find_concerted_break1_form1
-            print("Reaction type: break1 form1")
+            print("Reaction type: break1 form1",flush=True)
         from pathos.multiprocessing import ProcessingPool as Pool
         nums = list(np.arange(len(self.concerted_rxns_to_determine)))
         args = [(i) for i in nums]
@@ -1660,7 +1662,7 @@ class FindConcertedReactions:
         else:
             self.find_concerted_candidates()
         self.find_concerted_multiprocess(num_processors, reaction_type, restart=restart)
-        print("Summarizing concerted reactions!")
+        print("Summarizing concerted reactions!",flush=True)
         self.final_concerted_reactions = []
         if reaction_type == 'break2_form2_ABC_DE':
             for i in range(len(self.valid_reactions)):
@@ -1681,8 +1683,8 @@ class FindConcertedReactions:
                         if self.unique_mol_graph_dict[map_key] == int(prod):
                             prod_cands.append(map_key)
                     product_candidates.append(prod_cands)
-                print('reactant candidates:', reactant_candidates)
-                print('product candidates:', product_candidates)
+                print('reactant candidates:', reactant_candidates,flush=True)
+                print('product candidates:', product_candidates,flush=True)
                 if len(reactant_candidates) == 2 and len(product_candidates) == 3:
                     reactant_candidates, product_candidates = product_candidates, reactant_candidates
                 if len(reactant_candidates) == 3 and len(product_candidates) == 2:
@@ -1720,8 +1722,8 @@ class FindConcertedReactions:
                         if self.unique_mol_graph_dict[map_key] == int(prod):
                             prod_cands.append(map_key)
                     product_candidates.append(prod_cands)
-                print('reactant candidates:',reactant_candidates)
-                print('product candidates:',product_candidates)
+                print('reactant candidates:',reactant_candidates,flush=True)
+                print('product candidates:',product_candidates,flush=True)
 
                 if len(reactant_candidates) == 1 and len(product_candidates) == 1:
                     for j in reactant_candidates[0]:
