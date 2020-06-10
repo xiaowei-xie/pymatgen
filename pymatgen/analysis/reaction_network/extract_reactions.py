@@ -1188,7 +1188,8 @@ class FindConcertedReactions:
                         if k <= j:
                             continue
                         else:
-                            self.concerted_rxns_to_determine.append([reac, prod])
+                            if [reac, prod] not in self.concerted_rxns_to_determine:
+                                self.concerted_rxns_to_determine.append([reac, prod])
 
         print('number of concerted candidates:',len(self.concerted_rxns_to_determine), flush=True)
         dumpfn(self.concerted_rxns_to_determine, 'concerted_candidates.json')
@@ -1256,7 +1257,8 @@ class FindConcertedReactions:
                                 if (split_prod[0] in split_reac) or (split_prod[1] in split_reac):
                                     continue
                                 else:
-                                    self.concerted_rxns_to_determine.append([reac, prod])
+                                    if [reac, prod] not in self.concerted_rxns_to_determine:
+                                        self.concerted_rxns_to_determine.append([reac, prod])
 
         print('number of ABC_DE concerted candidates:', len(self.concerted_rxns_to_determine), flush=True)
         dumpfn(self.concerted_rxns_to_determine, 'concerted_candidates_ABC_DE.json')
@@ -1575,18 +1577,18 @@ class FindConcertedReactions:
             self.loaded_valid_reactions = []
             for i,content in enumerate(contents):
                 new_content = content.replace('\n', '').replace("'", "").strip('][').split(', ')
-                print('new_content:',new_content, flush=True)
                 self.loaded_valid_reactions.append(new_content)
-                self.concerted_rxns_to_determine.remove(new_content)
+                if new_content in self.concerted_rxns_to_determine:
+                    self.concerted_rxns_to_determine.remove(new_content)
 
             f = open(invalid_reactions_to_load, "r")
             contents = f.readlines()
             f.close()
             for i,content in enumerate(contents):
                 new_content = content.replace('\n', '').replace("'", "").strip('][').split(', ')
-                print('new_content:',new_content, flush=True)
                 self.loaded_invalid_reactions.append(new_content)
-                self.concerted_rxns_to_determine.remove(new_content)
+                if new_content in self.concerted_rxns_to_determine:
+                    self.concerted_rxns_to_determine.remove(new_content)
 
         print("Finding concerted reactions!")
         if reaction_type == "break2_form2":
