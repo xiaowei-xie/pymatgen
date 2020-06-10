@@ -1576,6 +1576,7 @@ class FindConcertedReactions:
             for i,content in enumerate(contents):
                 new_content = content.replace('\n', '').replace("'", "").strip('][').split(', ')
                 self.loaded_valid_reactions.append(new_content)
+                self.concerted_rxns_to_determine.remove(new_content)
 
             f = open(invalid_reactions_to_load, "r")
             contents = f.readlines()
@@ -1583,6 +1584,7 @@ class FindConcertedReactions:
             for i,content in enumerate(contents):
                 new_content = content.replace('\n', '').replace("'", "").strip('][').split(', ')
                 self.loaded_invalid_reactions.append(new_content)
+                self.concerted_rxns_to_determine.remove(new_content)
 
         print("Finding concerted reactions!")
         if reaction_type == "break2_form2":
@@ -1595,6 +1597,7 @@ class FindConcertedReactions:
             func = self.find_concerted_break2_form2_ABC_DE
             print("Reaction type: break2 form2 ABC_DE")
 
+
         from pathos.multiprocessing import ProcessingPool as Pool
         nums = list(np.arange(len(self.concerted_rxns_to_determine)))
         args = [(i, restart) for i in nums]
@@ -1604,6 +1607,8 @@ class FindConcertedReactions:
         for i in range(len(results)):
             valid_reactions = results[i]
             self.valid_reactions += valid_reactions
+        if restart:
+            self.valid_reactions += self.loaded_valid_reactions
         #dumpfn(self.valid_reactions, name + "_valid_concerted_rxns.json")
         return
 
