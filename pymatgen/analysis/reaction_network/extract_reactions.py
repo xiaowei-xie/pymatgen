@@ -1288,17 +1288,17 @@ class FindConcertedReactions:
         if restart and [reac, prod] in self.loaded_valid_reactions:
             valid_reactions.append([reac, prod])
             print('found!', flush=True)
-            output = "valid_reactions_break2_form2"
-            with open(output, 'a+') as f:
-                rxn = [reac, prod]
-                f.write(str(rxn)+'\n')
+            # output = "valid_reactions_break2_form2"
+            # with open(output, 'a+') as f:
+            #     rxn = [reac, prod]
+            #     f.write(str(rxn)+'\n')
             return valid_reactions
         if restart and [reac, prod] in self.loaded_invalid_reactions:
             print('found!', flush=True)
-            output_not_concerted = "invalid_reactions_break2_form2"
-            with open(output_not_concerted, 'a+') as f:
-                rxn = [reac, prod]
-                f.write(str(rxn)+'\n')
+            #output_not_concerted = "invalid_reactions_break2_form2"
+            # with open(output_not_concerted, 'a+') as f:
+            #     rxn = [reac, prod]
+            #     f.write(str(rxn)+'\n')
             return valid_reactions
 
         split_reac = reac.split('_')
@@ -1399,17 +1399,17 @@ class FindConcertedReactions:
         if restart and [reac, prod] in self.loaded_valid_reactions:
             valid_reactions.append([reac, prod])
             print('found!', flush=True)
-            output = "valid_reactions_break2_form2_ABC_DE"
-            with open(output, 'a+') as f:
-                rxn = [reac, prod]
-                f.write(str(rxn)+'\n')
+            # output = "valid_reactions_break2_form2_ABC_DE"
+            # with open(output, 'a+') as f:
+            #     rxn = [reac, prod]
+            #     f.write(str(rxn)+'\n')
             return valid_reactions
         if restart and [reac, prod] in self.loaded_invalid_reactions:
             print('found!', flush=True)
-            output_not_concerted = "invalid_reactions_break2_form2_ABC_DE"
-            with open(output_not_concerted, 'a+') as f:
-                rxn = [reac, prod]
-                f.write(str(rxn)+'\n')
+            #output_not_concerted = "invalid_reactions_break2_form2_ABC_DE"
+            # with open(output_not_concerted, 'a+') as f:
+            #     rxn = [reac, prod]
+            #     f.write(str(rxn)+'\n')
             return valid_reactions
 
         split_reac = reac.split('_')
@@ -1468,17 +1468,17 @@ class FindConcertedReactions:
         if restart and [reac, prod] in self.loaded_valid_reactions:
             valid_reactions.append([reac, prod])
             print('found!', flush=True)
-            output = "valid_reactions_break1_form1"
-            with open(output, 'a+') as f:
-                rxn = [reac, prod]
-                f.write(str(rxn)+'\n')
+            # output = "valid_reactions_break1_form1"
+            # with open(output, 'a+') as f:
+            #     rxn = [reac, prod]
+            #     f.write(str(rxn)+'\n')
             return valid_reactions
         if restart and [reac, prod] in self.loaded_invalid_reactions:
             print('found!',flush=True)
-            output_not_concerted = "invalid_reactions_break1_form1"
-            with open(output_not_concerted, 'a+') as f:
-                rxn = [reac, prod]
-                f.write(str(rxn)+'\n')
+            # output_not_concerted = "invalid_reactions_break1_form1"
+            # with open(output_not_concerted, 'a+') as f:
+            #     rxn = [reac, prod]
+            #     f.write(str(rxn)+'\n')
             return valid_reactions
 
         split_reac = reac.split('_')
@@ -1589,7 +1589,7 @@ class FindConcertedReactions:
                 self.loaded_invalid_reactions.append(new_content)
                 if new_content in self.concerted_rxns_to_determine:
                     self.concerted_rxns_to_determine.remove(new_content)
-
+        print("Remaining number of concerted reactions to determine:", len(self.concerted_rxns_to_determine), flush=True)
         print("Finding concerted reactions!")
         if reaction_type == "break2_form2":
             func = self.find_concerted_break2_form2
