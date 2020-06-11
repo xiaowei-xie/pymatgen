@@ -1409,12 +1409,12 @@ class ConcertedReaction_fromgraph(Reaction):
         reactions = []
         finished_species_node_number = -1
         for node0 in graph.nodes():
-            if graph.node[node0]["bipartite"] == 0:
+            if graph.nodes[node0]["bipartite"] == 0:
                 finished_species_node_number += 1
                 print('finished species node number:', finished_species_node_number, flush=True)
                 node0_rxns = list(graph.neighbors(node0))
                 for rxn0 in node0_rxns:
-                    if graph.node[rxn0]["free_energy"] > 0:
+                    if graph.nodes[rxn0]["free_energy"] > 0:
                         rxn0_products = list(graph.neighbors(rxn0))
                         if len(rxn0_products) == 2: # This must be an A -> B+C bond breaking reaction
                             for node1 in rxn0_products:
@@ -1615,8 +1615,14 @@ class ReactionPath(MSONable):
                     if ii % 2 == 1:
                         rxn = step.split(",")
                         if "+PR_" in rxn[0]:
-                            PR = int(rxn[0].split("+PR_")[1])
-                            class_instance.all_prereqs.append(PR)
+                            if len(rxn[0].split("+PR_")) == 2:
+                                PR = int(rxn[0].split("+PR_")[1])
+                                class_instance.all_prereqs.append(PR)
+                            elif len(rxn[0].split("+PR_")) == 3:
+                                PR1 = int(rxn[0].split("+PR_")[1])
+                                PR2 = int(rxn[0].split("+PR_")[2])
+                                class_instance.all_prereqs.append(PR1)
+                                class_instance.all_prereqs.append(PR2)
                         if "+" in rxn[1]:
                             desired_prod_satisfied = False
                             prods = rxn[1].split("+")
