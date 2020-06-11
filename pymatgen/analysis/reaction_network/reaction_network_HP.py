@@ -1985,8 +1985,14 @@ class ReactionNetwork(MSONable):
         for node in self.graph.nodes():
             if self.graph.nodes[node]["bipartite"] == 1:
                 if "+PR_" in node.split(",")[0]:
-                    PR = int(node.split(",")[0].split("+PR_")[1])
-                    PR_record[PR].append(node)
+                    if len(node.split(",")[0].split("+PR_")) == 2:
+                        PR = int(node.split(",")[0].split("+PR_")[1])
+                        PR_record[PR].append(node)
+                    elif len(node.split(",")[0].split("+PR_")) == 3:
+                        PR1 = int(node.split(",")[0].split("+PR_")[1])
+                        PR2 = int(node.split(",")[0].split("+PR_")[2])
+                        PR_record[PR1].append(node)
+                        PR_record[PR2].append(node)
         return PR_record
 
     def build_reactant_record(self) -> Mapping_Record_Dict:
