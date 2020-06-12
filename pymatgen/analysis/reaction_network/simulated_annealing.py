@@ -10,7 +10,7 @@ from pymatgen.io.babel import BabelMolAdaptor
 from pymatgen import Molecule
 from pymatgen.analysis.fragmenter import metal_edge_extender
 from pymatgen.entries.mol_entry import MoleculeEntry
-from pymatgen.analysis.reaction_network.reaction_network import ReactionNetwork
+from pymatgen.analysis.reaction_network.reaction_network_HP import ReactionNetwork
 from monty.serialization import dumpfn, loadfn
 import random
 import os
