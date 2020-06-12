@@ -506,7 +506,7 @@ if __name__ == "__main__":
     temperatures = np.tile(np.logspace(3,-3,10),10)
     #SA.set_schedule(SA.auto(minutes=0.2,steps=1000))
     SA.set_schedule(schedule)
-    SA_multiprocess_custom_schedule(SA,'SA_multiprocess_test',temp=temperatures, num_processors=2,allow_gas_reactions = False, xyz_dir='/Users/xiaoweixie/Desktop/Sam_production/xyzs' )
+    SA_multiprocess_custom_schedule(SA,'SA_multiprocess_test',temperatures, num_processors=2,allow_gas_reactions = False, xyz_dir='/Users/xiaoweixie/Desktop/Sam_production/xyzs' )
     #itinerary, miles, fired_reactions = SA.anneal_custom_schedule(1,temperatures)
     '''
     SA = SimulatedAnnealing(state, RN)
