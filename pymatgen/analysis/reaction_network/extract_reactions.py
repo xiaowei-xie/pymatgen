@@ -209,7 +209,7 @@ def identify_concerted_reaction(mol_graphs1, mol_graphs2, allowed_bond_change=4)
     opt_model.sense = LpMinimize
     opt_model.setObjective(objective)
     opt_model.solve()
-    print("Production Costs = ", value(opt_model.objective))
+    print("Production Costs = ", value(opt_model.objective), flush=True)
     if value(opt_model.objective) <= allowed_bond_change:
         is_concerted_reaction = True
 
@@ -456,7 +456,7 @@ class FindConcertedReactions:
                 if new_content in self.concerted_rxns_to_determine:
                     self.concerted_rxns_to_determine.remove(new_content)
         print("Remaining number of concerted reactions to determine:", len(self.concerted_rxns_to_determine),flush=True)
-        print("Finding concerted reactions, allowing {} bond changes!".format(allowed_bond_change))
+        print("Finding concerted reactions, allowing {} bond changes!".format(allowed_bond_change), flush=True)
 
         from pathos.multiprocessing import ProcessingPool as Pool
         nums = list(np.arange(len(self.concerted_rxns_to_determine)))
