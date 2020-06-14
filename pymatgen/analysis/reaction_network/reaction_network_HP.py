@@ -2172,6 +2172,8 @@ class ReactionNetwork(MSONable):
                 print("Provide filename to save the PRs, for now saving as PRs.json")
                 filename = "PRs.json"
             dumpfn(PRs, filename, default=lambda o: o.as_dict)
+            dumpfn(json_graph.adjacency_data(self.graph),'RN_graph.json')
+            dumpfn(self.min_cost, 'min_cost.json', default=lambda o: o.as_dict)
         print('not reachable nodes:', len(self.not_reachable_nodes),self.not_reachable_nodes)
         return PRs, old_solved_PRs
 
@@ -2586,7 +2588,7 @@ class ReactionNetwork(MSONable):
             self.min_cost = {}
             if len(self.graph.nodes) == 0:
                 self.build()
-            PR_paths, old_solved_PRs = self.solve_prerequisites(starts, weight)
+            PR_paths, old_solved_PRs = self.solve_prerequisites(starts, weight, save=True)
         else:
             PR_paths = {}
             for key in solved_PRs_path:
