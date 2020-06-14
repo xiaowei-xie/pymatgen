@@ -52,7 +52,9 @@ def identify_same_stoi_mol_pairs(mol_graphs):
     final_dict = {}
     num_mols = len(mol_graphs)
     all_mol_pair_index = list(combinations_with_replacement(range(num_mols), 2))
-    for mol_pair in all_mol_pair_index:
+    print('Number of all molecule pairs:', len(all_mol_pair_index), flush=True)
+    for i, mol_pair in enumerate(all_mol_pair_index):
+        print('mol_pair index:',i, flush=True)
         index1 = mol_pair[0]
         index2 = mol_pair[1]
         pair_key = str(index1) + '_' + str(index2)
