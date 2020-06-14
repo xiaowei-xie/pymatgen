@@ -267,9 +267,12 @@ class FindConcertedReactions:
 
         self.concerted_rxns_to_determine = []
         print('Number of keys in species_same_stoi_dict:', len(species_same_stoi_dict), flush=True)
+        number_elements_dict = {key:len(species_same_stoi_dict[key]) for key in species_same_stoi_dict}
+        dumpfn(number_elements_dict, 'number_elements_dict.json')
         for i, key in enumerate(species_same_stoi_dict.keys()):
             print('key_index:',i, flush=True)
             species_list = species_same_stoi_dict[key]
+            print('species list length:', len(species_list), flush=True)
             if species_list != []:
                 for j in range(len(species_list)):
                     reac = species_list[j]
