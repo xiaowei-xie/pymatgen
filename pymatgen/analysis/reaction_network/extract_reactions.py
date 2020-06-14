@@ -246,6 +246,7 @@ class FindConcertedReactions:
         self.unique_mol_graph_dict = {}
 
         for i in range(len(self.entries_list)):
+            print('mol_graph index:',i, flush=True)
             mol_graph = self.entries_list[i].mol_graph
             found = False
             for j in range(len(self.unique_mol_graphs_new)):
