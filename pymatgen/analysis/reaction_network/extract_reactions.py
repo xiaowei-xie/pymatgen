@@ -266,32 +266,25 @@ class FindConcertedReactions:
         stoi_list, species_same_stoi_dict = identify_same_stoi_mol_pairs(self.unique_mol_graphs_new)
 
         self.concerted_rxns_to_determine = []
+        print('Number of keys in species_same_stoi_dict:', len(species_same_stoi_dict), flush=True)
         for i, key in enumerate(species_same_stoi_dict.keys()):
+            print('key_index:',i, flush=True)
             species_list = species_same_stoi_dict[key]
-            new_species_list_reactant = []
-            new_species_list_product = []
-            for species in species_list:
-                new_species_list_reactant.append(species)
-                new_species_list_product.append(species)
-            if new_species_list_reactant != [] and new_species_list_product != []:
-                reactants = new_species_list_reactant
-                products = new_species_list_product
-                for j in range(len(reactants)):
-                    reac = reactants[j]
-                    for k in range(len(products)):
-                        prod = products[k]
-                        if k <= j:
-                            continue
-                        else:
-                            split_reac = reac.split('_')
-                            split_prod = prod.split('_')
-                            split_reac_unique = [x for x in split_reac if x not in split_prod]
-                            split_prod_unique = [x for x in split_prod if x not in split_reac]
-                            if len(split_reac_unique) != 0 and len(split_prod_unique) != 0:
-                                reac_unique = '_'.join(split_reac_unique)
-                                prod_unique = '_'.join(split_prod_unique)
-                                if [reac_unique, prod_unique] not in self.concerted_rxns_to_determine:
-                                    self.concerted_rxns_to_determine.append([reac_unique, prod_unique])
+            if species_list != []:
+                for j in range(len(species_list)):
+                    reac = species_list[j]
+                    for k in range(j+1, len(species_list)):
+                        prod = species_list[k]
+
+                        split_reac = reac.split('_')
+                        split_prod = prod.split('_')
+                        split_reac_unique = [x for x in split_reac if x not in split_prod]
+                        split_prod_unique = [x for x in split_prod if x not in split_reac]
+                        if len(split_reac_unique) != 0 and len(split_prod_unique) != 0:
+                            reac_unique = '_'.join(split_reac_unique)
+                            prod_unique = '_'.join(split_prod_unique)
+                            if [reac_unique, prod_unique] not in self.concerted_rxns_to_determine:
+                                self.concerted_rxns_to_determine.append([reac_unique, prod_unique])
 
         print('number of concerted candidates:', len(self.concerted_rxns_to_determine), flush=True)
         dumpfn(self.concerted_rxns_to_determine, 'concerted_candidates.json')
