@@ -1972,7 +1972,7 @@ class ReactionNetwork(MSONable):
 
         return self.graph
 
-    def build_concerted_reactions(self, name="nothing", read_file=True, num_processors=16, reaction_type="break2_form2",
+    def build_concerted_reactions(self, name="nothing", read_file=True, num_processors=16, allowed_bond_change=4,
                                   allowed_charge_change=0, restart=False) -> nx.DiGraph:
         """
             A method to refine the reaction network graph by adding concerted reactions.
@@ -1981,7 +1981,7 @@ class ReactionNetwork(MSONable):
         :return: nx.DiGraph
         """
         self.concerted_reactions = [
-            ConcertedReaction.generate(self.entries_list, name, read_file, num_processors, reaction_type,
+            ConcertedReaction.generate(self.entries_list, name, read_file, num_processors, allowed_bond_change,
                                        allowed_charge_change, restart)]
         self.concerted_reactions = [i for i in self.concerted_reactions if i]
         self.concerted_reactions = list(itertools.chain.from_iterable(self.concerted_reactions))
