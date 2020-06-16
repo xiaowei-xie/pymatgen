@@ -297,7 +297,7 @@ class FindConcertedReactions:
                                 number_concerted_reactions += number
                                 cnt += 1
 
-        print('number of concerted candidates:', len(self.concerted_rxns_to_determine), flush=True)
+        print('number of concerted candidates:', number_concerted_reactions, flush=True)
         #dumpfn(self.concerted_rxns_to_determine, 'concerted_candidates.json')
 
         return
@@ -463,7 +463,7 @@ class FindConcertedReactions:
                 self.loaded_invalid_reactions.append(new_content)
                 if new_content in self.concerted_rxns_to_determine:
                     self.concerted_rxns_to_determine.remove(new_content)
-        print("Remaining number of concerted reactions to determine:", len(self.concerted_rxns_to_determine),flush=True)
+        #print("Remaining number of concerted reactions to determine:", len(self.concerted_rxns_to_determine),flush=True)
         print("Finding concerted reactions, allowing {} bond changes!".format(allowed_bond_change), flush=True)
 
         from pathos.multiprocessing import ProcessingPool as Pool
