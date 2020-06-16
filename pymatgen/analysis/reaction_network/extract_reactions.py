@@ -286,8 +286,8 @@ class FindConcertedReactions:
                         if len(split_reac_unique) != 0 and len(split_prod_unique) != 0:
                             reac_unique = '_'.join(split_reac_unique)
                             prod_unique = '_'.join(split_prod_unique)
-                            if [reac_unique, prod_unique] not in self.concerted_rxns_to_determine:
-                                self.concerted_rxns_to_determine.append([reac_unique, prod_unique])
+                            #if [reac_unique, prod_unique] not in self.concerted_rxns_to_determine:
+                            self.concerted_rxns_to_determine.append([reac_unique, prod_unique])
 
         print('number of concerted candidates:', len(self.concerted_rxns_to_determine), flush=True)
         dumpfn(self.concerted_rxns_to_determine, 'concerted_candidates.json')
