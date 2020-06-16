@@ -265,6 +265,8 @@ class FindConcertedReactions:
         # find all molecule pairs that satisfy the stoichiometry constraint
         stoi_list, species_same_stoi_dict = identify_same_stoi_mol_pairs(self.unique_mol_graphs_new)
 
+        cnt = 0
+        number_concerted_reactions = 0
         self.concerted_rxns_to_determine = []
         print('Number of keys in species_same_stoi_dict:', len(species_same_stoi_dict), flush=True)
         number_elements_dict = {key:len(species_same_stoi_dict[key]) for key in species_same_stoi_dict}
@@ -288,9 +290,15 @@ class FindConcertedReactions:
                             prod_unique = '_'.join(split_prod_unique)
                             #if [reac_unique, prod_unique] not in self.concerted_rxns_to_determine:
                             self.concerted_rxns_to_determine.append([reac_unique, prod_unique])
+                            number = len(self.concerted_rxns_to_determine)
+                            if number > 1000000:
+                                dumpfn(self.concerted_rxns_to_determine, 'concerted_candidates_{}.json'.format(cnt))
+                                self.concerted_rxns_to_determine = []
+                                number_concerted_reactions += number
+                                cnt += 1
 
         print('number of concerted candidates:', len(self.concerted_rxns_to_determine), flush=True)
-        dumpfn(self.concerted_rxns_to_determine, 'concerted_candidates.json')
+        #dumpfn(self.concerted_rxns_to_determine, 'concerted_candidates.json')
 
         return
 
@@ -459,16 +467,19 @@ class FindConcertedReactions:
         print("Finding concerted reactions, allowing {} bond changes!".format(allowed_bond_change), flush=True)
 
         from pathos.multiprocessing import ProcessingPool as Pool
-        nums = list(np.arange(len(self.concerted_rxns_to_determine)))
-        args = [(i, restart, allowed_bond_change) for i in nums]
-        pool = Pool(num_processors)
-        results = pool.map(self.find_concerted_reactions, args)
         self.valid_reactions = []
-        for i in range(len(results)):
-            valid_reactions = results[i]
-            self.valid_reactions += valid_reactions
-        if restart:
-            self.valid_reactions += self.loaded_valid_reactions
+        for file in os.listdir('.'):
+            if file.startswith('concerted_candidates') and file.endswith('.json'):
+                self.concerted_rxns_to_determine = loadfn(file)
+                nums = list(np.arange(len(self.concerted_rxns_to_determine)))
+                args = [(i, restart, allowed_bond_change) for i in nums]
+                pool = Pool(num_processors)
+                results = pool.map(self.find_concerted_reactions, args)
+                for i in range(len(results)):
+                    valid_reactions = results[i]
+                    self.valid_reactions += valid_reactions
+                if restart:
+                    self.valid_reactions += self.loaded_valid_reactions
         # dumpfn(self.valid_reactions, name + "_valid_concerted_rxns.json")
         return
 
