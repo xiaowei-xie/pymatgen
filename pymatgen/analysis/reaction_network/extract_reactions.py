@@ -502,7 +502,7 @@ class FindConcertedReactions:
                  The number correspond to the index of a mol_graph in self.entries_list.
         '''
 
-        #self.find_concerted_candidates()
+        self.find_concerted_candidates()
         self.find_concerted_multiprocess(num_processors, allowed_bond_change, restart=restart)
         print("Summarizing concerted reactions!", flush=True)
         self.final_concerted_reactions = []
