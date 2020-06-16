@@ -468,8 +468,12 @@ class FindConcertedReactions:
 
         from pathos.multiprocessing import ProcessingPool as Pool
         self.valid_reactions = []
+        cnt = 0
         for file in os.listdir('.'):
             if file.startswith('concerted_candidates') and file.endswith('.json'):
+                print('current file:', file, flush=True)
+                print('{}th json file!'.format(cnt), flush=True)
+                cnt += 1
                 self.concerted_rxns_to_determine = loadfn(file)
                 nums = list(np.arange(len(self.concerted_rxns_to_determine)))
                 args = [(i, restart, allowed_bond_change) for i in nums]
@@ -498,7 +502,7 @@ class FindConcertedReactions:
                  The number correspond to the index of a mol_graph in self.entries_list.
         '''
 
-        self.find_concerted_candidates()
+        #self.find_concerted_candidates()
         self.find_concerted_multiprocess(num_processors, allowed_bond_change, restart=restart)
         print("Summarizing concerted reactions!", flush=True)
         self.final_concerted_reactions = []
