@@ -288,7 +288,7 @@ class FindConcertedReactions:
                             if len(split_reac) > i:
                                 item = split_reac[i]
                                 if item in split_prod:
-                                    prod_index = split_prod.index(reac)
+                                    prod_index = split_prod.index(item)
                                     split_reac.pop(i)
                                     split_prod.pop(prod_index)
 
