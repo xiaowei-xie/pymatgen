@@ -283,11 +283,20 @@ class FindConcertedReactions:
 
                         split_reac = reac.split('_')
                         split_prod = prod.split('_')
-                        split_reac_unique = [x for x in split_reac if x not in split_prod]
-                        split_prod_unique = [x for x in split_prod if x not in split_reac]
-                        if len(split_reac_unique) != 0 and len(split_prod_unique) != 0:
-                            reac_unique = '_'.join(split_reac_unique)
-                            prod_unique = '_'.join(split_prod_unique)
+                        length_reac = len(split_reac)
+                        for i in range(length_reac):
+                            if len(split_reac) > i:
+                                item = split_reac[i]
+                                if item in split_prod:
+                                    prod_index = split_prod.index(reac)
+                                    split_reac.pop(i)
+                                    split_prod.pop(prod_index)
+
+                        # split_reac_unique = [x for x in split_reac if x not in split_prod]
+                        # split_prod_unique = [x for x in split_prod if x not in split_reac]
+                        if len(split_reac) != 0 and len(split_prod) != 0:
+                            reac_unique = '_'.join(split_reac)
+                            prod_unique = '_'.join(split_prod)
                             #if [reac_unique, prod_unique] not in self.concerted_rxns_to_determine:
                             self.concerted_rxns_to_determine.append([reac_unique, prod_unique])
                             number = len(self.concerted_rxns_to_determine)
