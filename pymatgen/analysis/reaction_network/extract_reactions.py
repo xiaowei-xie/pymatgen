@@ -305,6 +305,10 @@ class FindConcertedReactions:
                                 self.concerted_rxns_to_determine = []
                                 number_concerted_reactions += number
                                 cnt += 1
+        dumpfn(self.concerted_rxns_to_determine, 'concerted_candidates_{}.json'.format(cnt))
+        number = len(self.concerted_rxns_to_determine)
+        number_concerted_reactions += number
+
 
         print('number of concerted candidates:', number_concerted_reactions, flush=True)
         #dumpfn(self.concerted_rxns_to_determine, 'concerted_candidates.json')
