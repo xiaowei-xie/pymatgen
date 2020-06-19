@@ -437,6 +437,62 @@ class FixedCompositionNetwork:
         dumpfn(self.opt_species_w_charge, 'opt_species_w_charge.json')
         return
 
+    def get_optimized_structures_new(self,energy_dict_name='free_energy_dict',
+                                 opt_to_orig_dict_name='opt_to_orig_index_dict',
+                                 load_entries=False, entries_name="smd_target_entries"):
+        '''
+        Different from the previous function in that the loaded entries are already mol_entries.
+        Different from the "get_optimized_structures" function from the FragmentRecombination class.
+        Need to call this function after recombination. So call self.recombination() first.
+        For getting optimized structures that are isomorphic to provided mol graphs in the mongodb database.
+        Need to call this before recombination.
+        If not load entries, must run self.query_database first. entries_name variable should be the same as that in self.query_database.
+        :return: self.opt_entries_list (List[MoleculeEntry])
+        '''
+        # Make a dict that provides the map between optimized structures in self.opt_entries_list and
+        # original mol graphs in self.total_mol_graphs_no_opt. {self.opt_entries_list index: mol_graph index}.
+
+        self.opt_entries = {}
+        self.opt_species_w_charge = []
+        info_dict = {}
+        print('Number of mol graphs:', len(self.total_mol_graphs_no_opt))
+        for i in range(len(self.total_mol_graphs_no_opt)):
+            info_dict[i] = {}
+            info_dict[i][1] = {"index":None, "free_energy":1e8}
+            info_dict[i][-1] = {"index": None, "free_energy": 1e8}
+            info_dict[i][0] = {"index": None, "free_energy": 1e8}
+        if load_entries:
+            self.target_entries = loadfn(entries_name+".json")
+            for i, entry in enumerate(self.target_entries):
+                for j, mol_graph in enumerate(self.total_mol_graphs_no_opt):
+                    mol_entry = entry
+                    if mol_entry.molecule.composition.alphabetical_formula == mol_graph.molecule.composition.alphabetical_formula:
+                        mol_graph_in_db = mol_entry.mol_graph
+                        total_charge = mol_entry.charge
+                        if mol_graph_in_db.isomorphic_to(mol_graph):
+                            free_energy = mol_entry.free_energy
+                            if free_energy < info_dict[j][total_charge]["free_energy"]:
+                                info_dict[j][total_charge]["free_energy"] = free_energy
+                                info_dict[j][total_charge]["index"] = i
+
+        total_charges = [1,0,-1]
+        self.free_energy_dict = {}
+        # keys of self.free_energy_dict correspond to indices in self.opt_mol_graphs
+        if load_entries:
+            for key in info_dict.keys():
+                self.opt_entries[key] = {}
+                for charge in total_charges:
+                    if info_dict[key][charge]["index"] != None:
+                        index = info_dict[key][charge]["index"]
+                        entry = self.target_entries[index]
+                        mol_entry = entry
+                        self.opt_entries[key][charge] = mol_entry
+                        self.opt_species_w_charge.append(str(key)+'_'+str(charge))
+
+        dumpfn(self.opt_entries, 'opt_entries.json')
+        dumpfn(self.opt_species_w_charge, 'opt_species_w_charge.json')
+        return
+
     def recombination(self):
         '''
         Recombine between mol_graphs in self.unique_fragments_new.
@@ -1359,6 +1415,56 @@ class FixedCompositionNetwork:
         return
 
     def whole_workflow_load_file_3(self,target_composition, target_charge, starting_mol_graphs, starting_charges, starting_num_electrons,
+                       allowed_num_mols=5, energy_thresh=0.0, load_entries_name='smd_target_entries', graph_file_name='reaction_network',
+                       entries_file_name='valid',path=''):
+        '''
+        Have to run self.query_database beforehand and save the entries.
+        :param target_composition:
+        :param target_charge:
+        :param crude_energy_thresh:
+        :return:
+        '''
+
+        self.fragmentation_dict_new = loadfn(path+'fragmentation_dict_new.json')
+        self.recomb_dict_no_opt = loadfn(path+'recomb_dict_no_opt.json')
+        self.total_mol_graphs_no_opt = loadfn(path+'total_mol_graphs_no_opt.json')
+
+        # clean up some dicts b/c loadfn will make the keys into strings
+        self.fragmentation_dict_new_2 = {}
+        for key in self.fragmentation_dict_new:
+            self.fragmentation_dict_new_2[int(key)] = self.fragmentation_dict_new[key]
+        self.fragmentation_dict_new = copy.deepcopy(self.fragmentation_dict_new_2)
+        del self.fragmentation_dict_new_2
+
+
+        print('working on creating stoichiometry table!')
+        self.generate_stoichiometry_table()
+        print('creating stoichiometry table done!')
+
+        print('working on getting optimized structures!')
+        self.get_optimized_structures_new(load_entries=True, entries_name=load_entries_name)
+        print('getting optimized structures done!')
+
+        starting_mols, crude_energy_thresh = self.find_starting_mols_and_crude_energy_thresh(starting_mol_graphs, starting_charges, starting_num_electrons)
+        starting_mols_list = [starting_mols]
+        starting_num_electrons_list = [starting_num_electrons]
+        all_possible_products, all_possible_product_energies = \
+            self.find_all_product_composition_from_target(target_composition, target_charge, crude_energy_thresh)
+        #all_possible_products = loadfn('all_possible_products.json')
+        #all_possible_product_energies = loadfn('all_possible_product_energies.json')
+        # all_possible_products, all_possible_product_energies = \
+        #     self.find_all_product_composition_from_target(target_composition, target_charge, crude_energy_thresh)
+        all_possible_product_lowest_n, all_possible_product_energies_lowest_n = \
+            self.find_n_lowest_product_composition(all_possible_products, all_possible_product_energies)
+        pathway_nodes_final, pathway_edges_final, node_energies = \
+            self.map_all_possible_pathways(all_possible_product_lowest_n, starting_mols, allowed_num_mols, energy_thresh)
+        self.new_pathway_nodes, self.new_pathway_edges, self.new_energies = self.transform_nodes_and_edges(pathway_nodes_final, pathway_edges_final, starting_mols_list, node_energies,starting_num_electrons_list)
+        self.generate_entries(self.new_pathway_nodes, entries_file_name)
+        self.visualize_reaction_network(self.new_pathway_nodes, self.new_pathway_edges, self.new_energies, graph_file_name)
+
+        return
+
+    def whole_workflow_load_file_4(self,target_composition, target_charge, starting_mol_graphs, starting_charges, starting_num_electrons,
                        allowed_num_mols=5, energy_thresh=0.0, load_entries_name='smd_target_entries', graph_file_name='reaction_network',
                        entries_file_name='valid',path=''):
         '''
