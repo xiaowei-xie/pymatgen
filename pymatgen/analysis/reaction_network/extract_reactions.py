@@ -263,7 +263,7 @@ class FindConcertedReactions:
                 self.unique_mol_graphs_new.append(mol_graph)
         # dumpfn(self.unique_mol_graph_dict, self.name + "_unique_mol_graph_map.json")
         # find all molecule pairs that satisfy the stoichiometry constraint
-        stoi_list, species_same_stoi_dict = identify_same_stoi_mol_pairs_ABC_DE(self.unique_mol_graphs_new)
+        stoi_list, species_same_stoi_dict = identify_same_stoi_mol_pairs(self.unique_mol_graphs_new)
 
         cnt = 0
         number_concerted_reactions = 0
