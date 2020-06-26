@@ -205,6 +205,7 @@ class Fragment_Recombination:
         # original mol graphs in self.mol_graphs. {opt_mol_graph index: mol_graph index}.
         self.opt_to_orig_keys = {}
         self.opt_mol_graphs = []
+        self.opt_mol_entries = []
         info_dict = {}
         for i in range(len(self.mol_graphs)):
             info_dict[i] = {}
@@ -239,6 +240,8 @@ class Fragment_Recombination:
                     self.free_energy_dict[len(self.opt_mol_graphs)] = mol_entry.free_energy
                     self.opt_to_orig_keys[len(self.opt_mol_graphs)] = key
                     self.opt_mol_graphs.append(opt_mol_graph)
+                    self.opt_mol_entries.append(mol_entry)
+        dumpfn(self.opt_mol_entries, 'opt_mol_entries.json')
         dumpfn(self.free_energy_dict, 'free_energy_dict.json')
         dumpfn(self.opt_mol_graphs, 'opt_mol_graphs.json')
         return
