@@ -14,10 +14,10 @@ from monty.serialization import dumpfn, loadfn
 import os
 import copy
 from itertools import repeat,product,combinations_with_replacement
-from rdkit import Chem
+#from rdkit import Chem
 import networkx as nx
 from networkx.readwrite import json_graph
-from rdkit.Chem import AllChem
+#from rdkit.Chem import AllChem
 from atomate.qchem.database import QChemCalcDb
 from pymatgen.entries.mol_entry import MoleculeEntry
 from pymatgen.analysis.reaction_network.utils import BabelMolAdaptor2, MoleculeWrapper
@@ -239,7 +239,7 @@ class Fragment_Recombination:
                     self.free_energy_dict[len(self.opt_mol_graphs)] = mol_entry.free_energy
                     self.opt_to_orig_keys[len(self.opt_mol_graphs)] = key
                     self.opt_mol_graphs.append(opt_mol_graph)
-
+        dumpfn(self.free_energy_dict, 'free_energy_dict.json')
         dumpfn(self.opt_mol_graphs, 'opt_mol_graphs.json')
         return
 
@@ -860,6 +860,12 @@ class Fragment_Recombination:
         for i in range(len(self.opt_mol_graphs),len(self.total_mol_graphs)):
             self.total_mol_graphs[i].molecule._charge = self.total_charges[i]
             self.total_mol_graphs[i].molecule._spin_multiplicity = None
+
+        total_charges_for_check = []
+        for i in range(len(self.total_mol_graphs)):
+            charge = self.total_mol_graphs[i].molecule.charge
+            total_charges_for_check.append(charge)
+        assert self.total_charges == total_charges_for_check
         dumpfn(self.total_mol_graphs, sdf_name + '.json')
 
         self.all_reactions = []
