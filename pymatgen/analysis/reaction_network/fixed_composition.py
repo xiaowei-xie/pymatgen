@@ -1402,7 +1402,7 @@ class FixedCompositionNetwork:
         return
 
     def whole_workflow_load_file_2(self,target_composition, target_charge, starting_mol_graphs, starting_charges, starting_num_electrons,
-                       allowed_num_mols=5, energy_thresh=0.0, load_entries_name='smd_target_entries', graph_file_name='reaction_network',
+                       allowed_num_mols=5, energy_thresh=0.0, load_entries_name=['smd_target_entries'], graph_file_name='reaction_network',
                        entries_file_name='valid',path=''):
         '''
         Have to run self.query_database beforehand and save the entries.
