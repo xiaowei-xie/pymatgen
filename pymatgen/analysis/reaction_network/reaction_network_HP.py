@@ -1267,6 +1267,167 @@ class ConcertedReaction(Reaction):
             return graph_rep_3_2(self)
 
     @classmethod
+    def generate(cls, entries_list: [MoleculeEntry], name="nothing", read_file=True, num_processors=16, reaction_type="break2_form2", allowed_charge_change=0, restart=False) -> List[Reaction]:
+
+        """
+           A method to generate all the possible concerted reactions from given entries_list.
+           Args:
+              :param entries_list, entries_list = [MoleculeEntry]
+              :param name(str): The name to put in FindConcertedReactions class. For reading in the files generated from that class.
+              :param read_file(bool): whether to read in the file generated from the FindConcertedReactions class.
+                                     If true, name+'_concerted_rxns.json' has to be present in the running directory.
+                                     If False, will find concerted reactions on the fly.
+                                     Note that this will take a couple hours when running on 16 CPU with < 100 entries.
+              :param num_processors:
+              :param reaction_type: Can choose from "break2_form2" and "break1_form1"
+              :param allowed_charge_change: How many charge changes are allowed in a concerted reaction.
+                          If zero, sum(reactant total charges) = sun(product total charges). If n(non-zero), allow n-electron redox reactions.
+              :param restart (bool): whether load already determined concerted reactions or not. If a job was killed prematurely for
+                             this function, restart can be called to save the effort.
+              :return list of IntermolecularReaction class objects
+        """
+        if read_file:
+            all_concerted_reactions = loadfn(name + '_concerted_rxns_'+reaction_type+'.json')
+        else:
+            from pymatgen.analysis.reaction_network.extract_reactions_v_1 import FindConcertedReactions
+            FCR = FindConcertedReactions(entries_list, name)
+            all_concerted_reactions = FCR.get_final_concerted_reactions(name, num_processors, reaction_type, restart=restart)
+
+        reactions = []
+        for reaction in all_concerted_reactions:
+            reactants = reaction[0].split("_")
+            products = reaction[1].split("_")
+            entries0 = [entries_list[int(item)] for item in reactants]
+            entries1 = [entries_list[int(item)] for item in products]
+            reactant_total_charge = np.sum([item.charge for item in entries0])
+            product_total_charge = np.sum([item.charge for item in entries1])
+            total_charge_change = product_total_charge - reactant_total_charge
+            if abs(total_charge_change) <= allowed_charge_change:
+                r = cls(entries0,entries1)
+                reactions.append(r)
+
+        return reactions
+
+    def reaction_type(self) -> Mapping_ReactionType_Dict:
+
+        """
+           A method to identify type of intermoleular reaction (bond decomposition from one to two or formation from two to one molecules)
+           Args:
+              :return dictionary of the form {"class": "IntermolecularReaction", "rxn_type_A": rxn_type_A, "rxn_type_B": rxn_type_B}
+              where rnx_type_A is the primary type of the reaction based on the reactant and product of the IntermolecularReaction
+              object, and the backwards of this reaction would be rnx_type_B
+        """
+
+        rxn_type_A = "Concerted"
+        rxn_type_B = "Concerted"
+
+        reaction_type = {"class": "ConcertedReaction", "rxn_type_A": rxn_type_A, "rxn_type_B": rxn_type_B}
+        return reaction_type
+
+    def free_energy(self) -> Mapping_Energy_Dict:
+        """
+          A method to determine the free energy of the concerted reaction
+          Args:
+             :return dictionary of the form {"free_energy_A": energy_A, "free_energy_B": energy_B}
+             where free_energy_A is the primary type of the reaction based on the reactant and product of the ConcertedReaction
+             object, and the backwards of this reaction would be free_energy_B.
+         """
+        if all(reactant.free_energy != None for reactant in self.reactants) and all(product.free_energy != None for product in self.products):
+            reactant_total_charge = np.sum([item.charge for item in self.reactants])
+            product_total_charge = np.sum([item.charge for item in self.products])
+            reactant_total_free_energy = np.sum([item.free_energy for item in self.reactants])
+            product_total_free_energy = np.sum([item.free_energy for item in self.products])
+            total_charge_change = product_total_charge - reactant_total_charge
+            free_energy_A = product_total_free_energy - reactant_total_free_energy + total_charge_change * self.electron_free_energy
+            free_energy_B = reactant_total_free_energy - product_total_free_energy - total_charge_change * self.electron_free_energy
+
+        else:
+            free_energy_A = None
+            free_energy_B = None
+
+        return {"free_energy_A": free_energy_A, "free_energy_B": free_energy_B}
+
+    def energy(self) -> Mapping_Energy_Dict:
+        """
+          A method to determine the energy of the concerted reaction
+          Args:
+             :return dictionary of the form {"energy_A": energy_A, "energy_B": energy_B}
+             where energy_A is the primary type of the reaction based on the reactant and product of the ConcertedReaction
+             object, and the backwards of this reaction would be energy_B.
+             Electron electronic energy set to 0 for now.
+        """
+        if all(reactant.energy != None for reactant in self.reactants) and all(
+                product.energy != None for product in self.products):
+            reactant_total_charge = np.sum([item.charge for item in self.reactants])
+            product_total_charge = np.sum([item.charge for item in self.products])
+            reactant_total_energy = np.sum([item.energy for item in self.reactants])
+            product_total_energy = np.sum([item.energy for item in self.products])
+            total_charge_change = product_total_charge - reactant_total_charge
+            energy_A = product_total_energy - reactant_total_energy #+ total_charge_change * self.electron_energy
+            energy_B = reactant_total_energy - product_total_energy #- total_charge_change * self.electron_energy
+
+        else:
+            energy_A = None
+            energy_B = None
+
+        return {"energy_A": energy_A, "energy_B": energy_B}
+
+    def rate(self):
+        pass
+
+class ConcertedReaction_new(Reaction):
+    """
+        A class to define concerted reactions.
+        User can specify either allowing <=1 bond breakage + <=1 bond formation OR <=2 bond breakage + <=2 bond formation.
+        User can also specify how many electrons are allowed to involve in a reaction.
+        Can only deal with <= 2 reactants and <=2 products for now.
+        For 1 reactant -> 1 product reactions, a maximum 1 bond breakage and 1 bond formation is allowed,
+        even when the user specify "<=2 bond breakage + <=2 bond formation".
+        Args:
+           reactant([MolecularEntry]): list of 1-2 molecular entries
+           product([MoleculeEntry]): list of 1-2 molecular entries
+    """
+
+    def __init__(self, reactant: List[MoleculeEntry], product: List[MoleculeEntry]):
+        """
+            Initilizes IntermolecularReaction.reactant to be in the form of a MolecularEntry,
+            IntermolecularReaction.product to be in the form of [MolecularEntry_0, MolecularEntry_1],
+            Reaction.reactant to be in the form of a of a list of MolecularEntry of length 1
+            Reaction.products to be in the form of a of a list of MolecularEntry of length 2
+          Args:
+            :param reactant MolecularEntry object
+            :param product list of MolecularEntry object of length 2
+        """
+
+        self.reactants = reactant
+        self.products = product
+        self.electron_free_energy = None
+        self.electron_energy = None
+        super().__init__(reactant, product)
+
+    def graph_representation(self) -> nx.DiGraph:  # temp here, use graph_rep_1_2 instead
+
+        """
+            A method to convert a Concerted class object into graph representation (nx.Digraph object).
+            IntermolecularReaction must be of type 1 reactant -> 2 products
+            :return nx.Digraph object of a single IntermolecularReaction object
+        """
+        if len(self.reactants) == len(self.products) == 1:
+            return graph_rep_1_1(self)
+        elif len(self.reactants) == 1 and len(self.products) == 2:
+            return graph_rep_1_2(self)
+        elif len(self.reactants) == 2 and len(self.products) == 1:
+            self.reactants, self.products = self.products, self.reactants
+            return graph_rep_1_2(self)
+        elif len(self.reactants) == len(self.products) == 2:
+            return graph_rep_2_2(self)
+        elif len(self.reactants) == 2 and len(self.products) == 3:
+            self.reactants, self.products = self.products, self.reactants
+            return graph_rep_3_2(self)
+        elif len(self.reactants) == 3 and len(self.products) == 2:
+            return graph_rep_3_2(self)
+
+    @classmethod
     def generate(cls, entries_list: [MoleculeEntry], name="nothing", read_file=True, num_processors=16, allowed_bond_change=4, allowed_charge_change=0, restart=False) -> List[Reaction]:
 
         """
@@ -1972,7 +2133,7 @@ class ReactionNetwork(MSONable):
 
         return self.graph
 
-    def build_concerted_reactions(self, name="nothing", read_file=True, num_processors=16, allowed_bond_change=4,
+    def build_concerted_reactions(self, name="nothing", read_file=True, num_processors=16, reaction_type="break2_form2",
                                   allowed_charge_change=0, restart=False) -> nx.DiGraph:
         """
             A method to refine the reaction network graph by adding concerted reactions.
@@ -1981,7 +2142,7 @@ class ReactionNetwork(MSONable):
         :return: nx.DiGraph
         """
         self.concerted_reactions = [
-            ConcertedReaction.generate(self.entries_list, name, read_file, num_processors, allowed_bond_change,
+            ConcertedReaction.generate(self.entries_list, name, read_file, num_processors, reaction_type,
                                        allowed_charge_change, restart)]
         self.concerted_reactions = [i for i in self.concerted_reactions if i]
         self.concerted_reactions = list(itertools.chain.from_iterable(self.concerted_reactions))
@@ -2033,6 +2194,66 @@ class ReactionNetwork(MSONable):
 
         return self.graph
 
+    def build_concerted_reactions_new(self, name="nothing", read_file=True, num_processors=16, allowed_bond_change=4,
+                                  allowed_charge_change=0, restart=False) -> nx.DiGraph:
+        """
+            A method to refine the reaction network graph by adding concerted reactions.
+            This has to be called after self.build, since concerted reactions also include elementary reactions.
+            If a concerted reaction is already labeled as one of the elementary reaction types, then it will be removed.
+        :return: nx.DiGraph
+        """
+        self.concerted_reactions = [
+            ConcertedReactionNew.generate(self.entries_list, name, read_file, num_processors, allowed_bond_change,
+                                       allowed_charge_change, restart)]
+        self.concerted_reactions = [i for i in self.concerted_reactions if i]
+        self.concerted_reactions = list(itertools.chain.from_iterable(self.concerted_reactions))
+
+        for r in self.concerted_reactions:
+            r.electron_free_energy = self.electron_free_energy
+            # Determine whether it's already labeled as elementary reaction. If so, not adding to the graph.
+            if len(r.reactants) == len(r.products) == 1:
+                node_name = str(r.reactants[0].parameters["ind"]) + "," + str(r.products[0].parameters["ind"])
+
+            elif len(r.reactants) == 2 and len(r.products) == 1:
+                reactant_0 = r.reactants[0]
+                reactant_1 = r.reactants[1]
+                if reactant_0.parameters["ind"] <= reactant_1.parameters["ind"]:
+                    two_reac_name = str(reactant_0.parameters["ind"]) + "+" + str(reactant_1.parameters["ind"])
+                else:
+                    two_reac_name = str(reactant_1.parameters["ind"]) + "+" + str(reactant_0.parameters["ind"])
+                node_name = str(r.products[0].parameters["ind"]) + "," + two_reac_name
+
+            elif len(r.reactants) == 1 and len(r.products) == 2:
+                product_0 = r.products[0]
+                product_1 = r.products[1]
+                if product_0.parameters["ind"] <= product_1.parameters["ind"]:
+                    two_prod_name = str(product_0.parameters["ind"]) + "+" + str(product_1.parameters["ind"])
+                else:
+                    two_prod_name = str(product_1.parameters["ind"]) + "+" + str(product_0.parameters["ind"])
+                node_name = str(r.reactants[0].parameters["ind"]) + "," + two_prod_name
+
+            elif len(r.reactants) == 2 and len(r.products) == 2:
+                reactant_0 = r.reactants[0]
+                reactant_1 = r.reactants[1]
+                product_0 = r.products[0]
+                product_1 = r.products[1]
+                if product_0.parameters["ind"] <= product_1.parameters["ind"]:
+                    two_prod_name = str(product_0.parameters["ind"]) + "+" + str(product_1.parameters["ind"])
+                else:
+                    two_prod_name = str(product_1.parameters["ind"]) + "+" + str(product_0.parameters["ind"])
+                two_reac_name0 = str(reactant_0.parameters["ind"]) + "+PR_" + str(reactant_1.parameters["ind"])
+                node_name = two_reac_name0 + "," + two_prod_name
+
+            elif (len(r.reactants) == 3 and len(r.products) == 2) or (len(r.reactants) == 2 and len(r.products) == 3):
+                node_name = None
+
+            if node_name not in self.graph.nodes:
+                self.add_reaction(r.graph_representation())
+
+        self.PR_record = self.build_PR_record()
+        self.Reactant_record = self.build_reactant_record()
+
+        return self.graph
 
     def add_reaction(self, graph_representation: nx.DiGraph):
         """

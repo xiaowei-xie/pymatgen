@@ -175,8 +175,6 @@ def identify_concerted_reaction(mol_graphs1, mol_graphs2, allowed_bond_change=4)
     if abs(len(reactant_edges) - len(product_edges)) > allowed_bond_change:
         return is_concerted_reaction
 
-    # J. Chem. Inf. Model. 2012, 52, 84–92
-
     opt_model = LpProblem(name="MIP Model")
 
     A = set(range(num_atoms1))
