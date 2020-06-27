@@ -439,7 +439,7 @@ class FixedCompositionNetwork:
 
     def get_optimized_structures_new(self,energy_dict_name='free_energy_dict',
                                  opt_to_orig_dict_name='opt_to_orig_index_dict',
-                                 load_entries=False, entries_name="smd_target_entries"):
+                                 load_entries=False, entries_name=["smd_target_entries"]):
         '''
         Different from the previous function in that the loaded entries are already mol_entries.
         Different from the "get_optimized_structures" function from the FragmentRecombination class.
@@ -462,7 +462,9 @@ class FixedCompositionNetwork:
             info_dict[i][-1] = {"index": None, "free_energy": 1e8}
             info_dict[i][0] = {"index": None, "free_energy": 1e8}
         if load_entries:
-            self.target_entries = loadfn(entries_name+".json")
+            self.target_entries = []
+            for name in entries_name:
+                self.target_entries += loadfn(name+".json")
             for i, entry in enumerate(self.target_entries):
                 for j, mol_graph in enumerate(self.total_mol_graphs_no_opt):
                     mol_entry = entry
@@ -1293,6 +1295,39 @@ class FixedCompositionNetwork:
         print('creating stoichiometry table done!')
         print('working on getting optimized structures!')
         self.get_optimized_structures(load_entries=True,entries_name=load_entries_name)
+        print('getting optimized structures done!')
+        starting_mols, crude_energy_thresh = self.find_starting_mols_and_crude_energy_thresh(starting_mol_graphs, starting_charges, starting_num_electrons)
+        starting_mols_list = [starting_mols]
+        all_possible_products, all_possible_product_energies = \
+            self.find_all_product_composition_from_target(target_composition, target_charge, crude_energy_thresh)
+        all_possible_product_lowest_n, all_possible_product_energies_lowest_n = \
+            self.find_n_lowest_product_composition(all_possible_products, all_possible_product_energies)
+        pathway_nodes_final, pathway_edges_final, node_energies = \
+            self.map_all_possible_pathways(all_possible_product_lowest_n, starting_mols, allowed_num_mols, energy_thresh)
+        new_pathway_nodes, new_pathway_edges, new_energies = self.transform_nodes_and_edges(pathway_nodes_final, pathway_edges_final, starting_mols_list, node_energies)
+        self.visualize_reaction_network(new_pathway_nodes, new_pathway_edges, new_energies, graph_file_name)
+        self.generate_entries(new_pathway_nodes,entries_file_name)
+
+        return
+
+    def whole_workflow_from_mol_entries(self,target_composition, target_charge, starting_mol_graphs, starting_charges, starting_num_electrons,
+                       allowed_num_mols=5, energy_thresh=0.0, load_entries_name=['smd_target_entries'],graph_file_name='reaction_network',
+                       entries_file_name='valid'):
+        '''
+        Have to run self.query_database beforehand and save the entries.
+        :param target_composition:
+        :param target_charge:
+        :param crude_energy_thresh:
+        :return:
+        '''
+        print('working on fragmentation and recombination!')
+        self.recombination()
+        print('recombination done!')
+        print('working on creating stoichiometry table!')
+        self.generate_stoichiometry_table()
+        print('creating stoichiometry table done!')
+        print('working on getting optimized structures!')
+        self.get_optimized_structures_new(load_entries=True,entries_name=load_entries_name)
         print('getting optimized structures done!')
         starting_mols, crude_energy_thresh = self.find_starting_mols_and_crude_energy_thresh(starting_mol_graphs, starting_charges, starting_num_electrons)
         starting_mols_list = [starting_mols]
