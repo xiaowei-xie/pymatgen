@@ -1375,7 +1375,7 @@ class ConcertedReaction(Reaction):
     def rate(self):
         pass
 
-class ConcertedReaction_new(Reaction):
+class ConcertedReactionNew(Reaction):
     """
         A class to define concerted reactions.
         User can specify either allowing <=1 bond breakage + <=1 bond formation OR <=2 bond breakage + <=2 bond formation.
