@@ -207,7 +207,7 @@ class FixedCompositionNetwork:
             self.unique_fragments += [self.mol_graphs[i]]
 
             for j in range(self.fragmentation_depth[i]):
-                print('fragmenting fragment:',i,' depth:',j+1)
+                print('fragmenting fragment:',i,' depth:',j+1, flush=True)
                 self.new_fragments = []
                 for p, mol_graph_from_i in enumerate(self.unique_fragments):
                     if p >= previous_length:
@@ -253,7 +253,7 @@ class FixedCompositionNetwork:
                 self.old_to_new_index_dict[i] = len(self.unique_fragments_new)
                 self.unique_fragments_new.append(frag)
         for key in self.fragmentation_dict.keys():
-            print('key:',key)
+            print('key:',key, flush=True)
             self.fragmentation_dict_new[self.old_to_new_index_dict[key]] = []
             for item in self.fragmentation_dict[key]:
                 new_item = [self.old_to_new_index_dict[p] for p in item]
@@ -270,7 +270,7 @@ class FixedCompositionNetwork:
                        entries_name="smd_target_entries"):
         mmdb = QChemCalcDb.from_db_file(db_file, admin=True)
         self.target_entries = list(mmdb.collection.find({"environment": "smd_18.5,1.415,0.00,0.735,20.2,0.00,0.00"}))
-        print(len(self.target_entries), "production entries")
+        print(len(self.target_entries), "production entries", flush=True)
         if save:
             dumpfn(self.target_entries, entries_name + ".json")
         return
@@ -292,7 +292,7 @@ class FixedCompositionNetwork:
         self.opt_entries = {}
         self.opt_species_w_charge = []
         info_dict = {}
-        print('Number of mol graphs:', len(self.total_mol_graphs_no_opt))
+        print('Number of mol graphs:', len(self.total_mol_graphs_no_opt), flush=True)
         for i in range(len(self.total_mol_graphs_no_opt)):
             info_dict[i] = {}
             info_dict[i][1] = {"index":None, "free_energy":1e8}
@@ -457,7 +457,7 @@ class FixedCompositionNetwork:
         self.opt_entries = {}
         self.opt_species_w_charge = []
         info_dict = {}
-        print('Number of mol graphs:', len(self.total_mol_graphs_no_opt))
+        print('Number of mol graphs:', len(self.total_mol_graphs_no_opt), flush=True)
         for i in range(len(self.total_mol_graphs_no_opt)):
             info_dict[i] = {}
             info_dict[i][1] = {"index":None, "free_energy":1e8}
@@ -640,7 +640,7 @@ class FixedCompositionNetwork:
 
         for i, mol in enumerate(self.opt_species_w_charge):
             mol_index, mol_charge = int(mol.split('_')[0]), int(mol.split('_')[1])
-            print('finding composition round:', i)
+            print('finding composition round:', i, flush=True)
             if int(mol_charge) == target_charge and self.all_stoi_dict[mol_index] == target_composition:
                 to_add = [mol]
                 energy = self.opt_entries[int(mol.split('_')[0])][int(mol.split('_')[1])].free_energy
@@ -801,7 +801,7 @@ class FixedCompositionNetwork:
         all_possible_product_lowest_n_new = []
         for i in range(len(all_possible_product_lowest_n)):
             products = all_possible_product_lowest_n[i]
-            print('products:',products)
+            print('products:',products, flush=True)
             products_dict = {}
             for item in products:
                 if item in products_dict.keys():
@@ -1187,18 +1187,18 @@ class FixedCompositionNetwork:
         iter = 0
         while possible_pathways_upwards_final != [] and iter<max_iter:
             iter += 1
-            print('iteration:', iter)
+            print('iteration:', iter, flush=True)
             possible_pathways_upwards, possible_pathways_upwards_final = \
                 self._trace_one_level_upwards(possible_products_new,starting_mols,allowed_num_mols)
-            print('length of possible_pathways_upwards:',len(possible_pathways_upwards))
-            print('length of possible_pathways_upwards final:',len(possible_pathways_upwards_final))
+            print('length of possible_pathways_upwards:',len(possible_pathways_upwards), flush=True)
+            print('length of possible_pathways_upwards final:',len(possible_pathways_upwards_final), flush=True)
             pathway_nodes += possible_pathways_upwards_final
             for i in range(len(possible_pathways_upwards)):
                 for j in range(len(possible_pathways_upwards[i])):
                     pathway_edges.append((possible_pathways_upwards[i][j],possible_products_new[i]))
 
             possible_products_new = possible_pathways_upwards_final
-        print('mapping done!')
+        print('mapping done!',flush=True)
         # take the set of all nodes
         pathway_nodes_final = []
         for i,node in enumerate(pathway_nodes):
@@ -1263,7 +1263,7 @@ class FixedCompositionNetwork:
         for i, key in enumerate(self.number_to_nodes_dict.keys()):
             if self.number_to_nodes_dict[key] in starting_nodes:
                 indices.append(key)
-        print("Starting node indices:", indices)
+        print("Starting node indices:", indices, flush=True)
 
         new_pathway_nodes, new_pathway_edges, new_energies = \
             self.eliminate_nodes_from_nowhere(transformed_nodes, transformed_edges, indices, node_energies)
@@ -1338,15 +1338,15 @@ class FixedCompositionNetwork:
         :param crude_energy_thresh:
         :return:
         '''
-        print('working on fragmentation and recombination!')
+        print('working on fragmentation and recombination!',flush=True)
         self.recombination()
-        print('recombination done!')
-        print('working on creating stoichiometry table!')
+        print('recombination done!',flush=True)
+        print('working on creating stoichiometry table!',flush=True)
         self.generate_stoichiometry_table()
-        print('creating stoichiometry table done!')
-        print('working on getting optimized structures!')
+        print('creating stoichiometry table done!',flush=True)
+        print('working on getting optimized structures!',flush=True)
         self.get_optimized_structures(load_entries=True,entries_name=load_entries_name)
-        print('getting optimized structures done!')
+        print('getting optimized structures done!',flush=True)
         starting_mols, crude_energy_thresh = self.find_starting_mols_and_crude_energy_thresh(starting_mol_graphs, starting_charges, starting_num_electrons)
         starting_mols_list = [starting_mols]
         all_possible_products, all_possible_product_energies = \
@@ -1371,15 +1371,15 @@ class FixedCompositionNetwork:
         :param crude_energy_thresh:
         :return:
         '''
-        print('working on fragmentation and recombination!')
+        print('working on fragmentation and recombination!',flush=True)
         self.recombination()
-        print('recombination done!')
-        print('working on creating stoichiometry table!')
+        print('recombination done!',flush=True)
+        print('working on creating stoichiometry table!',flush=True)
         self.generate_stoichiometry_table()
-        print('creating stoichiometry table done!')
-        print('working on getting optimized structures!')
+        print('creating stoichiometry table done!',flush=True)
+        print('working on getting optimized structures!',flush=True)
         self.get_optimized_structures_new(load_entries=True,entries_name=load_entries_name)
-        print('getting optimized structures done!')
+        print('getting optimized structures done!',flush=True)
         starting_mols, crude_energy_thresh = self.find_starting_mols_and_crude_energy_thresh(starting_mol_graphs, starting_charges, starting_num_electrons)
         starting_mols_list = [starting_mols]
         all_possible_products, all_possible_product_energies = \
@@ -1426,9 +1426,9 @@ class FixedCompositionNetwork:
         self.opt_entries = copy.deepcopy(self.opt_entries_new)
         del self.opt_entries_new
 
-        print('working on creating stoichiometry table!')
+        print('working on creating stoichiometry table!', flush=True)
         self.generate_stoichiometry_table()
-        print('creating stoichiometry table done!')
+        print('creating stoichiometry table done!', flush=True)
 
         starting_mols, crude_energy_thresh = self.find_starting_mols_and_crude_energy_thresh(starting_mol_graphs, starting_charges, starting_num_electrons)
         starting_mols_list = [starting_mols]
@@ -1473,13 +1473,13 @@ class FixedCompositionNetwork:
         del self.fragmentation_dict_new_2
 
 
-        print('working on creating stoichiometry table!')
+        print('working on creating stoichiometry table!', flush=True)
         self.generate_stoichiometry_table()
-        print('creating stoichiometry table done!')
+        print('creating stoichiometry table done!', flush=True)
 
-        print('working on getting optimized structures!')
+        print('working on getting optimized structures!', flush=True)
         self.get_optimized_structures_new(load_entries=True, entries_name=load_entries_name)
-        print('getting optimized structures done!')
+        print('getting optimized structures done!', flush=True)
 
         starting_mols, crude_energy_thresh = self.find_starting_mols_and_crude_energy_thresh(starting_mol_graphs, starting_charges, starting_num_electrons)
         starting_mols_list = [starting_mols]
@@ -1523,13 +1523,13 @@ class FixedCompositionNetwork:
         del self.fragmentation_dict_new_2
 
 
-        print('working on creating stoichiometry table!')
+        print('working on creating stoichiometry table!', flush=True)
         self.generate_stoichiometry_table()
-        print('creating stoichiometry table done!')
+        print('creating stoichiometry table done!', flush=True)
 
-        print('working on getting optimized structures!')
+        print('working on getting optimized structures!', flush=True)
         self.get_optimized_structures_new(load_entries=True, entries_name=load_entries_name)
-        print('getting optimized structures done!')
+        print('getting optimized structures done!', flush=True)
 
         starting_mols, crude_energy_thresh = self.find_starting_mols_and_crude_energy_thresh(starting_mol_graphs, starting_charges, starting_num_electrons)
         starting_mols_list = [starting_mols]
@@ -1582,9 +1582,9 @@ class FixedCompositionNetwork:
         self.opt_entries = copy.deepcopy(self.opt_entries_new)
         del self.opt_entries_new
 
-        print('working on creating stoichiometry table!')
+        print('working on creating stoichiometry table!', flush=True)
         self.generate_stoichiometry_table()
-        print('creating stoichiometry table done!')
+        print('creating stoichiometry table done!', flush=True)
 
         #starting_mols, crude_energy_thresh = self.find_starting_mols_and_crude_energy_thresh(starting_mol_graphs, starting_charges, starting_num_electrons)
         starting_mols = loadfn('starting_mols.json')
@@ -1655,9 +1655,9 @@ if __name__ == "__main__":
     FCN.opt_entries = copy.deepcopy(FCN.opt_entries_new)
     del FCN.opt_entries_new
 
-    print('working on creating stoichiometry table!')
+    print('working on creating stoichiometry table!', flush=True)
     FCN.generate_stoichiometry_table()
-    print('creating stoichiometry table done!')
+    print('creating stoichiometry table done!', flush=True)
 
     starting_mols, crude_energy_thresh = FCN.find_starting_mols_and_crude_energy_thresh(starting_mol_graphs,
                                                                                          starting_charges,
