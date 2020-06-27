@@ -1429,7 +1429,7 @@ class FixedCompositionNetwork:
         print('creating stoichiometry table done!')
 
         print('working on getting optimized structures!')
-        self.get_optimized_structures(load_entries=True, entries_name=load_entries_name)
+        self.get_optimized_structures_new(load_entries=True, entries_name=load_entries_name)
         print('getting optimized structures done!')
 
         starting_mols, crude_energy_thresh = self.find_starting_mols_and_crude_energy_thresh(starting_mol_graphs, starting_charges, starting_num_electrons)
