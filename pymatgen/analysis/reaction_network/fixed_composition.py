@@ -277,7 +277,7 @@ class FixedCompositionNetwork:
 
     def get_optimized_structures(self,energy_dict_name='free_energy_dict',
                                  opt_to_orig_dict_name='opt_to_orig_index_dict',
-                                 load_entries=False, entries_name="smd_target_entries"):
+                                 load_entries=False, entries_name=["smd_target_entries"]):
         '''
         Different from the "get_optimized_structures" function from the FragmentRecombination class.
         Need to call this function after recombination. So call self.recombination() first.
@@ -299,7 +299,9 @@ class FixedCompositionNetwork:
             info_dict[i][-1] = {"index": None, "free_energy": 1e8}
             info_dict[i][0] = {"index": None, "free_energy": 1e8}
         if load_entries:
-            self.target_entries = loadfn(entries_name+".json")
+            self.target_entries = []
+            for name in entries_name:
+                self.target_entries += loadfn(name + ".json")
             for i, entry in enumerate(self.target_entries):
                 for j, mol_graph in enumerate(self.total_mol_graphs_no_opt):
                     if "mol_graph" in entry:
@@ -1278,7 +1280,7 @@ class FixedCompositionNetwork:
         return
 
     def whole_workflow(self,target_composition, target_charge, starting_mol_graphs, starting_charges, starting_num_electrons,
-                       allowed_num_mols=5, energy_thresh=0.0, load_entries_name='smd_target_entries',graph_file_name='reaction_network',
+                       allowed_num_mols=5, energy_thresh=0.0, load_entries_name=['smd_target_entries'],graph_file_name='reaction_network',
                        entries_file_name='valid'):
         '''
         Have to run self.query_database beforehand and save the entries.
