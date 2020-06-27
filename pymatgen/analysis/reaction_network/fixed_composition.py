@@ -1123,7 +1123,7 @@ class FixedCompositionNetwork:
         return starting_mols, crude_energy_thresh
 
 
-    def map_all_possible_pathways(self,possible_products, starting_mols, allowed_num_mols=5, energy_thresh=0.0):
+    def map_all_possible_pathways(self,possible_products, starting_mols, allowed_num_mols=5, energy_thresh=0.0, max_iter=20):
         '''
 
         :param possible_products: A list of dictionary of possible products with stoichiometry.
@@ -1136,7 +1136,7 @@ class FixedCompositionNetwork:
         pathway_edges = []
         possible_pathways_upwards_final = [{}]
         iter = 0
-        while possible_pathways_upwards_final != []:
+        while possible_pathways_upwards_final != [] and iter<max_iter:
             iter += 1
             print('iteration:', iter)
             possible_pathways_upwards, possible_pathways_upwards_final = \
@@ -1452,7 +1452,7 @@ class FixedCompositionNetwork:
         return
 
     def whole_workflow_load_file_3(self,target_composition, target_charge, starting_mol_graphs, starting_charges, starting_num_electrons,
-                       allowed_num_mols=5, energy_thresh=0.0, load_entries_name='smd_target_entries', graph_file_name='reaction_network',
+                       allowed_num_mols=5, energy_thresh=0.0, load_entries_name=['smd_target_entries'], graph_file_name='reaction_network',
                        entries_file_name='valid',path=''):
         '''
         Have to run self.query_database beforehand and save the entries.
