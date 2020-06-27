@@ -859,14 +859,29 @@ class FixedCompositionNetwork:
                                     parent_mol2_index = int(nodes[1])
                                     for parent_mol1_charge in charge_options:
                                         parent_mol2_charge = mol_charge - parent_mol1_charge
-                                        if parent_mol1_charge in self.opt_entries[parent_mol1_index] and \
-                                                parent_mol2_charge in self.opt_entries[parent_mol2_index]:
-                                            parent_mol1 = str(parent_mol1_index) + '_' + str(parent_mol1_charge)
-                                            parent_mol2 = str(parent_mol2_index) + '_' + str(parent_mol2_charge)
-                                            if parent_mol1 == parent_mol2:
-                                                parents[i].append({parent_mol1: 2})
-                                            else:
-                                                parents[i].append({parent_mol1: 1, parent_mol2: 1})
+                                        if parent_mol1_charge in self.opt_entries[parent_mol1_index]:
+                                            if parent_mol2_charge in self.opt_entries[parent_mol2_index]:
+                                                parent_mol1 = str(parent_mol1_index) + '_' + str(parent_mol1_charge)
+                                                parent_mol2 = str(parent_mol2_index) + '_' + str(parent_mol2_charge)
+                                                if parent_mol1 == parent_mol2:
+                                                    parents[i].append({parent_mol1: 2})
+                                                else:
+                                                    parents[i].append({parent_mol1: 1, parent_mol2: 1})
+                                            if (parent_mol2_charge+1) in self.opt_entries[parent_mol2_index]:
+                                                parent_mol1 = str(parent_mol1_index) + '_' + str(parent_mol1_charge)
+                                                parent_mol2 = str(parent_mol2_index) + '_' + str(parent_mol2_charge+1)
+                                                if parent_mol1 == parent_mol2:
+                                                    parents[i].append({parent_mol1: 2, 'e_-1': 1})
+                                                else:
+                                                    parents[i].append({parent_mol1: 1, parent_mol2: 1, 'e_-1': 1})
+                                            if (parent_mol2_charge-1) in self.opt_entries[parent_mol2_index]:
+                                                parent_mol1 = str(parent_mol1_index) + '_' + str(parent_mol1_charge)
+                                                parent_mol2 = str(parent_mol2_index) + '_' + str(parent_mol2_charge-1)
+                                                if parent_mol1 == parent_mol2:
+                                                    parents[i].append({parent_mol1: 2, 'e_-1': -1})
+                                                else:
+                                                    parents[i].append({parent_mol1: 1, parent_mol2: 1, 'e_-1': -1})
+
                         else:
                             for nodes in self.fragmentation_dict_new[key]:
                                 if mol_index in nodes:
@@ -882,12 +897,22 @@ class FixedCompositionNetwork:
                                             parent_mol2_index = int(nodes[0])
                                         for parent_mol1_charge in charge_options:
                                             parent_mol2_charge = parent_mol1_charge - mol_charge
-                                            if parent_mol1_charge in self.opt_entries[parent_mol1_index] and \
-                                                    parent_mol2_charge in self.opt_entries[parent_mol2_index]:
-                                                parent_mol1 = str(parent_mol1_index) + '_' + str(parent_mol1_charge)
-                                                parent_mol2 = str(parent_mol2_index) + '_' + str(parent_mol2_charge)
-                                                assert parent_mol1 != parent_mol2
-                                                parents[i].append({parent_mol1: 1, parent_mol2: -1})
+                                            if parent_mol1_charge in self.opt_entries[parent_mol1_index]:
+                                                if parent_mol2_charge in self.opt_entries[parent_mol2_index]:
+                                                    parent_mol1 = str(parent_mol1_index) + '_' + str(parent_mol1_charge)
+                                                    parent_mol2 = str(parent_mol2_index) + '_' + str(parent_mol2_charge)
+                                                    assert parent_mol1 != parent_mol2
+                                                    parents[i].append({parent_mol1: 1, parent_mol2: -1})
+                                                if (parent_mol2_charge+1) in self.opt_entries[parent_mol2_index]:
+                                                    parent_mol1 = str(parent_mol1_index) + '_' + str(parent_mol1_charge)
+                                                    parent_mol2 = str(parent_mol2_index) + '_' + str(parent_mol2_charge+1)
+                                                    assert parent_mol1 != parent_mol2
+                                                    parents[i].append({parent_mol1: 1, parent_mol2: -1, 'e_-1': -1})
+                                                if (parent_mol2_charge-1) in self.opt_entries[parent_mol2_index]:
+                                                    parent_mol1 = str(parent_mol1_index) + '_' + str(parent_mol1_charge)
+                                                    parent_mol2 = str(parent_mol2_index) + '_' + str(parent_mol2_charge-1)
+                                                    assert parent_mol1 != parent_mol2
+                                                    parents[i].append({parent_mol1: 1, parent_mol2: -1, 'e_-1': 1})
 
                     for key in self.recomb_dict_no_opt:
                         inds = key.split('_')
@@ -897,14 +922,28 @@ class FixedCompositionNetwork:
                             parent_mol2_index = mol_ind2
                             for parent_mol1_charge in charge_options:
                                 parent_mol2_charge = mol_charge - parent_mol1_charge
-                                if parent_mol1_charge in self.opt_entries[parent_mol1_index] and \
-                                        parent_mol2_charge in self.opt_entries[parent_mol2_index]:
-                                    parent_mol1 = str(parent_mol1_index) + '_' + str(parent_mol1_charge)
-                                    parent_mol2 = str(parent_mol2_index) + '_' + str(parent_mol2_charge)
-                                    if parent_mol1 == parent_mol2:
-                                        parents[i].append({parent_mol1: 2})
-                                    else:
-                                        parents[i].append({parent_mol1: 1, parent_mol2: 1})
+                                if parent_mol1_charge in self.opt_entries[parent_mol1_index]:
+                                    if parent_mol2_charge in self.opt_entries[parent_mol2_index]:
+                                        parent_mol1 = str(parent_mol1_index) + '_' + str(parent_mol1_charge)
+                                        parent_mol2 = str(parent_mol2_index) + '_' + str(parent_mol2_charge)
+                                        if parent_mol1 == parent_mol2:
+                                            parents[i].append({parent_mol1: 2})
+                                        else:
+                                            parents[i].append({parent_mol1: 1, parent_mol2: 1})
+                                    if (parent_mol2_charge+1) in self.opt_entries[parent_mol2_index]:
+                                        parent_mol1 = str(parent_mol1_index) + '_' + str(parent_mol1_charge)
+                                        parent_mol2 = str(parent_mol2_index) + '_' + str(parent_mol2_charge+1)
+                                        if parent_mol1 == parent_mol2:
+                                            parents[i].append({parent_mol1: 2, 'e_-1': 1})
+                                        else:
+                                            parents[i].append({parent_mol1: 1, parent_mol2: 1, 'e_-1': 1})
+                                    if (parent_mol2_charge-1) in self.opt_entries[parent_mol2_index]:
+                                        parent_mol1 = str(parent_mol1_index) + '_' + str(parent_mol1_charge)
+                                        parent_mol2 = str(parent_mol2_index) + '_' + str(parent_mol2_charge-1)
+                                        if parent_mol1 == parent_mol2:
+                                            parents[i].append({parent_mol1: 2, 'e_-1': -1})
+                                        else:
+                                            parents[i].append({parent_mol1: 1, parent_mol2: 1, 'e_-1': -1})
                         if mol_index == mol_ind1 or mol_index == mol_ind2:
                             parent_mol1_index = self.recomb_dict_no_opt[key]
                             if mol_index == mol_ind1:
@@ -913,12 +952,22 @@ class FixedCompositionNetwork:
                                 parent_mol2_index = mol_ind1
                             for parent_mol1_charge in charge_options:
                                 parent_mol2_charge = parent_mol1_charge - mol_charge
-                                if parent_mol1_charge in self.opt_entries[parent_mol1_index] and \
-                                        parent_mol2_charge in self.opt_entries[parent_mol2_index]:
-                                    parent_mol1 = str(parent_mol1_index) + '_' + str(parent_mol1_charge)
-                                    parent_mol2 = str(parent_mol2_index) + '_' + str(parent_mol2_charge)
-                                    assert parent_mol1 != parent_mol2
-                                    parents[i].append({parent_mol1: 1, parent_mol2: -1})
+                                if parent_mol1_charge in self.opt_entries[parent_mol1_index]:
+                                    if parent_mol2_charge in self.opt_entries[parent_mol2_index]:
+                                        parent_mol1 = str(parent_mol1_index) + '_' + str(parent_mol1_charge)
+                                        parent_mol2 = str(parent_mol2_index) + '_' + str(parent_mol2_charge)
+                                        assert parent_mol1 != parent_mol2
+                                        parents[i].append({parent_mol1: 1, parent_mol2: -1})
+                                    if (parent_mol2_charge+1) in self.opt_entries[parent_mol2_index]:
+                                        parent_mol1 = str(parent_mol1_index) + '_' + str(parent_mol1_charge)
+                                        parent_mol2 = str(parent_mol2_index) + '_' + str(parent_mol2_charge+1)
+                                        assert parent_mol1 != parent_mol2
+                                        parents[i].append({parent_mol1: 1, parent_mol2: -1, 'e_-1': -1})
+                                    if (parent_mol2_charge-1) in self.opt_entries[parent_mol2_index]:
+                                        parent_mol1 = str(parent_mol1_index) + '_' + str(parent_mol1_charge)
+                                        parent_mol2 = str(parent_mol2_index) + '_' + str(parent_mol2_charge-1)
+                                        assert parent_mol1 != parent_mol2
+                                        parents[i].append({parent_mol1: 1, parent_mol2: -1, 'e_-1': 1})
             parents_list.append(parents)
 
         # merge species dict
