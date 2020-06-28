@@ -458,6 +458,9 @@ class FixedCompositionNetwork:
         self.opt_species_w_charge = []
         info_dict = {}
         print('Number of mol graphs:', len(self.total_mol_graphs_no_opt), flush=True)
+        os.mkdir('total_mol_graphs_no_opt')
+        for i, mol_graph in enumerate(self.total_mol_graphs_no_opt):
+            mol_graph.molecule.to('.xyz','total_mol_graphs_no_opt/'+str(i)+'.xyz')
         for i in range(len(self.total_mol_graphs_no_opt)):
             info_dict[i] = {}
             info_dict[i][1] = {"index":None, "free_energy":1e8}
@@ -467,6 +470,7 @@ class FixedCompositionNetwork:
             self.target_entries = []
             for name in entries_name:
                 self.target_entries += loadfn(name+".json")
+                print('length of target entries:',len(self.target_entries), flush=True)
             for i, entry in enumerate(self.target_entries):
                 for j, mol_graph in enumerate(self.total_mol_graphs_no_opt):
                     mol_entry = entry
@@ -1606,6 +1610,39 @@ class FixedCompositionNetwork:
         self.new_pathway_nodes, self.new_pathway_edges, self.new_energies = self.transform_nodes_and_edges(pathway_nodes_final, pathway_edges_final, starting_mols_list, node_energies,starting_num_electrons_list)
         self.generate_entries(self.new_pathway_nodes, entries_file_name)
         self.visualize_reaction_network(self.new_pathway_nodes, self.new_pathway_edges, self.new_energies, graph_file_name)
+
+        return
+
+    def whole_workflow_load_file_5(self,target_composition, target_charge, starting_mol_graphs, starting_charges, starting_num_electrons,
+                       allowed_num_mols=5, energy_thresh=0.0, load_entries_name=['smd_target_entries'], graph_file_name='reaction_network',
+                       entries_file_name='valid',path=''):
+        '''
+        Have to run self.query_database beforehand and save the entries.
+        :param target_composition:
+        :param target_charge:
+        :param crude_energy_thresh:
+        :return:
+        '''
+
+        self.fragmentation_dict_new = loadfn(path+'fragmentation_dict_new.json')
+        self.recomb_dict_no_opt = loadfn(path+'recomb_dict_no_opt.json')
+        self.total_mol_graphs_no_opt = loadfn(path+'total_mol_graphs_no_opt.json')
+
+        # clean up some dicts b/c loadfn will make the keys into strings
+        self.fragmentation_dict_new_2 = {}
+        for key in self.fragmentation_dict_new:
+            self.fragmentation_dict_new_2[int(key)] = self.fragmentation_dict_new[key]
+        self.fragmentation_dict_new = copy.deepcopy(self.fragmentation_dict_new_2)
+        del self.fragmentation_dict_new_2
+
+
+        print('working on creating stoichiometry table!', flush=True)
+        self.generate_stoichiometry_table()
+        print('creating stoichiometry table done!', flush=True)
+
+        print('working on getting optimized structures!', flush=True)
+        self.get_optimized_structures_new(load_entries=True, entries_name=load_entries_name)
+        print('getting optimized structures done!', flush=True)
 
         return
 
