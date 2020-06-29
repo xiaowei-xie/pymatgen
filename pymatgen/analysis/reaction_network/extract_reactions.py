@@ -298,7 +298,7 @@ class FindConcertedReactions:
                             #if [reac_unique, prod_unique] not in self.concerted_rxns_to_determine:
                             self.concerted_rxns_to_determine.append([reac_unique, prod_unique])
                             number = len(self.concerted_rxns_to_determine)
-                            if number > 100000:
+                            if number > 1000000:
                                 dumpfn(self.concerted_rxns_to_determine, 'concerted_candidates_{}.json'.format(cnt))
                                 self.concerted_rxns_to_determine = []
                                 number_concerted_reactions += number
