@@ -298,7 +298,7 @@ class FindConcertedReactions:
                             #if [reac_unique, prod_unique] not in self.concerted_rxns_to_determine:
                             self.concerted_rxns_to_determine.append([reac_unique, prod_unique])
                             number = len(self.concerted_rxns_to_determine)
-                            if number > 1000000:
+                            if number > 2000000:
                                 dumpfn(self.concerted_rxns_to_determine, 'concerted_candidates_{}.json'.format(cnt))
                                 self.concerted_rxns_to_determine = []
                                 number_concerted_reactions += number
@@ -496,6 +496,63 @@ class FindConcertedReactions:
                 if restart:
                     self.valid_reactions += self.loaded_valid_reactions
         # dumpfn(self.valid_reactions, name + "_valid_concerted_rxns.json")
+        return
+
+    def find_concerted_multiprocess_dist(self, num_processors, allowed_bond_change=4, restart=False, file='', name='nothing'):
+        '''
+        Use multiprocessing to determine concerted reactions in parallel.
+        Args:
+        :param num_processors:
+        :param reaction_type: Can choose from "break2_form2" and "break1_form1"
+        :return: self.valid_reactions:[['15_43', '19_43']]: [[str(reactants),str(products)]]
+                 reactants and products are separated by "_".
+                 The number correspond to the index of a mol_graph in self.unique_mol_graphs_new.
+        '''
+        if restart:
+            self.loaded_valid_reactions = []
+            self.loaded_invalid_reactions = []
+            valid_reactions_to_load = "valid_reactions_bond_change_{}".format(allowed_bond_change)
+            invalid_reactions_to_load = "invalid_reactions_bond_change_{}".format(allowed_bond_change)
+            f = open(valid_reactions_to_load, "r")
+            contents = f.readlines()
+            f.close()
+            self.loaded_valid_reactions = []
+            for i, content in enumerate(contents):
+                new_content = content.replace('\n', '').replace("'", "").strip('][').split(', ')
+                self.loaded_valid_reactions.append(new_content)
+                if new_content in self.concerted_rxns_to_determine:
+                    self.concerted_rxns_to_determine.remove(new_content)
+
+            f = open(invalid_reactions_to_load, "r")
+            contents = f.readlines()
+            f.close()
+            for i, content in enumerate(contents):
+                new_content = content.replace('\n', '').replace("'", "").strip('][').split(', ')
+                self.loaded_invalid_reactions.append(new_content)
+                if new_content in self.concerted_rxns_to_determine:
+                    self.concerted_rxns_to_determine.remove(new_content)
+        #print("Remaining number of concerted reactions to determine:", len(self.concerted_rxns_to_determine),flush=True)
+        print("Finding concerted reactions, allowing {} bond changes!".format(allowed_bond_change), flush=True)
+
+        from pathos.multiprocessing import ProcessingPool as Pool
+        self.valid_reactions = []
+        cnt = 0
+        #for file in os.listdir('.'):
+        if file.startswith('concerted_candidates') and file.endswith('.json'):
+            print('current file:', file, flush=True)
+            print('{}th json file!'.format(cnt), flush=True)
+            cnt += 1
+            self.concerted_rxns_to_determine = loadfn(file)
+            nums = list(np.arange(len(self.concerted_rxns_to_determine)))
+            args = [(i, restart, allowed_bond_change) for i in nums]
+            pool = Pool(num_processors)
+            results = pool.map(self.find_concerted_reactions, args)
+            for i in range(len(results)):
+                valid_reactions = results[i]
+                self.valid_reactions += valid_reactions
+            if restart:
+                self.valid_reactions += self.loaded_valid_reactions
+        dumpfn(self.valid_reactions, name + "_valid_concerted_rxns_before_process.json")
         return
 
     def get_final_concerted_reactions(self, name, num_processors, allowed_bond_change=4, restart=False):
