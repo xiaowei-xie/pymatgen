@@ -259,6 +259,7 @@ class FindConcertedReactions:
             if not found:
                 self.unique_mol_graph_dict[i] = len(self.unique_mol_graphs_new)
                 self.unique_mol_graphs_new.append(mol_graph)
+        dumpfn(self.unique_mol_graphs_new, self.name + "_unique_mol_graphs_new.json")
         dumpfn(self.unique_mol_graph_dict, self.name + "_unique_mol_graph_map.json")
         # find all molecule pairs that satisfy the stoichiometry constraint
         stoi_list, species_same_stoi_dict = identify_same_stoi_mol_pairs(self.unique_mol_graphs_new)
@@ -508,6 +509,7 @@ class FindConcertedReactions:
                  reactants and products are separated by "_".
                  The number correspond to the index of a mol_graph in self.unique_mol_graphs_new.
         '''
+        self.unique_mol_graphs_new = loadfn(self.name + "_unique_mol_graphs_new.json")
         if file.startswith('concerted_candidates') and file.endswith('.json'):
             print('current file:', file, flush=True)
             self.concerted_rxns_to_determine = loadfn(file)
