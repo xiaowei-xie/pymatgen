@@ -531,17 +531,14 @@ class FindConcertedReactions:
                 self.loaded_invalid_reactions.append(new_content)
                 if new_content in self.concerted_rxns_to_determine:
                     self.concerted_rxns_to_determine.remove(new_content)
-        #print("Remaining number of concerted reactions to determine:", len(self.concerted_rxns_to_determine),flush=True)
+        print("Remaining number of concerted reactions to determine:", len(self.concerted_rxns_to_determine),flush=True)
         print("Finding concerted reactions, allowing {} bond changes!".format(allowed_bond_change), flush=True)
 
         from pathos.multiprocessing import ProcessingPool as Pool
         self.valid_reactions = []
-        cnt = 0
         #for file in os.listdir('.'):
         if file.startswith('concerted_candidates') and file.endswith('.json'):
             print('current file:', file, flush=True)
-            print('{}th json file!'.format(cnt), flush=True)
-            cnt += 1
             self.concerted_rxns_to_determine = loadfn(file)
             nums = list(np.arange(len(self.concerted_rxns_to_determine)))
             args = [(i, restart, allowed_bond_change) for i in nums]
