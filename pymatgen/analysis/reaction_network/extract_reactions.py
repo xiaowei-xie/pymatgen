@@ -508,6 +508,9 @@ class FindConcertedReactions:
                  reactants and products are separated by "_".
                  The number correspond to the index of a mol_graph in self.unique_mol_graphs_new.
         '''
+        if file.startswith('concerted_candidates') and file.endswith('.json'):
+            print('current file:', file, flush=True)
+            self.concerted_rxns_to_determine = loadfn(file)
         if restart:
             self.loaded_valid_reactions = []
             self.loaded_invalid_reactions = []
@@ -536,19 +539,16 @@ class FindConcertedReactions:
 
         from pathos.multiprocessing import ProcessingPool as Pool
         self.valid_reactions = []
-        #for file in os.listdir('.'):
-        if file.startswith('concerted_candidates') and file.endswith('.json'):
-            print('current file:', file, flush=True)
-            self.concerted_rxns_to_determine = loadfn(file)
-            nums = list(np.arange(len(self.concerted_rxns_to_determine)))
-            args = [(i, restart, allowed_bond_change) for i in nums]
-            pool = Pool(num_processors)
-            results = pool.map(self.find_concerted_reactions, args)
-            for i in range(len(results)):
-                valid_reactions = results[i]
-                self.valid_reactions += valid_reactions
-            if restart:
-                self.valid_reactions += self.loaded_valid_reactions
+
+        nums = list(np.arange(len(self.concerted_rxns_to_determine)))
+        args = [(i, restart, allowed_bond_change) for i in nums]
+        pool = Pool(num_processors)
+        results = pool.map(self.find_concerted_reactions, args)
+        for i in range(len(results)):
+            valid_reactions = results[i]
+            self.valid_reactions += valid_reactions
+        if restart:
+            self.valid_reactions += self.loaded_valid_reactions
         dumpfn(self.valid_reactions, name + "_valid_concerted_rxns_before_process.json")
         return
 
