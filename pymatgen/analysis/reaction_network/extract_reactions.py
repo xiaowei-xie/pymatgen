@@ -296,14 +296,14 @@ class FindConcertedReactions:
                         if len(split_reac) != 0 and len(split_prod) != 0:
                             reac_unique = '_'.join(split_reac)
                             prod_unique = '_'.join(split_prod)
-                            #if [reac_unique, prod_unique] not in self.concerted_rxns_to_determine:
-                            self.concerted_rxns_to_determine.append([reac_unique, prod_unique])
-                            number = len(self.concerted_rxns_to_determine)
-                            if number > 2000000:
-                                dumpfn(self.concerted_rxns_to_determine, 'concerted_candidates_{}.json'.format(cnt))
-                                self.concerted_rxns_to_determine = []
-                                number_concerted_reactions += number
-                                cnt += 1
+                            if [reac_unique, prod_unique] not in self.concerted_rxns_to_determine:
+                                self.concerted_rxns_to_determine.append([reac_unique, prod_unique])
+                                number = len(self.concerted_rxns_to_determine)
+                                if number > 2000000:
+                                    dumpfn(self.concerted_rxns_to_determine, 'concerted_candidates_{}.json'.format(cnt))
+                                    self.concerted_rxns_to_determine = []
+                                    number_concerted_reactions += number
+                                    cnt += 1
         dumpfn(self.concerted_rxns_to_determine, 'concerted_candidates_{}.json'.format(cnt))
         number = len(self.concerted_rxns_to_determine)
         number_concerted_reactions += number
