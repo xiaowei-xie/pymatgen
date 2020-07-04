@@ -510,7 +510,7 @@ class FindConcertedReactions:
                  The number correspond to the index of a mol_graph in self.unique_mol_graphs_new.
         '''
         self.unique_mol_graphs_new = loadfn(self.name + "_unique_mol_graphs_new.json")
-        if file.startswith('concerted_candidates') and file.endswith('.json'):
+        if file.endswith('.json'):
             print('current file:', file, flush=True)
             self.concerted_rxns_to_determine = loadfn(file)
         if restart:
