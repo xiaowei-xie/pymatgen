@@ -208,10 +208,14 @@ def identify_concerted_reaction(mol_graphs1, mol_graphs2, allowed_bond_change=4)
 
     opt_model.sense = LpMinimize
     opt_model.setObjective(objective)
-    opt_model.solve()
-    print("Production Costs = ", value(opt_model.objective), flush=True)
-    if value(opt_model.objective) != None and value(opt_model.objective) <= allowed_bond_change:
-        is_concerted_reaction = True
+    try:
+        opt_model.solve()
+        print("Production Costs = ", value(opt_model.objective), flush=True)
+        if value(opt_model.objective) != None and value(opt_model.objective) <= allowed_bond_change:
+            is_concerted_reaction = True
+    except:
+        print('Error in solving!')
+        is_concerted_reaction = False
 
     return is_concerted_reaction
 
