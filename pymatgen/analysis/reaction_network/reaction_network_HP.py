@@ -381,109 +381,111 @@ def graph_rep_2_2(reaction: Reaction) -> nx.DiGraph:
     free_energy_A = reaction.free_energy()["free_energy_A"]
     free_energy_B = reaction.free_energy()["free_energy_B"]
 
-    graph.add_node(node_name_A0, rxn_type=rxn_type_A, bipartite=1, energy=energy_A, free_energy=free_energy_A,
-                   entry_ids=entry_ids_name_A0)
+    if free_energy_A < 0.1:
 
-    graph.add_edge(reactant_0.parameters["ind"],
-                   node_name_A0,
-                   softplus=ReactionNetwork.softplus(free_energy_A),
-                   exponent=ReactionNetwork.exponent(free_energy_A),
-                   rexp=ReactionNetwork.rexp(free_energy_A),
-                   weight=1.0
-                   )
+        graph.add_node(node_name_A0, rxn_type=rxn_type_A, bipartite=1, energy=energy_A, free_energy=free_energy_A,
+                       entry_ids=entry_ids_name_A0)
 
-    graph.add_edge(node_name_A0,
-                   product_0.parameters["ind"],
-                   softplus=0.0,
-                   exponent=0.0,
-                   rexp=0.0,
-                   weight=1.0
-                   )
-    graph.add_edge(node_name_A0,
-                   product_1.parameters["ind"],
-                   softplus=0.0,
-                   exponent=0.0,
-                   rexp=0.0,
-                   weight=1.0
-                   )
+        graph.add_edge(reactant_0.parameters["ind"],
+                       node_name_A0,
+                       softplus=ReactionNetwork.softplus(free_energy_A),
+                       exponent=ReactionNetwork.exponent(free_energy_A),
+                       rexp=ReactionNetwork.rexp(free_energy_A),
+                       weight=1.0
+                       )
 
-    graph.add_node(node_name_A1, rxn_type=rxn_type_A, bipartite=1, energy=energy_A, free_energy=free_energy_A,
-                   entry_ids=entry_ids_name_A1)
+        graph.add_edge(node_name_A0,
+                       product_0.parameters["ind"],
+                       softplus=0.0,
+                       exponent=0.0,
+                       rexp=0.0,
+                       weight=1.0
+                       )
+        graph.add_edge(node_name_A0,
+                       product_1.parameters["ind"],
+                       softplus=0.0,
+                       exponent=0.0,
+                       rexp=0.0,
+                       weight=1.0
+                       )
 
-    graph.add_edge(reactant_1.parameters["ind"],
-                   node_name_A1,
-                   softplus=ReactionNetwork.softplus(free_energy_A),
-                   exponent=ReactionNetwork.exponent(free_energy_A),
-                   rexp=ReactionNetwork.rexp(free_energy_A),
-                   weight=1.0
-                   )
+        graph.add_node(node_name_A1, rxn_type=rxn_type_A, bipartite=1, energy=energy_A, free_energy=free_energy_A,
+                       entry_ids=entry_ids_name_A1)
 
-    graph.add_edge(node_name_A1,
-                   product_0.parameters["ind"],
-                   softplus=0.0,
-                   exponent=0.0,
-                   rexp=0.0,
-                   weight=1.0
-                   )
-    graph.add_edge(node_name_A1,
-                   product_1.parameters["ind"],
-                   softplus=0.0,
-                   exponent=0.0,
-                   rexp=0.0,
-                   weight=1.0
-                   )
+        graph.add_edge(reactant_1.parameters["ind"],
+                       node_name_A1,
+                       softplus=ReactionNetwork.softplus(free_energy_A),
+                       exponent=ReactionNetwork.exponent(free_energy_A),
+                       rexp=ReactionNetwork.rexp(free_energy_A),
+                       weight=1.0
+                       )
 
-    graph.add_node(node_name_B0, rxn_type=rxn_type_B, bipartite=1, energy=energy_B, free_energy=free_energy_B,
-                   entry_ids=entry_ids_name_B0)
+        graph.add_edge(node_name_A1,
+                       product_0.parameters["ind"],
+                       softplus=0.0,
+                       exponent=0.0,
+                       rexp=0.0,
+                       weight=1.0
+                       )
+        graph.add_edge(node_name_A1,
+                       product_1.parameters["ind"],
+                       softplus=0.0,
+                       exponent=0.0,
+                       rexp=0.0,
+                       weight=1.0
+                       )
+    if free_energy_B < 0.1:
+        graph.add_node(node_name_B0, rxn_type=rxn_type_B, bipartite=1, energy=energy_B, free_energy=free_energy_B,
+                       entry_ids=entry_ids_name_B0)
 
-    graph.add_edge(product_0.parameters["ind"],
-                   node_name_B0,
-                   softplus=ReactionNetwork.softplus(free_energy_B),
-                   exponent=ReactionNetwork.exponent(free_energy_B),
-                   rexp=ReactionNetwork.rexp(free_energy_B),
-                   weight=1.0
-                   )
+        graph.add_edge(product_0.parameters["ind"],
+                       node_name_B0,
+                       softplus=ReactionNetwork.softplus(free_energy_B),
+                       exponent=ReactionNetwork.exponent(free_energy_B),
+                       rexp=ReactionNetwork.rexp(free_energy_B),
+                       weight=1.0
+                       )
 
-    graph.add_edge(node_name_B0,
-                   reactant_0.parameters["ind"],
-                   softplus=0.0,
-                   exponent=0.0,
-                   rexp=0.0,
-                   weight=1.0
-                   )
-    graph.add_edge(node_name_B0,
-                   reactant_1.parameters["ind"],
-                   softplus=0.0,
-                   exponent=0.0,
-                   rexp=0.0,
-                   weight=1.0
-                   )
+        graph.add_edge(node_name_B0,
+                       reactant_0.parameters["ind"],
+                       softplus=0.0,
+                       exponent=0.0,
+                       rexp=0.0,
+                       weight=1.0
+                       )
+        graph.add_edge(node_name_B0,
+                       reactant_1.parameters["ind"],
+                       softplus=0.0,
+                       exponent=0.0,
+                       rexp=0.0,
+                       weight=1.0
+                       )
 
-    graph.add_node(node_name_B1, rxn_type=rxn_type_B, bipartite=1, energy=energy_B, free_energy=free_energy_B,
-                   entry_ids=entry_ids_name_B1)
+        graph.add_node(node_name_B1, rxn_type=rxn_type_B, bipartite=1, energy=energy_B, free_energy=free_energy_B,
+                       entry_ids=entry_ids_name_B1)
 
-    graph.add_edge(product_1.parameters["ind"],
-                   node_name_B1,
-                   softplus=ReactionNetwork.softplus(free_energy_B),
-                   exponent=ReactionNetwork.exponent(free_energy_B),
-                   rexp=ReactionNetwork.rexp(free_energy_B),
-                   weight=1.0
-                   )
+        graph.add_edge(product_1.parameters["ind"],
+                       node_name_B1,
+                       softplus=ReactionNetwork.softplus(free_energy_B),
+                       exponent=ReactionNetwork.exponent(free_energy_B),
+                       rexp=ReactionNetwork.rexp(free_energy_B),
+                       weight=1.0
+                       )
 
-    graph.add_edge(node_name_B1,
-                   reactant_0.parameters["ind"],
-                   softplus=0.0,
-                   exponent=0.0,
-                   rexp=0.0,
-                   weight=1.0
-                   )
-    graph.add_edge(node_name_B1,
-                   reactant_1.parameters["ind"],
-                   softplus=0.0,
-                   exponent=0.0,
-                   rexp=0.0,
-                   weight=1.0
-                   )
+        graph.add_edge(node_name_B1,
+                       reactant_0.parameters["ind"],
+                       softplus=0.0,
+                       exponent=0.0,
+                       rexp=0.0,
+                       weight=1.0
+                       )
+        graph.add_edge(node_name_B1,
+                       reactant_1.parameters["ind"],
+                       softplus=0.0,
+                       exponent=0.0,
+                       rexp=0.0,
+                       weight=1.0
+                       )
     return graph
 
 # node = "A, B + C" or "A+PR_B, C"
@@ -529,65 +531,66 @@ def graph_rep_1_2(reaction: Reaction) -> nx.DiGraph:
     free_energy_A = reaction.free_energy()["free_energy_A"]
     free_energy_B = reaction.free_energy()["free_energy_B"]
 
-    graph.add_node(node_name_A, rxn_type=rxn_type_A, bipartite=1, energy=energy_A, free_energy=free_energy_A,
-                   entry_ids=entry_ids_name_A)
+    if free_energy_A < 0.1:
+        graph.add_node(node_name_A, rxn_type=rxn_type_A, bipartite=1, energy=energy_A, free_energy=free_energy_A,
+                       entry_ids=entry_ids_name_A)
 
-    graph.add_edge(reactant_0.parameters["ind"],
-                   node_name_A,
-                   softplus=ReactionNetwork.softplus(free_energy_A),
-                   exponent=ReactionNetwork.exponent(free_energy_A),
-                   rexp=ReactionNetwork.rexp(free_energy_A),
-                   weight=1.0
-                   )
+        graph.add_edge(reactant_0.parameters["ind"],
+                       node_name_A,
+                       softplus=ReactionNetwork.softplus(free_energy_A),
+                       exponent=ReactionNetwork.exponent(free_energy_A),
+                       rexp=ReactionNetwork.rexp(free_energy_A),
+                       weight=1.0
+                       )
 
-    graph.add_edge(node_name_A,
-                   product_0.parameters["ind"],
-                   softplus=0.0,
-                   exponent=0.0,
-                   rexp=0.0,
-                   weight=1.0
-                   )
-    graph.add_edge(node_name_A,
-                   product_1.parameters["ind"],
-                   softplus=0.0,
-                   exponent=0.0,
-                   rexp=0.0,
-                   weight=1.0
-                   )
+        graph.add_edge(node_name_A,
+                       product_0.parameters["ind"],
+                       softplus=0.0,
+                       exponent=0.0,
+                       rexp=0.0,
+                       weight=1.0
+                       )
+        graph.add_edge(node_name_A,
+                       product_1.parameters["ind"],
+                       softplus=0.0,
+                       exponent=0.0,
+                       rexp=0.0,
+                       weight=1.0
+                       )
+    if free_energy_B < 0.1:
+        graph.add_node(node_name_B0, rxn_type=rxn_type_B, bipartite=1, energy=energy_B, free_energy=free_energy_B,
+                       entry_ids=entry_ids_name_B0)
+        graph.add_node(node_name_B1, rxn_type=rxn_type_B, bipartite=1, energy=energy_B, free_energy=free_energy_B,
+                       entry_ids=entry_ids_name_B1)
 
-    graph.add_node(node_name_B0, rxn_type=rxn_type_B, bipartite=1, energy=energy_B, free_energy=free_energy_B,
-                   entry_ids=entry_ids_name_B0)
-    graph.add_node(node_name_B1, rxn_type=rxn_type_B, bipartite=1, energy=energy_B, free_energy=free_energy_B,
-                   entry_ids=entry_ids_name_B1)
+        graph.add_edge(node_name_B0,
+                       reactant_0.parameters["ind"],
+                       softplus=0.0,
+                       exponent=0.0,
+                       rexp=0.0,
+                       weight=1.0
+                       )
+        graph.add_edge(node_name_B1,
+                       reactant_0.parameters["ind"],
+                       softplus=0.0,
+                       exponent=0.0,
+                       rexp=0.0,
+                       weight=1.0
+                       )
 
-    graph.add_edge(node_name_B0,
-                   reactant_0.parameters["ind"],
-                   softplus=0.0,
-                   exponent=0.0,
-                   rexp=0.0,
-                   weight=1.0
-                   )
-    graph.add_edge(node_name_B1,
-                   reactant_0.parameters["ind"],
-                   softplus=0.0,
-                   exponent=0.0,
-                   rexp=0.0,
-                   weight=1.0
-                   )
-
-    graph.add_edge(product_0.parameters["ind"],
-                   node_name_B0,
-                   softplus=ReactionNetwork.softplus(free_energy_B),
-                   exponent=ReactionNetwork.exponent(free_energy_B),
-                   rexp=ReactionNetwork.rexp(free_energy_B),
-                   weight=1.0
-                   )
-    graph.add_edge(product_1.parameters["ind"],
-                   node_name_B1,
-                   softplus=ReactionNetwork.softplus(free_energy_B),
-                   exponent=ReactionNetwork.exponent(free_energy_B),
-                   rexp=ReactionNetwork.rexp(free_energy_B),
-                   weight=1.0)
+        graph.add_edge(product_0.parameters["ind"],
+                       node_name_B0,
+                       softplus=ReactionNetwork.softplus(free_energy_B),
+                       exponent=ReactionNetwork.exponent(free_energy_B),
+                       rexp=ReactionNetwork.rexp(free_energy_B),
+                       weight=1.0
+                       )
+        graph.add_edge(product_1.parameters["ind"],
+                       node_name_B1,
+                       softplus=ReactionNetwork.softplus(free_energy_B),
+                       exponent=ReactionNetwork.exponent(free_energy_B),
+                       rexp=ReactionNetwork.rexp(free_energy_B),
+                       weight=1.0)
     return graph
 
 # node = "A, B"
@@ -616,34 +619,36 @@ def graph_rep_1_1(reaction: Reaction) -> nx.DiGraph:
     entry_ids_A = str(reactant_0.entry_id) + "," + str(product_0.entry_id)
     entry_ids_B = str(product_0.entry_id) + "," + str(reactant_0.entry_id)
 
-    graph.add_node(node_name_A, rxn_type=rxn_type_A, bipartite=1, energy=energy_A, free_energy=free_energy_A,
-                   entry_ids=entry_ids_A)
-    graph.add_edge(reactant_0.parameters["ind"],
-                   node_name_A,
-                   softplus=ReactionNetwork.softplus(free_energy_A),
-                   exponent=ReactionNetwork.exponent(free_energy_A),
-                   rexp=ReactionNetwork.rexp(free_energy_A),
-                   weight=1.0)
-    graph.add_edge(node_name_A,
-                   product_0.parameters["ind"],
-                   softplus=0.0,
-                   exponent=0.0,
-                   rexp=0.0,
-                   weight=1.0)
-    graph.add_node(node_name_B, rxn_type=rxn_type_B, bipartite=1, energy=energy_B, free_energy=free_energy_B,
-                   entry_ids=entry_ids_B)
-    graph.add_edge(product_0.parameters["ind"],
-                   node_name_B,
-                   softplus=ReactionNetwork.softplus(free_energy_B),
-                   exponent=ReactionNetwork.exponent(free_energy_B),
-                   rexp=ReactionNetwork.rexp(free_energy_B),
-                   weight=1.0)
-    graph.add_edge(node_name_B,
-                   reactant_0.parameters["ind"],
-                   softplus=0.0,
-                   exponent=0.0,
-                   rexp=0.0,
-                   weight=1.0)
+    if free_energy_A < 0.1:
+        graph.add_node(node_name_A, rxn_type=rxn_type_A, bipartite=1, energy=energy_A, free_energy=free_energy_A,
+                       entry_ids=entry_ids_A)
+        graph.add_edge(reactant_0.parameters["ind"],
+                       node_name_A,
+                       softplus=ReactionNetwork.softplus(free_energy_A),
+                       exponent=ReactionNetwork.exponent(free_energy_A),
+                       rexp=ReactionNetwork.rexp(free_energy_A),
+                       weight=1.0)
+        graph.add_edge(node_name_A,
+                       product_0.parameters["ind"],
+                       softplus=0.0,
+                       exponent=0.0,
+                       rexp=0.0,
+                       weight=1.0)
+    if free_energy_B < 0.1:
+        graph.add_node(node_name_B, rxn_type=rxn_type_B, bipartite=1, energy=energy_B, free_energy=free_energy_B,
+                       entry_ids=entry_ids_B)
+        graph.add_edge(product_0.parameters["ind"],
+                       node_name_B,
+                       softplus=ReactionNetwork.softplus(free_energy_B),
+                       exponent=ReactionNetwork.exponent(free_energy_B),
+                       rexp=ReactionNetwork.rexp(free_energy_B),
+                       weight=1.0)
+        graph.add_edge(node_name_B,
+                       reactant_0.parameters["ind"],
+                       softplus=0.0,
+                       exponent=0.0,
+                       rexp=0.0,
+                       weight=1.0)
     return graph
 
 
@@ -1463,6 +1468,7 @@ class ConcertedReactionNew(Reaction):
             reactant_total_charge = np.sum([item.charge for item in entries0])
             product_total_charge = np.sum([item.charge for item in entries1])
             total_charge_change = product_total_charge - reactant_total_charge
+
             if abs(total_charge_change) <= allowed_charge_change:
                 r = cls(entries0,entries1)
                 reactions.append(r)
@@ -1827,6 +1833,7 @@ class ReactionPath(MSONable):
                                     PR_b_byproducts = PR_byproduct_dict[PR_b]["byproducts"]
                                     start = int(PR_byproduct_dict[PR_b]["start"])
                                     if a in PR_b_byproducts:
+                                        print('path:',path, flush=True)
                                         print('a:',a, flush=True)
                                         print('PR_b:',PR_b, flush=True)
                                         print('PR_b_byproducts:',PR_b_byproducts, flush=True)
@@ -1838,7 +1845,7 @@ class ReactionPath(MSONable):
                                         new_path_piece3 = path[ii+1::]
                                         new_path = new_path_piece1+new_path_piece2+new_path_piece3
                                         print('path[ii+1]:',path[ii+1], flush=True)
-                                        assert(c == path[ii+1])
+                                        #assert(c == path[ii+1])
                                         print("%%%%%",path, new_path, flush=True)
                                         print("%%%%%",new_path_piece1,new_path_piece2,new_path_piece3, flush=True)
                                         return ReactionPath.characterize_path(new_path, weight, min_cost, graph, old_solved_PRs, PR_byproduct_dict, actualPRs)
