@@ -577,7 +577,8 @@ class FindConcertedReactions:
             self.unique_mol_graph_dict = loadfn(self.name + "_unique_mol_graph_map.json")
             self.valid_reactions = []
             for file in os.listdir(load_path):
-                self.valid_reactions += loadfn(os.path.join(load_path,file))
+                if file.endswith('.json'):
+                    self.valid_reactions += loadfn(os.path.join(load_path,file))
         else:
             self.find_concerted_candidates()
             self.find_concerted_multiprocess(num_processors, allowed_bond_change, restart=restart)
