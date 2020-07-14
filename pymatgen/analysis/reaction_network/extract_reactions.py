@@ -558,7 +558,7 @@ class FindConcertedReactions:
         dumpfn(self.valid_reactions, name + "_valid_concerted_rxns_before_process.json")
         return
 
-    def get_final_concerted_reactions(self, name, num_processors, allowed_bond_change=4, restart=False):
+    def get_final_concerted_reactions(self, name, num_processors, allowed_bond_change=4, restart=False, load_file=False, load_path=None):
         '''
         This is for getting the final set of concerted reactions: entry index corresponds to the index in self.entries_list.
         Args:
@@ -572,9 +572,15 @@ class FindConcertedReactions:
                  reactants and products are separated by "_".
                  The number correspond to the index of a mol_graph in self.entries_list.
         '''
-
-        self.find_concerted_candidates()
-        self.find_concerted_multiprocess(num_processors, allowed_bond_change, restart=restart)
+        if load_file:
+            self.unique_mol_graphs_new = loadfn(self.name + "_unique_mol_graphs_new.json")
+            self.unique_mol_graph_dict = loadfn(self.name + "_unique_mol_graph_map.json")
+            self.valid_reactions = []
+            for file in os.listdir(load_path):
+                self.valid_reactions += loadfn(os.path.join(load_path,file))
+        else:
+            self.find_concerted_candidates()
+            self.find_concerted_multiprocess(num_processors, allowed_bond_change, restart=restart)
         print("Summarizing concerted reactions!", flush=True)
         self.final_concerted_reactions = []
 
