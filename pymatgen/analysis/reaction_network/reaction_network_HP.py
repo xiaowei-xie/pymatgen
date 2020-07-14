@@ -1827,12 +1827,20 @@ class ReactionPath(MSONable):
                                     PR_b_byproducts = PR_byproduct_dict[PR_b]["byproducts"]
                                     start = int(PR_byproduct_dict[PR_b]["start"])
                                     if a in PR_b_byproducts:
+                                        print('a:',a)
+                                        print('PR_b:',PR_b)
+                                        print('PR_b_byproducts:',PR_b_byproducts)
+                                        print('c:',c)
                                         new_path_piece1 = actualPRs[PR_b][start].path
                                         new_path_piece2 = [str(PR_b)+"+"+"PR_"+str(a)+","+str(c)]
+                                        if "+" in rxn[1]:
+                                            new_path_piece2 = [str(PR_b) + "+" + "PR_" + str(a) + "," + rxn[1]]
                                         new_path_piece3 = path[ii+1::]
                                         new_path = new_path_piece1+new_path_piece2+new_path_piece3
+                                        print('path[ii+1]:',path[ii+1])
                                         assert(c == path[ii+1])
-                                        #print("%%%%%",path, new_path)
+                                        print("%%%%%",path, new_path)
+                                        print("%%%%%",new_path_piece1,new_path_piece2,new_path_piece3)
                                         return ReactionPath.characterize_path(new_path, weight, min_cost, graph, old_solved_PRs, PR_byproduct_dict, actualPRs)
                                     elif a not in PR_b_byproducts:
                                         pool.remove(a)
