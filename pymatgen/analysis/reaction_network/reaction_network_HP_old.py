@@ -2410,7 +2410,6 @@ class ReactionNetwork(MSONable):
             dumpfn(PRs, filename, default=lambda o: o.as_dict)
             dumpfn(json_graph.adjacency_data(self.graph),'RN_graph.json')
             dumpfn(self.min_cost, 'min_cost.json', default=lambda o: o.as_dict)
-            dumpfn(self.PR_byproducts, 'PR_byproducts.json', default=lambda o: o.as_dict)
         print('not reachable nodes:', len(self.not_reachable_nodes),self.not_reachable_nodes, flush=True)
         return PRs, old_solved_PRs
 
@@ -2875,7 +2874,6 @@ class ReactionNetwork(MSONable):
             solved_PRs_path = loadfn('PRs.json')
             solved_min_cost = loadfn('min_cost.json')
             updated_graph = loadfn('RN_graph.json')
-            PR_byproducts = loadfn('PR_byproducts.json')
             self.graph = json_graph.adjacency_graph(updated_graph)
             self.min_cost = {}
             for key in solved_min_cost:
@@ -2886,11 +2884,7 @@ class ReactionNetwork(MSONable):
                 PR_paths[int(key)] = {}
                 for start in solved_PRs_path[key]:
                     PR_paths[int(key)][int(start)] = copy.deepcopy(solved_PRs_path[key][start])
-            old_solved_PRs = list(PR_paths.keys())
-
-            self.PR_byproducts = {}
-            for key in PR_byproducts:
-                self.PR_byproducts[int(key)] = copy.deepcopy(PR_byproducts[key])
+            old_solved_PRs = []
         print("Finding paths...", flush=True)
 
         remove_node = []
