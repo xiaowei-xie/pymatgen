@@ -20,7 +20,7 @@ from networkx.readwrite import json_graph
 #from rdkit.Chem import AllChem
 from atomate.qchem.database import QChemCalcDb
 from pymatgen.entries.mol_entry import MoleculeEntry
-from pymatgen.analysis.reaction_network.utils import BabelMolAdaptor2, MoleculeWrapper
+#from pymatgen.analysis.reaction_network.utils import BabelMolAdaptor2, MoleculeWrapper
 
 __author__ = "Xiaowei Xie"
 __copyright__ = "Copyright 2020, The Materials Project"
@@ -1021,22 +1021,22 @@ if __name__== '__main__':
     w.write(rmol)
     w.flush()'''
 
-    LiH = Molecule.from_file('/Users/xiaoweixie/Desktop/Sam_production/xyzs/LiH.xyz')
-    LiH_graph = MoleculeGraph.with_local_env_strategy(
-        LiH,
-        OpenBabelNN(),
-        reorder=False,
-        extend_structure=False)
-
-
-    path = '/Users/xiaoweixie/pymatgen/pymatgen/analysis/reaction_network/recombination/mgcf/test1/recomb_mols/'
-    for i in range(5258):
-        mol = Molecule.from_file(path+str(i)+'.xyz')
-        mol_graph = MoleculeGraph.with_local_env_strategy(
-        mol,
-        OpenBabelNN(),
-        reorder=False,
-        extend_structure=False)
-        if mol_graph.molecule.composition.alphabetical_formula == LiH.composition.alphabetical_formula:
-            if mol_graph.isomorphic_to(LiH_graph):
-                print(i)
+    # LiH = Molecule.from_file('/Users/xiaoweixie/Desktop/Sam_production/xyzs/LiH.xyz')
+    # LiH_graph = MoleculeGraph.with_local_env_strategy(
+    #     LiH,
+    #     OpenBabelNN(),
+    #     reorder=False,
+    #     extend_structure=False)
+    #
+    #
+    # path = '/Users/xiaoweixie/pymatgen/pymatgen/analysis/reaction_network/recombination/mgcf/test1/recomb_mols/'
+    # for i in range(5258):
+    #     mol = Molecule.from_file(path+str(i)+'.xyz')
+    #     mol_graph = MoleculeGraph.with_local_env_strategy(
+    #     mol,
+    #     OpenBabelNN(),
+    #     reorder=False,
+    #     extend_structure=False)
+    #     if mol_graph.molecule.composition.alphabetical_formula == LiH.composition.alphabetical_formula:
+    #         if mol_graph.isomorphic_to(LiH_graph):
+    #             print(i)
