@@ -665,3 +665,8 @@ class FindConcertedReactions:
                                     self.final_concerted_reactions.append([reactant_name, product_name])
         dumpfn(self.final_concerted_reactions, name + '_concerted_rxns_bond_change_{}.json'.format(allowed_bond_change))
         return self.final_concerted_reactions
+
+if __name__ == '__main__':
+    entries_list = loadfn('/Users/xiaoweixie/PycharmProjects/SEI_project/75_species_2LiEC_2water.json')
+    FCR = FindConcertedReactions(entries_list, '75_species_2LiEC_2water')
+    all_concerted_reactions = FCR.get_final_concerted_reactions('75_species_2LiEC_2water', 32, allowed_bond_change=2,restart=False)
