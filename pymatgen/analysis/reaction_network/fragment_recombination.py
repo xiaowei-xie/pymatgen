@@ -830,7 +830,7 @@ class Fragment_Recombination:
                 self.recomb_dict_no_opt[key] = len(self.recomb_mol_graphs_no_opt) + len(self.mol_graphs)
                 self.recomb_mol_graphs_no_opt.append(recomb_mol_graph)
                 self.recomb_structs_no_opt.append(recomb_struct)
-        #dumpfn(self.recomb_dict,recomb_name+'.json')
+        dumpfn(self.recomb_dict_no_opt,'recomb_dict.json')
         assert len(self.recomb_structs_no_opt) == len(self.recomb_mol_graphs_no_opt)
         self.total_mol_graphs_no_opt = self.mol_graphs + self.recomb_mol_graphs_no_opt
 
