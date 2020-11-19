@@ -896,10 +896,10 @@ class Fragment_Recombination:
                 self.mol_graphs[mol_ind1], self.mol_graphs[mol_ind2], atom_ind1, atom_ind2, True)
             found = False
             #recomb_struct.write(os.path.join(sdf_path, key+'.sdf'))
-            for i, mol_graph in enumerate(self.recomb_mol_graphs):
+            for i, mol_graph in enumerate(self.mol_graphs + self.recomb_mol_graphs):
                 if (mol_graph.molecule.composition.alphabetical_formula == recomb_mol_graph.molecule.composition.alphabetical_formula) and \
                     mol_graph.isomorphic_to(recomb_mol_graph):
-                    self.recomb_dict[key] = i + len(self.mol_graphs)
+                    self.recomb_dict[key] = i
                     found = True
             if not found:
                 self.recomb_dict[key] = len(self.recomb_mol_graphs) + len(self.mol_graphs)
