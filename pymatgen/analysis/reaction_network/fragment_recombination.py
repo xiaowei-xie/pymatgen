@@ -496,6 +496,61 @@ class Fragment_Recombination:
 
         return MoleculeGraph(new_mol, graph_data=graph_data), structure
 
+    def build_mol_graph_from_two_fragments_plain(self, frag1, frag2, index1, index2, gen_3d=True):
+        '''
+        Build a recombined mol graph given two fragment mol graphs and the atom indices to recombine.
+        No 3d info.
+        :param frag1 (MoleculeGraph): fragment1
+        :param frag2 (MoleculeGraph): fragment2
+        :param index1 (int): atom index in fragment1
+        :param index2 (int): atom index in fragment2
+        :param gen_3d (bool): whether to generate 3d structure
+        :return: (MoleculeGraph) recombined mol graph, structure(schrodinger.Structure)
+        '''
+
+        graph = nx.MultiDiGraph(edge_weight_name="bond_length",
+                                edge_weight_units="Å",
+                                name="bonds")
+
+        graph.add_nodes_from(range(len(frag1.molecule)))
+        graph.add_nodes_from(range(len(frag1.molecule), len(frag1.molecule) + len(frag2.molecule)))
+        for edge in frag1.graph.edges.data():
+            graph.add_edge(edge[0], edge[1], **edge[2])
+        for edge in frag2.graph.edges.data():
+            graph.add_edge(edge[0] + len(frag1.molecule), edge[1] + len(frag1.molecule), **edge[2])
+        graph.add_edge(index1, index2 + len(frag1.molecule), **{'weight': 1})
+
+        species = {}
+        for node in range(len(frag1.molecule)):
+            specie = frag1.molecule[node].specie.symbol
+            species[node] = specie
+        for node in range(len(frag2.molecule)):
+            specie = frag2.molecule[node].specie.symbol
+            species[node + len(frag1.molecule)] = specie
+
+        properties = {}
+        for node in range(len(frag1.molecule)):
+            prop = frag1.molecule[node].properties
+            properties[node] = prop
+        for node in range(len(frag2.molecule)):
+            prop = frag2.molecule[node].properties
+            properties[node + len(frag1.molecule)] = prop
+
+        coords = {}
+        for i in range(len(graph.nodes)):
+            coord = np.array([0.0,0.0,0.0])
+            coords[i] = coord
+
+        nx.set_node_attributes(graph, species, "specie")
+        nx.set_node_attributes(graph, coords, 'coords')
+        nx.set_node_attributes(graph, properties, "properties")
+
+        graph_data = json_graph.adjacency_data(graph)
+
+        new_mol = Molecule(species=species, coords=coords)
+
+        return MoleculeGraph(new_mol, graph_data=graph_data)
+
     def identify_connectable_heavy_atoms_for_rdkit(self,mols):
         '''
 
@@ -819,6 +874,40 @@ class Fragment_Recombination:
         self.total_mol_graphs = self.opt_mol_graphs + self.recomb_mol_graphs
 
         return
+
+    def recombine_between_mol_graphs_plain(self):
+        '''
+        Generate all possible recombined mol_graphs from a list of mol_graphs. No 3d info.
+        :param mol_graphs: [MoleculeGraph]
+        :return: recomb_mol_graphs: [MoleculeGraph],
+        recomb_dict: {'mol1_index'+'_'+'mol2_index'+'_'+'atom1_index'+'_'+'atom2_index': mol_graph index in the previous list}.
+        '''
+
+        # Recombining through self.mol_graphs instead of self.opt_mol_graphs
+        keys = self.generate_all_combinations_for_pymatgen(self.mol_graphs)
+
+        self.recomb_mol_graphs = []
+        self.recomb_dict = {}
+        for key in keys:
+            print(key)
+            inds = key.split('_')
+            mol_ind1, mol_ind2, atom_ind1, atom_ind2 = int(inds[0]), int(inds[1]), int(inds[2]), int(inds[3])
+            recomb_mol_graph = self.build_mol_graph_from_two_fragments_plain(
+                self.mol_graphs[mol_ind1], self.mol_graphs[mol_ind2], atom_ind1, atom_ind2, True)
+            found = False
+            #recomb_struct.write(os.path.join(sdf_path, key+'.sdf'))
+            for i, mol_graph in enumerate(self.recomb_mol_graphs):
+                if (mol_graph.molecule.composition.alphabetical_formula == recomb_mol_graph.molecule.composition.alphabetical_formula) and \
+                    mol_graph.isomorphic_to(recomb_mol_graph):
+                    self.recomb_dict[key] = i
+                    found = True
+            if not found:
+                self.recomb_dict[key] = len(self.recomb_mol_graphs)
+                self.recomb_mol_graphs.append(recomb_mol_graph)
+        #dumpfn(self.recomb_dict,recomb_name+'.json')
+        #self.total_mol_graphs = self.opt_mol_graphs + self.recomb_mol_graphs
+
+        return self.recomb_mol_graphs, self.recomb_dict
 
     def generate_files_for_BDE_prediction(self,sdf_name='recomb_mols', charge_file_name='total_charges',
                                           reaction_file_name='reactions', recomb_dict_name='recomb_dict'):

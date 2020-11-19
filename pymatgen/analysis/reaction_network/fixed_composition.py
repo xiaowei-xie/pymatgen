@@ -116,7 +116,50 @@ class FixedCompositionNetwork:
 
         return MoleculeGraph(new_mol, graph_data=graph_data)
 
-    def _fragment_one_level(self,mol_graph):
+    def open_ring_plain(self,mol_graph, bond):
+        '''
+        Open a ring with no 3d info.
+
+        :param mol_graph: MoleculeGraph
+        :param bond: tuple(int,int)
+        :return: ring opened MoleculeGraph
+        '''
+
+        graph = nx.MultiDiGraph(edge_weight_name="bond_length",
+                                edge_weight_units="Å",
+                                name="bonds")
+        graph.add_nodes_from(range(len(mol_graph.molecule)))
+
+        for edge in mol_graph.graph.edges.data():
+            if not (edge[0] == bond[0] and edge[1] == bond[1]):
+                graph.add_edge(edge[0], edge[1], **edge[2])
+
+        species = {}
+        for node in range(len(mol_graph.molecule)):
+            specie = mol_graph.molecule[node].specie.symbol
+            species[node] = specie
+
+        properties = {}
+        for node in range(len(mol_graph.molecule)):
+            prop = mol_graph.molecule[node].properties
+            properties[node] = prop
+
+        coords = {}
+        for i in range(len(graph.nodes)):
+            coord = np.array([0.0, 0.0, 0.0])
+            coords[i] = coord
+
+        nx.set_node_attributes(graph, species, "specie")
+        nx.set_node_attributes(graph, coords, 'coords')
+        nx.set_node_attributes(graph, properties, "properties")
+
+        graph_data = json_graph.adjacency_data(graph)
+
+        new_mol = Molecule(species=species, coords=coords)
+
+        return MoleculeGraph(new_mol, graph_data=graph_data)
+
+    def _fragment_one_level(self,mol_graph, include_3d=True):
         '''
         Perform one-step fragmentation for a mol_graph. Resulting mol graphs have to be connected graphs.
         Fragments that are not connected by removing Li will be removed.
@@ -158,7 +201,10 @@ class FixedCompositionNetwork:
                     fragmentation_list.append(fragments_name)
 
             except MolGraphSplitError:
-                fragment = self.open_ring(mol_graph, bond[0])
+                if not include_3d:
+                    fragment = self.open_ring_plain(mol_graph, bond[0])
+                else:
+                    fragment = self.open_ring(mol_graph, bond[0])
                 if is_connected(fragment):
                     # Check if the fragment mol graph is still connected if Li is removed. If not connected, it should be removed.
                     is_connected_after_removing_li = True
@@ -192,7 +238,7 @@ class FixedCompositionNetwork:
                 unique_fragmentation_list.append(item)
         return unique_fragmentation_list, unique_fragments
 
-    def fragmentation(self):
+    def fragmentation(self, include_3d=True):
         '''
         Generate all the unique fragments (including the starting molgraphs themselves) from fragmenting
         self.mol_graphs according to the depth specified in self.fragmentation_depth.
@@ -213,7 +259,7 @@ class FixedCompositionNetwork:
                     if p >= previous_length:
                         if p not in self.fragmentation_dict.keys():
                             self.fragmentation_dict[p] = []
-                        frag_list, frags = self._fragment_one_level(mol_graph_from_i)
+                        frag_list, frags = self._fragment_one_level(mol_graph_from_i, include_3d)
                         #print('length of frags:',len(frags))
                         # dict for saving index in frags to index in self.unique_fragments
                         old_to_new_index_dict = {}
@@ -533,8 +579,15 @@ class FixedCompositionNetwork:
         FR.recombine_between_mol_graphs_through_schrodinger()
         FR.generate_files_for_BDE_prediction()
         FR.to_xyz(FR.total_mol_graphs, recomb_path='recomb_mols')
+
         return
 
+    def recombination_plain(self):
+        self.fragmentation(include_3d=False)
+        FR = Fragment_Recombination(self.unique_fragments_new)
+        recomb_mol_graphs, recomb_dict = FR.recombine_between_mol_graphs_plain()
+
+        return recomb_mol_graphs, recomb_dict
 
     def to_xyz(self, mol_graphs, path='recomb_mols'):
         if not os.path.isdir(path):
