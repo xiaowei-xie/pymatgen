@@ -907,7 +907,7 @@ class Fragment_Recombination:
         dumpfn(self.recomb_dict,'recomb_dict.json')
         self.total_mol_graphs = self.mol_graphs + self.recomb_mol_graphs
 
-        return self.recomb_mol_graphs, self.recomb_dict
+        return self.total_mol_graphs, self.recomb_mol_graphs ,self.recomb_dict
 
     def generate_files_for_BDE_prediction(self,sdf_name='recomb_mols', charge_file_name='total_charges',
                                           reaction_file_name='reactions', recomb_dict_name='recomb_dict'):
