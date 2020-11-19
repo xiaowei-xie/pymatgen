@@ -586,6 +586,7 @@ class FixedCompositionNetwork:
         self.fragmentation(include_3d=False)
         FR = Fragment_Recombination(self.unique_fragments_new)
         recomb_mol_graphs, recomb_dict = FR.recombine_between_mol_graphs_plain()
+        FR.to_xyz(FR.total_mol_graphs, recomb_path='recomb_mols')
 
         return recomb_mol_graphs, recomb_dict
 

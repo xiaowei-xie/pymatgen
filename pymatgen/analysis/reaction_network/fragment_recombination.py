@@ -899,13 +899,13 @@ class Fragment_Recombination:
             for i, mol_graph in enumerate(self.recomb_mol_graphs):
                 if (mol_graph.molecule.composition.alphabetical_formula == recomb_mol_graph.molecule.composition.alphabetical_formula) and \
                     mol_graph.isomorphic_to(recomb_mol_graph):
-                    self.recomb_dict[key] = i
+                    self.recomb_dict[key] = i + len(self.mol_graphs)
                     found = True
             if not found:
-                self.recomb_dict[key] = len(self.recomb_mol_graphs)
+                self.recomb_dict[key] = len(self.recomb_mol_graphs) + len(self.mol_graphs)
                 self.recomb_mol_graphs.append(recomb_mol_graph)
-        #dumpfn(self.recomb_dict,recomb_name+'.json')
-        #self.total_mol_graphs = self.opt_mol_graphs + self.recomb_mol_graphs
+        dumpfn(self.recomb_dict,'recomb_dict.json')
+        self.total_mol_graphs = self.mol_graphs + self.recomb_mol_graphs
 
         return self.recomb_mol_graphs, self.recomb_dict
 
