@@ -381,7 +381,7 @@ def graph_rep_2_2(reaction: Reaction) -> nx.DiGraph:
     free_energy_A = reaction.free_energy()["free_energy_A"]
     free_energy_B = reaction.free_energy()["free_energy_B"]
 
-    if free_energy_A < 0.1:
+    if free_energy_A < 0.5:
 
         graph.add_node(node_name_A0, rxn_type=rxn_type_A, bipartite=1, energy=energy_A, free_energy=free_energy_A,
                        entry_ids=entry_ids_name_A0)
@@ -2094,19 +2094,20 @@ class ReactionNetwork(MSONable):
         return float(np.exp(free_energy))
 
     @staticmethod
-    def rexp(free_energy: float) -> float:
+    def rexp(free_energy: float) -> int:
         """
-                  Method to determine edge weight using custom cost function
-                  in which cost is 0 if dG <= 0, otherwise cost is exp(dG/kt)
-              :param free_energy: float
-              :return: float
+            Method to determine edge weight using exponent(dG/kt) cost function
+        :param free_energy: float
+        :return: float
         """
+
         if free_energy <= 0:
-            cost = 0
+            d = np.array([[free_energy]], dtype=np.float128)
+            r = np.exp(d)
         else:
-            k = 0.00008617333262145 #(eV)
-            cost = np.exp(free_energy/(k*298.0))
-        return float(cost)
+            d = np.array([[free_energy]], dtype=np.float128)
+            r = np.exp(38.94*d)
+        return r[0][0]
 
 
     def build(self, reaction_types={"RedoxReaction","IntramolSingleBondChangeReaction", "IntermolecularReaction",
@@ -2144,7 +2145,7 @@ class ReactionNetwork(MSONable):
         print("redox: ", redox_c, "inter: ", inter_c, "intra: ", intra_c, "coord: ", coord_c, flush=True)
         self.PR_record = self.build_PR_record()
         self.Reactant_record = self.build_reactant_record()
-        dumpfn(json_graph.adjacency_data(self.graph), "LiF_set_self_graph_from_build_plain.json")
+        #dumpfn(json_graph.adjacency_data(self.graph), "LiF_set_self_graph_from_build_plain.json")
 
         return self.graph
 
@@ -2410,6 +2411,7 @@ class ReactionNetwork(MSONable):
             dumpfn(PRs, filename, default=lambda o: o.as_dict)
             dumpfn(json_graph.adjacency_data(self.graph),'RN_graph.json')
             dumpfn(self.min_cost, 'min_cost.json', default=lambda o: o.as_dict)
+            dumpfn(self.PR_byproducts, 'PR_byproducts.json', default=lambda o: o.as_dict)
         print('not reachable nodes:', len(self.not_reachable_nodes),self.not_reachable_nodes, flush=True)
         return PRs, old_solved_PRs
 
@@ -2470,7 +2472,7 @@ class ReactionNetwork(MSONable):
         for start in starts:
             not_reachable_nodes_for_start[start] = []
             dist, paths = nx.algorithms.shortest_paths.weighted.single_source_dijkstra(self.graph, start, weight=self.weight)
-            print('paths:',paths)
+            #print('paths:',paths)
             dist_and_path[start] = {}
             wrong_paths[start] = []
             for node in range(len(self.entries_list)):
@@ -2874,6 +2876,7 @@ class ReactionNetwork(MSONable):
             solved_PRs_path = loadfn('PRs.json')
             solved_min_cost = loadfn('min_cost.json')
             updated_graph = loadfn('RN_graph.json')
+            PR_byproducts = loadfn('PR_byproducts.json')
             self.graph = json_graph.adjacency_graph(updated_graph)
             self.min_cost = {}
             for key in solved_min_cost:
@@ -2884,7 +2887,11 @@ class ReactionNetwork(MSONable):
                 PR_paths[int(key)] = {}
                 for start in solved_PRs_path[key]:
                     PR_paths[int(key)][int(start)] = copy.deepcopy(solved_PRs_path[key][start])
-            old_solved_PRs = []
+            old_solved_PRs = list(PR_paths.keys())
+
+            self.PR_byproducts = {}
+            for key in PR_byproducts:
+                self.PR_byproducts[int(key)] = copy.deepcopy(PR_byproducts[key])
         print("Finding paths...", flush=True)
 
         remove_node = []
