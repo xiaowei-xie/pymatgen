@@ -2410,10 +2410,10 @@ class ReactionNetwork(MSONable):
             if filename is None:
                 print("Provide filename to save the PRs, for now saving as PRs.json", flush=True)
                 filename = "PRs.json"
-            dumpfn(PRs, filename, default=lambda o: o.as_dict)
+            dumpfn(PRs, filename)
             dumpfn(json_graph.adjacency_data(self.graph),'RN_graph.json')
-            dumpfn(self.min_cost, 'min_cost.json', default=lambda o: o.as_dict)
-            dumpfn(self.PR_byproducts, 'PR_byproducts.json', default=lambda o: o.as_dict)
+            dumpfn(self.min_cost, 'min_cost.json')
+            dumpfn(self.PR_byproducts, 'PR_byproducts.json')
         print('not reachable nodes:', len(self.not_reachable_nodes),self.not_reachable_nodes, flush=True)
         return PRs, old_solved_PRs
 
