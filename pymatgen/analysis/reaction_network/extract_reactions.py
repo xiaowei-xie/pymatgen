@@ -213,11 +213,14 @@ def identify_concerted_reaction(mol_graphs1, mol_graphs2, allowed_bond_change=4)
         print("Production Costs = ", value(opt_model.objective), flush=True)
         if value(opt_model.objective) != None and value(opt_model.objective) <= allowed_bond_change:
             is_concerted_reaction = True
+            return is_concerted_reaction, value(opt_model.objective)
+        else:
+            return is_concerted_reaction, 1e8
     except:
         print('Error in solving!')
         is_concerted_reaction = False
 
-    return is_concerted_reaction
+        return is_concerted_reaction, 1e8
 
 
 class FindConcertedReactions:
@@ -422,29 +425,37 @@ class FindConcertedReactions:
         mol_graphs2 = [self.unique_mol_graphs_new[int(i)] for i in split_prod]
 
         found = False
+        num_bond_charges_list = []
 
         if len(mol_graphs1) == 1 and len(mol_graphs2) == 1:
-            if identify_concerted_reaction(mol_graphs1, mol_graphs2, 2):
+            is_true, num_bond_changes = identify_concerted_reaction(mol_graphs1, mol_graphs2, 2)
+            if is_true:
                 if [reac, prod] not in valid_reactions:
                     found = True
                     valid_reactions.append([reac, prod])
+                    num_bond_charges_list.append(num_bond_changes)
         else:
-            if identify_concerted_reaction(mol_graphs1, mol_graphs2, allowed_bond_change):
+            is_true, num_bond_changes = identify_concerted_reaction(mol_graphs1, mol_graphs2, allowed_bond_change)
+            if is_true:
                 if [reac, prod] not in valid_reactions:
                     found = True
                     valid_reactions.append([reac, prod])
+                    num_bond_charges_list.append(num_bond_changes)
 
         output = "valid_reactions_bond_change_{}".format(allowed_bond_change)
         output_not_concerted = "invalid_reactions_bond_change_{}".format(allowed_bond_change)
+        output_num_bond_changes = "valid_reactions_bond_change_{}_number_of_bond_changes".format(allowed_bond_change)
         if found:
             with open(output, 'a+') as f:
                 rxn = [reac, prod]
                 f.write(str(rxn) + '\n')
+            with open(output_num_bond_changes, 'a+') as f:
+                f.write(str(num_bond_changes) + '\n')
         elif not found:
             with open(output_not_concerted, 'a+') as f:
                 rxn = [reac, prod]
                 f.write(str(rxn) + '\n')
-        return valid_reactions
+        return valid_reactions, num_bond_charges_list
 
     def find_concerted_multiprocess(self, num_processors, allowed_bond_change=4, restart=False):
         '''
@@ -545,17 +556,22 @@ class FindConcertedReactions:
 
         from pathos.multiprocessing import ProcessingPool as Pool
         self.valid_reactions = []
+        self.num_bond_changes = []
 
         nums = list(np.arange(len(self.concerted_rxns_to_determine)))
         args = [(i, restart, allowed_bond_change) for i in nums]
         pool = Pool(num_processors)
         results = pool.map(self.find_concerted_reactions, args)
         for i in range(len(results)):
-            valid_reactions = results[i]
+            valid_reactions = results[i][0]
+            num_bond_changes = results[i][1]
             self.valid_reactions += valid_reactions
+            self.num_bond_changes += num_bond_changes
+
         if restart:
             self.valid_reactions += self.loaded_valid_reactions
         dumpfn(self.valid_reactions, name + "_valid_concerted_rxns_before_process.json")
+        dumpfn(self.num_bond_changes, name + "_valid_concerted_rxns_before_process_number_of_bond_changes.json")
         return
 
     def get_final_concerted_reactions(self, name, num_processors, allowed_bond_change=4, restart=False, load_file=False, load_path=None):
